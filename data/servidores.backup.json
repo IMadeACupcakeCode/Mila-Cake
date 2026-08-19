@@ -1,0 +1,113 @@
+{
+  "1515590554480545844": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": "1515754307012788235",
+    "canalOnOff": "1515758228909064304"
+  },
+  "825415992741068801": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1236738710943305758": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1248059085467942942": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1261504270029819926": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1321926395651424296": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1354946490832912645": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  }
+}
