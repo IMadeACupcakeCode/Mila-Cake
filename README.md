@@ -58,6 +58,58 @@ $configurar shutdown #canal
 
 ---
 
+## 📺 Sala de Tela (compartilhar tela)
+
+A Mila traz junto um sistema de **compartilhamento de tela de verdade** (não é
+relé): quem está na mesma call vê a tela do outro, sem sair do Discord. É o app
+`discord-screen/` que vive junto deste projeto.
+
+### Como funciona
+
+1. Entre num **canal de voz**.
+2. Clique no **foguete 🚀** na barra de baixo e abra a atividade **Sala de Tela**.
+3. Quem quiser mostrar a tela clica em **Compartilhar tela** — todo mundo na
+   call assiste. (Use **Chrome, Edge, Brave, Opera ou Vivaldi** num **desktop**;
+   celular não captura tela.)
+
+Fora do Discord, o link público também funciona como site normal, com salas que
+você cria e compartilha por link.
+
+### Configurar (uma vez só)
+
+| Comando | Para quê |
+|---|---|
+| `$tela` | Mostra o endereço público, o passo a passo e o estado da configuração |
+| `cd discord-screen && npm run start:fast` | Sobe o servidor + túnel e grava o endereço sozinho |
+| `cd discord-screen && npm run tunel:criar` | Cria um endereço fixo que nunca mais muda (precisa de domínio na Cloudflare) |
+
+Quando o endereço mudar, troque o **Target** no portal do Discord em
+**Activities → URL Mappings**.
+
+> 🔍 **Dica:** rode `$tela` e use o botão **🔄 Atualizar**. Ele mostra se o
+> servidor está no ar e se o endereço público **não responde mais** (túnel
+> descartável caiu) — o caso que vira "Credenciais Falhas" / "Redirect_uri
+> Invalid" na atividade. Aí é rodar `npm run start:fast` de novo e trocar o
+> Target/Redirect no portal.
+
+### Quando a Mila entra num servidor novo
+
+Assim que a Mila é adicionada a um servidor, ela já chega ajudando:
+
+- 📩 Manda uma **mensagem de boas-vindas** no canal de boas-vindas nativo do
+  servidor (ou no primeiro canal de texto onde ela puder falar), com os
+  principais comandos.
+- 🖥️ Garante a **permissão de compartilhar tela** (Transmitir + Conectar +
+  Falar) para ela mesma em **todos os canais de voz** existentes — assim o
+  compartilhamento de tela funciona de cara.
+
+> ⚠️ Para a Mila **aplicar** a permissão de tela nos canais de voz, ela precisa
+> da permissão **Gerenciar Canais** no servidor. Se o convite foi feito sem ela,
+> basta dar `Manage Channels` (Gerenciar Canais) à Mila — ou convidá-la com a
+> permissão marcada. Sem isso, os canais de voz ficam do jeito que já estavam.
+
+---
+
 ## 🎲 Comandos Disponíveis
 
 ### 🎲 Diversão
@@ -88,6 +140,8 @@ $configurar shutdown #canal
 | `$status` | Status da Mila Bot |
 | `$ping` | Teste de latência |
 | `$sobre` | Informações sobre a Mila Bot |
+| `$stream` | 📺 Relé de voz: retransmite o áudio da chamada |
+| `$tela` | 📺 Sala de Tela: link e passo a passo do compartilhamento de tela |
 
 ### 📚 Organização
 | Comando | Descrição |
@@ -129,6 +183,8 @@ $configurar shutdown #canal
    - Scopes: `bot`
    - Bot Permissions: `Send Messages`, `Embed Links`, `Mention Everyone`, `Manage Server`, `Manage Channels`
    - Copie o link e abra no navegador para convidar o bot
+   - **Dica Sala de Tela:** `Manage Channels` já está aí — é o que permite à Mila
+     dar a permissão de compartilhar tela nos canais de voz automaticamente.
 
 ### 2. Instalar dependências
 ```bash

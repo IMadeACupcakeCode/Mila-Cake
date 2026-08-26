@@ -1,15 +1,9 @@
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
+const { msg, raras } = require('../utils/shipMensagens');
 
 function barra(pct) {
   const cheio = Math.round(pct / 10);
   return '💗'.repeat(cheio) + '🤍'.repeat(10 - cheio);
-}
-
-function mensagemTematica(pct) {
-  if (pct >= 80) return '🌟 Um amor escrito nas estrelas!';
-  if (pct >= 50) return '💫 Tem química no ar, cuidem dela.';
-  if (pct >= 25) return '🌙 Talvez amizade seja o caminho.';
-  return '💔 Não foi dessa vez, meu favorito...';
 }
 
 module.exports = {
@@ -22,12 +16,17 @@ module.exports = {
     for (const c of seed) n = (n * 31 + c.charCodeAt(0)) % 100;
     const pct = n === 0 ? 1 : n;
 
+    // Seleção determinística dentro das 100 frases da porcentagem
+    const idxFrase = parseInt(seed.slice(0, 8), 16) % 100;
+    const rarasPct = pct > 100 ? raras['>100'] : raras['<0'];
+    let mensagem = msg[pct]?.[idxFrase] || rarasPct[idxFrase % rarasPct.length].replace(/{pct}/g, pct);
+
     const embed = criarEmbed({
       titulo: `💞 Ship: ${u1.username} × ${u2.username}`,
       descricao:
         `**${pct}%** de compatibilidade\n\n` +
         `${barra(pct)}\n\n` +
-        `${mensagemTematica(pct)}`,
+        mensagem,
       cor: THEME.corPrincipal,
       rodape: rodapeAleatorio(),
     });

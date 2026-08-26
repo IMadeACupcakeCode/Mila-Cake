@@ -5,7 +5,9 @@
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "screen": "npm --prefix discord-screen start",
+    "screen:fast": "npm --prefix discord-screen run start:fast"
   },
   "dependencies": {
     "@discordjs/voice": "^0.19.2",

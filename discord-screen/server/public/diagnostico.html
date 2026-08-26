@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Diagnóstico</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;padding:20px}
+    h1{color:#00d4ff;margin-bottom:16px}
+    .s{background:#16213e;border:1px solid #333;border-radius:8px;padding:10px 14px;margin-bottom:6px}
+    .s b{margin-right:8px}
+    pre{background:#0a0a23;padding:12px;border-radius:4px;overflow-x:auto;font-size:.85em;color:#00ff88;margin-top:12px;white-space:pre-wrap;word-break:break-all}
+    button{background:#00d4ff;color:#000;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:1em;margin:16px 0}
+  </style>
+</head>
+<body>
+<h1>🔍 Diagnóstico rápido</h1>
+<p style="color:#888;margin-bottom:12px">Abra no mesmo navegador onde o site trava e clique no botão.</p>
+<div id="out"></div>
+<button onclick="go()">▶ Rodar</button>
+<pre id="log" style="display:none"></pre>
+<script>
+const out=document.getElementById('out'),log=document.getElementById('log');
+const L=[];
+function row(msg,color){const d=document.createElement('div');d.className='s';d.innerHTML='<b style="color:'+color+'">'+(color==='#0f0'?'✅':'❌')+'</b>'+msg;out.appendChild(d)}
+async function go(){
+  out.innerHTML='';log.style.display='none';log.textContent='';
+  const P=location.pathname.startsWith('/.proxy')?'/.proxy':'';
+
+  // 1. config
+  try{const r=await fetch(P+'/api/config',{cache:'no-store',signal:AbortSignal.timeout(5000)});const d=await r.json();row('config → clientId='+d.clientId+' asset='+d.asset,'#0f0');L.push('config OK: '+JSON.stringify(d))}
+  catch(e){row('config → '+e.message,'#f00');L.push('config FAIL: '+e.message);fin();return}
+
+  // 2. session-guest
+  let identity=null;
+  try{const r=await fetch(P+'/api/session-guest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Diag'}),signal:AbortSignal.timeout(10000)});const d=await r.json();identity=d.identity;row('session-guest → uid='+d.user?.id+' instance='+d.instance,'#0f0');L.push('guest OK: uid='+d.user?.id)}
+  catch(e){row('session-guest → '+e.message,'#f00');L.push('guest FAIL: '+e.message);fin();return}
+
+  // 3. decode
+  try{const p=JSON.parse(atob(identity.split('.')[0].replace(/-/g,'+').replace(/_/g,'/')));const ok=p.exp*1000>Date.now();row('decode → scope='+p.scope+' uid='+p.uid+' expirado='+(ok?'não':'SIM'),ok?'#0f0':'#f00');L.push('decode: '+ok)}
+  catch(e){row('decode → '+e.message,'#f00');L.push('decode FAIL');fin();return}
+
+  // 4. rooms/list
+  try{const r=await fetch(P+'/api/rooms/list',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity}),signal:AbortSignal.timeout(10000)});const d=await r.json();row('rooms/list → '+(d.rooms?.length??0)+' sala(s)','#0f0');L.push('rooms OK: '+d.rooms?.length)}
+  catch(e){row('rooms/list → '+e.message,'#f00');L.push('rooms FAIL: '+e.message);fin();return}
+
+  // 5. rooms/create
+  let vt=null;
+  try{const r=await fetch(P+'/api/rooms/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identity,name:'Diag-WS'}),signal:AbortSignal.timeout(10000)});const d=await r.json();vt=d.viewerToken;row('rooms/create → roomId='+d.roomId,'#0f0');L.push('create OK: '+d.roomId)}
+  catch(e){row('rooms/create → '+e.message,'#f00');L.push('create FAIL');fin();return}
+
+  // 6. WebSocket
+  if(!vt){row('WS → sem token','#f00');fin();return}
+  try{const proto=location.protocol==='https:'?'wss':'ws';const ws=new WebSocket(proto+'://'+location.host+P+'/ws?t='+encodeURIComponent(vt));const t0=performance.now();const ok=await new Promise(res=>{ws.onopen=()=>res(true);ws.onerror=()=>res(false);setTimeout(()=>res(false),5000)});const ms=Math.round(performance.now()-t0);row('WebSocket → '+(ok?'conectou em '+ms+'ms':'FALHOU / timeout 5s'),ok?'#0f0':'#f00');L.push('ws: '+ok+' '+ms+'ms');if(ok)ws.close()}
+  catch(e){row('WebSocket → '+e.message,'#f00');L.push('ws FAIL')}
+
+  fin();
+  function fin(){log.style.display='block';log.textContent=L.join('\n')}
+}
+</script>
+</body>
+</html>

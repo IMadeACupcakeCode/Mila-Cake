@@ -35,7 +35,7 @@ let encerrando = false;
  * buffer, então prefixar direto partiria linhas no meio e grudaria o prefixo
  * em qualquer lugar.
  */
-export function acompanhar(nome, tinta, filho) {
+export function acompanhar(nome, tinta, filho, { encerrar = true } = {}) {
   const marca = `${tinta}[${nome}]${cor.fim} `;
 
   for (const fluxo of [filho.stdout, filho.stderr]) {
@@ -50,7 +50,7 @@ export function acompanhar(nome, tinta, filho) {
 
   filho.on('close', (codigo) => {
     filhos.delete(filho);
-    if (encerrando) return;
+    if (encerrando || !encerrar) return;
     console.log(`\n${cor.vermelho}  [${nome}] encerrou (código ${codigo}).${cor.fim}`);
     derrubar(codigo ?? 1);
   });

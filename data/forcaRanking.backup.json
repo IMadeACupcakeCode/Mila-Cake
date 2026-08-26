@@ -13,5 +13,20 @@
     },
     "total": 2,
     "ultimaVitoria": 1784932397872
+  },
+  "1014278284026056855": {
+    "tag": "haa.haa1",
+    "vitorias": {
+      "maquina": 0,
+      "competitivo": 1,
+      "cooperativo": 0
+    },
+    "modo": {
+      "competitivo": {
+        "dificil": 1
+      }
+    },
+    "total": 1,
+    "ultimaVitoria": 1786327836207
   }
 }

@@ -153,6 +153,42 @@ client.once('ready', () => {
 
   // Aviso online no canal configurado
   avisarOnline(client);
+
+  // ── Mila Tela Monitor — avisa quando o endereço da Sala de Tela muda ──
+  // Lê o PUBLIC_ORIGIN do app periodicamente. Se mudou (túnel reiniciado),
+  // manda um aviso no canal de on/off mostrando o novo endereço e o que
+  // trocar no portal do Discord. Sem isso, o usuário só descobre quando a
+  // atividade abre em branco — que é exatamente o sintoma de "Credenciais
+  // Falhas" / "Redirect_uri Invalid".
+  try {
+    const { iniciarMonitor, criarEmbedMudanca } = require('./utils/telaMonitor');
+    const { obterConfig } = require('./utils/servidorStore');
+    const { criarEmbed } = require('./utils/theme');
+
+    iniciarMonitor({
+      aoMudar: async ({ antigo, novo }) => {
+        console.log(
+          `📺 Endereço da Sala de Tela mudou: ${antigo || '(desconhecido)'} → ${novo}`
+        );
+
+        // Tenta avisar em TODOS os servidores que têm canalOnOff configurado.
+        for (const guild of client.guilds.cache.values()) {
+          try {
+            const cfg = obterConfig(guild.id);
+            const canalId = cfg?.canalOnOff;
+            if (!canalId) continue;
+
+            const canal = await guild.channels.fetch(canalId).catch(() => null);
+            if (!canal) continue;
+
+            await canal.send({ embeds: [criarEmbedMudanca({ antigo, novo })] });
+          } catch {}
+        }
+      },
+    });
+  } catch (err) {
+    console.error('⋆｡°✩ Erro ao iniciar monitor de tela:', err?.message || err);
+  }
 });
 
 client.on('messageCreate', (message) => {
@@ -164,6 +200,30 @@ client.on('messageReactionAdd', async (reaction, user) => {
     await handleReaction(reaction, user);
   } catch (error) {
     console.error('Erro ao processar reação de guerra:', error);
+  }
+});
+
+// ── Mila Boas-Vindas — chegada em servidor novo ──
+// 1. Manda um recado de apresentação no canal de boas-vindas nativo (ou no
+//    primeiro canal de texto onde a Mila possa falar).
+// 2. Garante permissão de compartilhar tela (Stream) em todos os canais de voz.
+client.on('guildCreate', async (guild) => {
+  try {
+    const { enviarBoasVindas, garantirPermissaoTela } = require('./utils/guildWelcome');
+
+    // Garante o self-member e os canais no cache antes de mexer em permissões.
+    await guild.members.fetch(client.user.id).catch(() => {});
+    await guild.channels.fetch().catch(() => {});
+
+    const boas = await enviarBoasVindas(guild, client);
+    const perms = await garantirPermissaoTela(guild);
+    console.log(
+      `⋆｡°✩ Entrei no servidor ${guild.name} (${guild.id}) — ` +
+        (boas.ok ? `boas-vindas em #${boas.canal}` : `boas-vindas: ${boas.motivo}`) +
+        ` · permissão de tela: ${perms.aplicados}/${perms.total} canais de voz`
+    );
+  } catch (erro) {
+    console.error(`⋆｡°✩ Erro na chegada ao servidor ${guild.id}:`, erro?.message || erro);
   }
 });
 

@@ -37,6 +37,7 @@ const SIGNATURES = {
   seguranca: [],
   securitybreach: [],
   ship: [{ name: 'usuario1', user: true }, { name: 'usuario2', user: true }],
+  antiship: [{ name: 'usuario1', user: true }, { name: 'usuario2', user: true }],
   social: [{ name: 'usuario', user: true, optional: true }],
   status: [],
   stream: [],
@@ -53,6 +54,7 @@ const USO_PADRAO = {
   lentidao: 'Use: `$lentidao 5` (segundos, 0–21600)',
   limpar: 'Use: `$limpar 10` (2–100 mensagens)',
   ship: 'Use: `$ship @usuario1 @usuario2`',
+  antiship: 'Use: `$antiship @usuario1 @usuario2`',
   votar: 'Use: `$votar pergunta | opção 1, opção 2, opção 3 | 10m`',
 };
 

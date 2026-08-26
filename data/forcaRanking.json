@@ -3,16 +3,19 @@
     "tag": "acupcakecatsocial",
     "vitorias": {
       "maquina": 2,
-      "competitivo": 0,
+      "competitivo": 1,
       "cooperativo": 0
     },
     "modo": {
       "maquina": {
         "dificil": 2
+      },
+      "competitivo": {
+        "pablo": 1
       }
     },
-    "total": 2,
-    "ultimaVitoria": 1784932397872
+    "total": 3,
+    "ultimaVitoria": 1787182445539
   },
   "1014278284026056855": {
     "tag": "haa.haa1",

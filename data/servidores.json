@@ -12,7 +12,8 @@
     "cargosStaff": [],
     "canalShutdown": null,
     "categoriaTicket": "1515754307012788235",
-    "canalOnOff": "1515758228909064304"
+    "canalOnOff": "1515758228909064304",
+    "canalTicketFixo": null
   },
   "825415992741068801": {
     "canaisPermitidos": [],
@@ -111,6 +112,134 @@
     "canalTicketFixo": null
   },
   "741721702173769809": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "705836353149206549": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1526437241553948763": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1438294094869692428": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1493623865278988440": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "891693844003971072": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1525948803121807482": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1518308148161675315": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1538724377992888370": {
     "canaisPermitidos": [],
     "canaisBloqueados": [],
     "anuncios": {
