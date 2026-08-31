@@ -143,7 +143,7 @@ async function executarInicio(interaction, fonte, canalId, client) {
     return interaction.update({
       embeds: [criarEmbed({
         titulo: '❌ Não consegui iniciar a transmissão',
-        descricao: `Falha ao iniciar o stream: \`${erro.message || erro}\``,
+        descricao: 'Houve um erro ao conectar ao canal de voz. Verifique se estou conectada e tento de novo.',
         cor: THEME.corErro,
       })],
       components: [],
@@ -344,7 +344,7 @@ async function execute(interaction, client = null) {
       try {
         if (!i.replied && !i.deferred) {
           await i.update({
-            embeds: [criarEmbed({ titulo: '❌ Erro', descricao: `Ocorreu um erro: \`${erro.message || erro}\``, cor: THEME.corErro })],
+            embeds: [criarEmbed({ titulo: '❌ Erro', descricao: 'Ocorreu um erro durante a transmissão.', cor: THEME.corErro })],
             components: [],
           });
         }

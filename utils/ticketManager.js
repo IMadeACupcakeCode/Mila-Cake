@@ -13,6 +13,27 @@ const { criarEmbed, THEME } = require('./theme');
 const path = require('path');
 const { obterConfig, salvarConfig } = require('./ticketStore');
 
+// Risco original: JSON.parse sem sanitização podia ser explorado via
+// prototype pollution (__proto__, constructor, prototype) se o tópico
+// do canal fosse manipulado com conteúdo malicioso.
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+function safeJsonParse(str) {
+  try {
+    const parsed = JSON.parse(str);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      for (const key of Object.keys(parsed)) {
+        if (DANGEROUS_KEYS.has(key)) {
+          // Remove a chave perigosa antes de retornar
+          delete parsed[key];
+        }
+      }
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 // ── Cores Mila ──
 const CORES = {
   DESTAQUE: 0xFF69B4,   // hot pink
@@ -412,7 +433,7 @@ async function reivindicarTicket(interaction, client) {
     const topic = interaction.channel.topic;
     let ticketInfo;
     try {
-      ticketInfo = JSON.parse(topic);
+      ticketInfo = safeJsonParse(topic);
     } catch {
       return interaction.reply({ content: '❌ Erro ao ler informações do ticket.', ephemeral: true });
     }
@@ -519,9 +540,23 @@ async function fecharTicket(interaction, client) {
     const topic = interaction.channel.topic;
     let ticketInfo;
     try {
-      ticketInfo = JSON.parse(topic);
+      ticketInfo = safeJsonParse(topic);
     } catch {
       ticketInfo = { contador: 0, categoriaEmoji: '❓', categoriaNome: 'Desconhecido', usuarioTag: 'Desconhecido', staffTag: null };
+    }
+
+    // Risco original: qualquer usuário com acesso ao canal podia iniciar o
+    // fechamento do ticket. Exige staff ou o próprio dono do ticket.
+    const guildId = interaction.guildId;
+    const cfg = obterConfig(guildId);
+    const isOwner = ticketInfo && String(ticketInfo.userId) === String(interaction.user.id);
+    if (!isTicketStaff(interaction.member, cfg) && !isOwner) {
+      return interaction.reply({
+        embeds: [
+          criarEmbed({ titulo: 'Sem permissão', descricao: 'Apenas staff ou o dono do ticket pode fechar.', cor: THEME.corErro }),
+        ],
+        ephemeral: true,
+      });
     }
 
     const embed = criarEmbedConfirmarFechamento(ticketInfo);
@@ -614,9 +649,25 @@ async function executarFechamento(interaction, motivo = null) {
     const topic = interaction.channel.topic;
     let ticketInfo;
     try {
-      ticketInfo = JSON.parse(topic);
+      ticketInfo = safeJsonParse(topic);
     } catch {
       ticketInfo = { contador: 0, categoriaEmoji: '❓', categoriaNome: 'Desconhecido', usuarioTag: 'Desconhecido', staffTag: null };
+    }
+
+    // Risco original: any user who reached this handler could execute the
+    // actual channel deletion. Double-check staff/owner before proceeding.
+    const guildId = interaction.guildId;
+    const cfg = obterConfig(guildId);
+    const isOwner = ticketInfo && String(ticketInfo.userId) === String(interaction.user.id);
+    if (!isTicketStaff(interaction.member, cfg) && !isOwner) {
+      try {
+        await interaction.editReply({
+          content: '🚫 Sem permissão: apenas staff ou o dono do ticket pode fechar.',
+          embeds: [],
+          components: [],
+        });
+      } catch {}
+      return;
     }
 
     ticketInfo.fechadoPor = interaction.user.tag;

@@ -14,7 +14,9 @@ module.exports = {
       });
       await interaction.reply({ embeds: [embed] });
     } catch (erro) {
-      await interaction.reply({ embeds: [criarEmbed({ titulo: 'Erro', descricao: erro.message, cor: THEME.corErro })], ephemeral: true });
+      // Risco original: expunha erro.message (pode conter info interna).
+      console.error('Erro no lentidao:', erro);
+      await interaction.reply({ embeds: [criarEmbed({ titulo: 'Erro', descricao: 'Não foi possível ajustar o modo lento.', cor: THEME.corErro })], ephemeral: true });
     }
   },
 };

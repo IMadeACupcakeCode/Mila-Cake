@@ -1,10 +1,22 @@
 const { PermissionFlagsBits, ActionRowBuilder, ButtonStyle } = require('discord.js');
 const { criarEmbed, THEME } = require('../utils/theme');
 const { botao } = require('../utils/ui');
+const { isStaff } = require('../utils/perms');
 
 module.exports = {
   data: { name: 'limpar', description: '🧹 Apaga mensagens recentes do canal' },
   async execute(interaction) {
+    // Risco original: qualquer usuário podia apagar até 100 mensagens por vez.
+    // Exige staff.
+    if (!isStaff(interaction.member)) {
+      return interaction.reply({
+        embeds: [
+          criarEmbed({ titulo: 'Sem permissão', descricao: 'Este comando é restrito a staff.', cor: THEME.corErro }),
+        ],
+        ephemeral: true,
+      });
+    }
+
     const qtd = interaction.options.getInteger('quantidade');
     const row = new ActionRowBuilder().addComponents(
       botao('✅ Confirmar', 'limpar_sim', ButtonStyle.Danger, '🧹'),
@@ -41,14 +53,12 @@ module.exports = {
           components: [],
         });
       } catch (erro) {
-        try {
-          const texto = erro && erro.code === 10008
-            ? 'A mensagem de confirmação sumiu. Tente novamente.'
-            : erro.message;
-          await i.update({ embeds: [criarEmbed({ titulo: 'Erro', descricao: texto, cor: THEME.corErro })], components: [] });
-        } catch {
-          // Silêncio — não conseguimos nem responder o erro
-        }
+        // Risco original: expunha erro.message diretamente (pode conter
+        // informações internas do Discord ou do servidor).
+        const texto = erro && erro.code === 10008
+          ? 'A mensagem de confirmação sumiu. Tente novamente.'
+          : 'Não foi possível limpar as mensagens. Verifique permissões.';
+        await i.update({ embeds: [criarEmbed({ titulo: 'Erro', descricao: texto, cor: THEME.corErro })], components: [] });
       }
     });
     coletor.on('end', async () => {

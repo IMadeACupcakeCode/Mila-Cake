@@ -9,6 +9,11 @@ const { isStaff } = require('../utils/perms');
 
 const ITENS_POR_PAGINA = 5;
 
+// Risco original: sem rate limiting, um usuário podia criar muitos lembretes
+// rapidamente, consumindo memória e storage.
+const criarCooldowns = new Map(); // userId → timestamp do último lembrete criado
+const CRIAR_COOLDOWN_MS = 10000; // 10 segundos entre criações
+
 module.exports = {
   data: { name: 'lembrete', description: 'Cria, lista ou cancela lembretes' },
 
@@ -16,6 +21,24 @@ module.exports = {
     const subcomando = interaction.options.getSubcommand();
 
     if (subcomando === 'criar') {
+      // Verifica cooldown de criação
+      const agora = Date.now();
+      const ultimoCriar = criarCooldowns.get(interaction.user.id) || 0;
+      if (agora - ultimoCriar < CRIAR_COOLDOWN_MS) {
+        const restante = Math.ceil((CRIAR_COOLDOWN_MS - (agora - ultimoCriar)) / 1000);
+        return interaction.reply({
+          embeds: [
+            criarEmbed({
+              titulo: '⏱️ Calma!',
+              descricao: `Espere mais **${restante}s** antes de criar outro lembrete.`,
+              cor: THEME.corErro,
+            }),
+          ],
+          ephemeral: true,
+        });
+      }
+      criarCooldowns.set(interaction.user.id, agora);
+
       return abrirModalCriar(interaction, client);
     }
 

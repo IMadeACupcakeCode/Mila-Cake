@@ -497,6 +497,16 @@ async function handlePrefix(message, client) {
 
   // ── $anuncio <tipo> <mensagem> ──
   if (comando === 'anuncio') {
+    // Risco original: $anuncio bridge não checava isStaff, permitindo qualquer
+    // usuário enviar anúncios. O prefixo `$` ignora as default_member_permissions
+    // do Discord, então a checagem deve ser explícita aqui.
+    if (!isStaff(message.member)) {
+      return responder(
+        message,
+        criarEmbed({ titulo: 'Sem permissão', descricao: 'Você precisa de **Gerir Servidor** ou cargo de staff para usar `$anuncio`.', cor: THEME.corErro }),
+        true
+      );
+    }
     const tipo = (args[0] || '').toLowerCase();
     const mensagemTxt = args.slice(1).join(' ');
     if (!TIPOS_ANUNCIO.includes(tipo) || !mensagemTxt) {
@@ -551,11 +561,18 @@ async function handlePrefix(message, client) {
       rodape: `Anunciado por ${message.author.username} • ${THEME.nome}`,
     });
     try {
-      await canal.send({ embeds: [embed] });
+      await canal.send({
+        embeds: [embed],
+        // Risco original: sem allowedMentions, menções @everyone/@here e @role
+        // no texto do anúncio ou em embeds de terceiros poderiam ser reenviadas.
+        allowedMentions: { parse: [], repliedUser: false },
+      });
     } catch (erro) {
+      // Risco original: expunha erro.message (pode conter paths internos).
+      console.error('Erro ao enviar $anuncio:', erro);
       return responder(
         message,
-        criarEmbed({ titulo: 'Não consegui enviar', descricao: `Falhou: ${erro.message}`, cor: THEME.corErro }),
+        criarEmbed({ titulo: 'Não consegui enviar', descricao: 'Falhou ao enviar o anúncio. Verifique permissões do canal.', cor: THEME.corErro }),
         true
       );
     }

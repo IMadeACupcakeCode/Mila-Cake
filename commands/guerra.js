@@ -9,6 +9,11 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const TRANSITION_DELAY = 1600;
 const ACTION_DELAY = 1800;
 
+// Risco original: sem rate limiting, um usuário podia spammar batalhas,
+// consumindo memória e canais do Discord.
+const guerraCooldowns = new Map(); // userId → timestamp da última batalha
+const GUERRA_COOLDOWN_MS = 30000; // 30 segundos entre batalhas
+
 // Guerra: comando de batalha um-contra-outro por reação (turnos).
 // Implementação com pool de ataques temáticos de memes, pickups,
 // aceitação de desafio e animações por edição de embed.
@@ -277,6 +282,24 @@ module.exports = {
     if (!opponent || (opponent.bot && opponent.id !== interaction.client.user.id)) {
       return interaction.reply(manualPayload());
     }
+
+    // Verifica cooldown de guerra
+    const agora = Date.now();
+    const ultimaGuerra = guerraCooldowns.get(interaction.user.id) || 0;
+    if (agora - ultimaGuerra < GUERRA_COOLDOWN_MS) {
+      const restante = Math.ceil((GUERRA_COOLDOWN_MS - (agora - ultimaGuerra)) / 1000);
+      return interaction.reply({
+        embeds: [
+          criarEmbed({
+            titulo: '⏱️ Calma, guerreiro!',
+            descricao: `Espere mais **${restante}s** antes de iniciar outra batalha.`,
+            cor: THEME.corErro,
+          }),
+        ],
+        ephemeral: true,
+      });
+    }
+    guerraCooldowns.set(interaction.user.id, agora);
 
     const isBotOponente = opponent.id === interaction.client.user.id;
 

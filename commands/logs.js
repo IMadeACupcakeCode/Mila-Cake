@@ -1,9 +1,20 @@
 const { criarEmbed, THEME } = require('../utils/theme');
 const { filtrarPorUsuario, todas } = require('../utils/logger');
+const { isStaff } = require('../utils/perms');
 
 module.exports = {
   data: { name: 'logs', description: '📜 Mostra os logs da bot (filtre por uma pessoa específica)' },
   async execute(interaction) {
+    // Risco original: qualquer usuário podia ler logs contendo IDs de usuário
+    // e histórico de comandos. Exige staff.
+    if (!isStaff(interaction.member)) {
+      return interaction.reply({
+        embeds: [
+          criarEmbed({ titulo: 'Sem permissão', descricao: 'Este comando é restrito a staff.', cor: THEME.corErro }),
+        ],
+        ephemeral: true,
+      });
+    }
     const pessoa = interaction.options.getString('pessoa');
     const quantidade = Math.min(Math.max(interaction.options.getInteger('quantidade') || 15, 1), 50);
 

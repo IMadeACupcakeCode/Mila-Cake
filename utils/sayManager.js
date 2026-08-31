@@ -107,10 +107,16 @@ async function falarDireto(message, args) {
     });
 
     try {
-      await canal.send({ embeds: [embed] });
+      await canal.send({
+        embeds: [embed],
+        // Risco original: sem allowedMentions, @everyone/@here/@role no texto
+        // digitado pelo admin poderiam ser reenviadas pelo bot.
+        allowedMentions: { parse: [], repliedUser: false },
+      });
       await message.reply({ content: `✅ Mensagem enviada para ${canal}!`, ephemeral: true });
     } catch (err) {
-      await message.reply(`❌ Erro ao enviar para ${canal}: ${err.message}`);
+      console.error('Erro ao enviar $say para canal:', err);
+      await message.reply('❌ Erro ao enviar para o canal. Verifique permissões da bot.');
     }
     return;
   }
@@ -125,9 +131,9 @@ async function falarDireto(message, args) {
 
   try {
     await message.delete();
-    await message.channel.send({ embeds: [embed] });
+    await message.channel.send({ embeds: [embed], allowedMentions: { parse: [], repliedUser: false } });
   } catch {
-    await message.channel.send({ embeds: [embed] });
+    await message.channel.send({ embeds: [embed], allowedMentions: { parse: [], repliedUser: false } });
     if (message.deletable) await message.delete().catch(() => {});
   }
 }
@@ -594,8 +600,11 @@ async function confirmarEnvio(interaction) {
   });
 
   try {
+    // Risco original: sem allowedMentions, @everyone/@here/@role no texto
+    // digitado pelo admin poderiam ser reenviadas pelo bot em canais públicos.
+    const mentionOpts = { allowedMentions: { parse: [], repliedUser: false } };
     if (destino === 'aqui') {
-      await interaction.channel.send({ embeds: [embedEnvio] });
+      await interaction.channel.send({ ...mentionOpts, embeds: [embedEnvio] });
     } else if (destino === 'canal' && alvoId && alvoId !== '0') {
       const canal = await interaction.guild.channels.fetch(alvoId).catch(() => null);
       if (!canal) {
@@ -605,7 +614,7 @@ async function confirmarEnvio(interaction) {
           components: [],
         });
       }
-      await canal.send({ embeds: [embedEnvio] });
+      await canal.send({ ...mentionOpts, embeds: [embedEnvio] });
     } else if (destino === 'dm' && alvoId && alvoId !== '0') {
       const user = await interaction.client.users.fetch(alvoId).catch(() => null);
       if (!user) {
@@ -630,8 +639,9 @@ async function confirmarEnvio(interaction) {
       components: [],
     });
   } catch (err) {
+    console.error('Erro ao enviar say:', err);
     await interaction.update({
-      content: `❌ Erro ao enviar: ${err.message}`,
+      content: '❌ Erro ao enviar mensagem. Verifique permissões da bot.',
       embeds: [],
       components: [],
     });

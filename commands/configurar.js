@@ -1,6 +1,7 @@
 const { PermissionFlagsBits, ChannelType } = require('discord.js');
 const { criarEmbed, THEME } = require('../utils/theme');
 const { obterConfig, salvarConfig, TIPOS_ANUNCIO } = require('../utils/servidorStore');
+const { isStaff } = require('../utils/perms');
 
 function mencionarCanais(ids, client) {
   if (!ids || ids.length === 0) return '`nenhum definido`';
@@ -11,6 +12,19 @@ module.exports = {
   data: { name: 'configurar', description: 'Define onde a bot fala e organiza os canais de anúncio (requer gerir servidor)' },
 
   async execute(interaction, client) {
+    // Risco original: confiava apenas em default_member_permissions do registro
+    // do Slash. O comando $configurar no prefix.js já checava isStaff, mas o
+    // Slash `execute` não tinha checagem explícito — confiava que o Discord
+    // restringia, mas isso não é garantido quando usado via bridge ou integração.
+    if (!isStaff(interaction.member)) {
+      return interaction.reply({
+        embeds: [
+          criarEmbed({ titulo: 'Sem permissão', descricao: 'Você precisa de **Gerir Servidor** ou cargo de staff para usar `/configurar`.', cor: THEME.corErro }),
+        ],
+        ephemeral: true,
+      });
+    }
+
     const guildId = interaction.guildId;
     const sub = interaction.options.getSubcommand();
     const cfg = obterConfig(guildId);

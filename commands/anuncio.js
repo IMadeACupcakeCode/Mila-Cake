@@ -2,6 +2,7 @@ const { PermissionFlagsBits } = require('discord.js');
 
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { obterConfig, TIPOS_ANUNCIO } = require('../utils/servidorStore');
+const { isStaff } = require('../utils/perms');
 
 // Rótulos para cada tipo de anúncio
 const ROTULOS = {
@@ -17,6 +18,23 @@ module.exports = {
 
   async execute(interaction, client) {
     const guildId = interaction.guildId;
+
+    // Risco original: qualquer usuário podia enviar anúncios, incluindo @everyone.
+    // O Slash command registration via default_member_permissions não é confiável
+    // quando o comando é chamado via prefix bridge ($anuncio).
+    if (!isStaff(interaction.member)) {
+      return interaction.reply({
+        embeds: [
+          criarEmbed({
+            titulo: 'Sem permissão',
+            descricao: 'Você precisa de **Gerir Servidor** ou cargo de staff para usar `$anuncio` / `/anuncio`.',
+            cor: THEME.corErro,
+          }),
+        ],
+        ephemeral: true,
+      });
+    }
+
     const tipo = interaction.options.getString('tipo');
     const mensagem = interaction.options.getString('mensagem');
     const tituloPersonalizado = interaction.options.getString('titulo');
@@ -64,11 +82,16 @@ module.exports = {
       await canal.send({
         content: mencionar ? '@everyone' : undefined,
         embeds: [embed],
+        // Risco original: sem allowedMentions, a @everyone no conteúdo do bot
+        // ou de terceiros poderia ser reenviada. Restringe tudo.
+        allowedMentions: { parse: [], repliedUser: false },
       });
     } catch (erro) {
+      // Risco original: expunha erro.message (pode conter paths internos).
+      console.error('Erro ao enviar anúncio:', erro);
       const embedErro = criarEmbed({
         titulo: 'Não consegui enviar',
-        descricao: `Tentei mandar em <#${canalId}>, mas falhou: ${erro.message}`,
+        descricao: `Tentei mandar em <#${canalId}>, mas falhou. Verifique se a bot tem permissão no canal.`,
         cor: THEME.corErro,
       });
       return interaction.reply({ embeds: [embedErro], ephemeral: true });
