@@ -2,16 +2,18 @@ const { PermissionFlagsBits, ActionRowBuilder, ButtonStyle } = require('discord.
 const { criarEmbed, THEME } = require('../utils/theme');
 const { botao } = require('../utils/ui');
 const { isStaff } = require('../utils/perms');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
   data: { name: 'limpar', description: '🧹 Apaga mensagens recentes do canal' },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 600);
     // Risco original: qualquer usuário podia apagar até 100 mensagens por vez.
     // Exige staff.
     if (!isStaff(interaction.member)) {
       return interaction.reply({
         embeds: [
-          criarEmbed({ titulo: 'Sem permissão', descricao: 'Este comando é restrito a staff.', cor: THEME.corErro }),
+          criarEmbed({ titulo: 'Sem permissão', descricao: `${THEME.div.bolinhas}\n\nEste comando é restrito a staff.\n\n${THEME.div.coracao}`, cor: THEME.corErro }),
         ],
         ephemeral: true,
       });
@@ -24,7 +26,7 @@ module.exports = {
     );
     const embed = criarEmbed({
       titulo: '🧹 Confirmar limpeza',
-      descricao: `Vou apagar **${qtd}** mensagens deste canal. Confirma?`,
+      descricao: `${THEME.div.bolinhas}\n\nVou apagar **${qtd}** mensagens deste canal. Confirma?\n\n${THEME.div.coracao}`,
       cor: THEME.corErro,
     });
     const resposta = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
@@ -32,7 +34,7 @@ module.exports = {
     coletor.on('collect', async (i) => {
       if (i.customId === 'limpar_nao') {
         try {
-          await i.update({ embeds: [criarEmbed({ titulo: 'Cancelado', descricao: 'Nada foi apagado.', cor: THEME.corSucesso })], components: [] });
+          await i.update({ embeds: [criarEmbed({ titulo: 'Cancelado', descricao: `${THEME.div.bolinhas}\n\nNada foi apagado.\n\n${THEME.div.coracao}`, cor: THEME.corSucesso })], components: [] });
         } catch {
           // Ignora se a mensagem já foi deletada
         }
@@ -45,8 +47,10 @@ module.exports = {
           motivos.push('Algumas mensagens não puderam ser apagadas (muito antigas, do sistema ou já removidas).');
         }
         const descricao = [
+          `${THEME.div.bolinhas}\n`,
           `Apaguei **${apagadas.size}** de **${qtd}** mensagens.`,
           ...(motivos.length ? [`\n⚠️ ${motivos.join(' ')}`] : []),
+          `\n\n${THEME.div.coracao}`,
         ].join('\n');
         await i.update({
           embeds: [criarEmbed({ titulo: '🧹 Limpeza feita', descricao, cor: THEME.corSucesso })],
@@ -58,7 +62,7 @@ module.exports = {
         const texto = erro && erro.code === 10008
           ? 'A mensagem de confirmação sumiu. Tente novamente.'
           : 'Não foi possível limpar as mensagens. Verifique permissões.';
-        await i.update({ embeds: [criarEmbed({ titulo: 'Erro', descricao: texto, cor: THEME.corErro })], components: [] });
+        await i.update({ embeds: [criarEmbed({ titulo: 'Erro', descricao: `${THEME.div.bolinhas}\n\n${texto}\n\n${THEME.div.coracao}`, cor: THEME.corErro })], components: [] });
       }
     });
     coletor.on('end', async () => {

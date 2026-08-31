@@ -1,6 +1,7 @@
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { CATEGORIAS, COMANDOS, TOTAL } = require('../utils/codexData');
 const { linhaNavegacao, menuPular, aproximar, EmbedBuilder } = require('../utils/ui');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 const AUTOR_COVER =
   `${THEME.iconeFooter} ⋆｡°✩ Arquivos Mila\n` +

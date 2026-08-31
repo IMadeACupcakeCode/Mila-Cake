@@ -7,6 +7,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } 
 const { criarEmbed, THEME } = require('../utils/theme');
 const { listarJanelas, listarMonitores, fonteDesktop, decodificarFonte } = require('../utils/streamSources');
 const { iniciarStream, pararStream, desconectar, listarSessoes, getSessao, suportaStream, FRASE_TTS } = require('../utils/milaStream');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 // ── Configuração de paginação das janelas ──
 const POR_PAGINA = 25; // Discord permite até 25 opções por select
@@ -17,6 +18,8 @@ function embedPainel() {
   return criarEmbed({
     titulo: '📺 Transmissão da Mila',
     descricao: [
+      `${THEME.div.bolinhas}`,
+      '',
       'Escolha **onde** eu devo entrar na chamada:',
       '',
       '🪟 **Janela** — eu retransmito o áudio da chamada, com a janela escolhida',
@@ -32,6 +35,8 @@ function embedPainel() {
       '',
       '🔇 **Desconectar** — eu saio da chamada.',
       '🔒 Isso usa a API oficial do Discord (não é selfbot).',
+      '',
+      `${THEME.div.coracao}`,
     ].join('\n'),
     cor: THEME.corPrincipal,
     rodape: '⋆｡°✩ Mila Stream — relé de voz',
@@ -154,6 +159,7 @@ async function executarInicio(interaction, fonte, canalId, client) {
 // ── Execute principal ─────────────────────────────────────────────────
 
 async function execute(interaction, client = null) {
+  await mostrarDigitando(interaction.channel, 800);
   const canalId = canalVozDoAutor(interaction);
   if (!canalId) {
     return interaction.reply({

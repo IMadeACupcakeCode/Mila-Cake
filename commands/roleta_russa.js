@@ -1,4 +1,5 @@
 const { criarEmbed, THEME } = require('../utils/theme');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 // Risco original: sem rate limiting, um usuário podia spammar o comando
 // roleta_russa, consumindo recursos e enchendo o chat de embeds.
@@ -8,6 +9,7 @@ const COOLDOWN_MS = 5000; // 5 segundos entre usos
 module.exports = {
   data: { name: 'roleta_russa', description: '🔫 Uma roleta russa de 6 câmaras. Você sobrevive?' },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 1200);
     // Verifica cooldown
     const agora = Date.now();
     const ultimoUso = cooldowns.get(interaction.user.id) || 0;
@@ -17,7 +19,7 @@ module.exports = {
         embeds: [
           criarEmbed({
             titulo: '⏱️ Calma!',
-            descricao: `Espere mais **${restante}s** antes de girar o tambor novamente.`,
+            descricao: `${THEME.div.bolinhas}\n\nEspere mais **${restante}s** antes de girar o tambor novamente.\n\n${THEME.div.coracao}`,
             cor: THEME.corErro,
           }),
         ],
@@ -30,8 +32,8 @@ module.exports = {
     const embed = criarEmbed({
       titulo: sobreviveu ? '🔫 *click* ... 💨' : '💥 🔫 *BANG*',
       descricao: sobreviveu
-        ? 'A câmara estava vazia. **Você sobreviveu!** 🌙'
-        : 'A câmara estava carregada. **Você não sobreviveu...** desta vez. 🌑',
+        ? `${THEME.div.bolinhas}\n\nA câmara estava vazia. **Você sobreviveu!** 🌙\n\n${THEME.div.coracao}`
+        : `${THEME.div.bolinhas}\n\nA câmara estava carregada. **Você não sobreviveu...** desta vez. 🌑\n\n${THEME.div.estrelado}`,
       cor: sobreviveu ? THEME.corSucesso : THEME.corErro,
       rodape: `${THEME.nome} girou o tambor para ${interaction.user.username}`,
     });

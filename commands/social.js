@@ -1,10 +1,12 @@
 const { ActionRowBuilder, ButtonStyle } = require('discord.js');
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { botao } = require('../utils/ui');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
   data: { name: 'social', description: '👤 Cartão de perfil do usuário' },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 800);
     const user = interaction.options.getUser('usuario') || interaction.user;
     const member = interaction.guild?.members.cache.get(user.id);
     const cargo = member?.roles.highest?.name || '—';
@@ -12,11 +14,13 @@ module.exports = {
     const embed = criarEmbed({
       titulo: `👤 ${user.username}`,
       descricao:
+        `${THEME.div.bolinhas}\n\n` +
         `**Tag:** \`${user.tag}\`\n` +
         `**ID:** \`${user.id}\`\n` +
         `**Entrou em:** ${member ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>` : '—'}\n` +
         `**Cargo topo:** ${cargo}\n` +
-        `**Criado em:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>`,
+        `**Criado em:** <t:${Math.floor(user.createdTimestamp / 1000)}:R>\n\n` +
+        `${THEME.div.coracao}`,
       cor: THEME.corPrincipal,
       rodape: rodapeAleatorio(),
     }).setThumbnail(user.displayAvatarURL({ size: 256 }));

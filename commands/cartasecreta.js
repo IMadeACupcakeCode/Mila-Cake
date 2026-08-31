@@ -8,6 +8,7 @@ const {
   TextInputStyle,
 } = require('discord.js');
 const { criarEmbed, THEME } = require('../utils/theme');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 const { clientCache } = require('../utils/cache');
 const { registrarCarta, obterCartas } = require('../utils/cartasStore');
 const { formatarDataAbsoluta } = require('../utils/tempo');
@@ -92,13 +93,15 @@ module.exports = {
     const msgOriginal = interaction.message; // mensagem `$cartasecreta ...` no canal
 
     // ✨ Mensagem de "carregando" animada para não aparecer o "Demorando para responder"
-    const pontos = ['·', '··', '···', '····'];
+    const pontos = ['⠀', '⠀⠀', '⠀⠀⠀', '⠀⠀⠀⠀'];
+    const temas = ['🌙 Selando o envelope', '✨ Preparando a carta', '💌 Endereçando', '🔮 Tamponando com cera'];
     let pi = 0;
+    let ti = 0;
     const loadingMsg = await interaction.reply({
       embeds: [
         criarEmbed({
           titulo: '✉️ Preparando sua carta secreta...',
-          descricao: `🌙 Selando o envelope${pontos[0]}`,
+          descricao: `${THEME.div.bolinhas}\n\n${temas[0]}${pontos[0]}\n\n${THEME.div.bolinhas}`,
           cor: THEME.corPrincipal,
         }),
       ],
@@ -106,12 +109,13 @@ module.exports = {
     });
     const loadingTimer = setInterval(() => {
       pi = (pi + 1) % pontos.length;
+      if (pi === 0) ti = (ti + 1) % temas.length;
       loadingMsg
         .edit({
           embeds: [
             criarEmbed({
               titulo: '✉️ Preparando sua carta secreta...',
-              descricao: `🌙 Selando o envelope${pontos[pi]}`,
+              descricao: `${THEME.div.bolinhas}\n\n${temas[ti]}${pontos[pi]}\n\n${THEME.div.bolinhas}`,
               cor: THEME.corPrincipal,
             }),
           ],
@@ -144,7 +148,10 @@ module.exports = {
       const embed = criarEmbed({
         titulo: '✉️ Carta Secreta — Passo 1/3',
         descricao:
-          `**Escolha quem receberá a carta.** Use ◀️ ▶️ para navegar, ou o menu abaixo (sincronizado com esta lista).\n\n` + linhas,
+          `${THEME.div.bolinhas}\n\n` +
+          `**Escolha quem receberá a carta.** Use ◀️ ▶️ para navegar, ou o menu abaixo (sincronizado com esta lista).\n\n` +
+          linhas +
+          `\n\n${THEME.div.bolinhas}`,
         cor: THEME.corPrincipal,
         rodape: `Página ${pagina + 1}/${totalPaginas} • ${total} membros`,
       });
@@ -183,8 +190,9 @@ module.exports = {
           embeds: [
             criarEmbed({
               titulo: '✨ Carta a caminho...',
-              descricao: '🌙 Envelope selado e entregue no seu privado. Confira sua DM!',
+              descricao: `${THEME.div.bolinhas}\n\n🌙 Envelope selado e entregue no seu privado. Confira sua DM!\n\n${THEME.div.coracao}`,
               cor: THEME.corSucesso,
+              rodape: `${THEME.nome} entregou sua carta~ ♡`,
             }),
           ],
         });

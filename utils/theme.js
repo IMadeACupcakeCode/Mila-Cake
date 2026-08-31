@@ -84,4 +84,26 @@ function criarEmbed({ titulo, descricao, cor, rodape, thumbnail, image, semTimes
   return embed;
 }
 
-module.exports = { THEME, criarEmbed, rodapeAleatorio };
+/**
+ * Cria uma embed DECORADA com divisores temáticos e formatação visual aprimorada.
+ * Use esta função para todos os comandos que precisam de mais brilho.
+ * @param {object} opcoes - Mesmos parâmetros de criarEmbed
+ * @param {boolean} [opcoes.divisores=true] - Adiciona divisores bolinhas antes/depois da descrição
+ */
+function criarEmbedDecorada({ titulo, descricao, cor, rodape, thumbnail, image, semTimestamp, divisores = true }) {
+  const descFormatada = divisores && descricao
+    ? `${THEME.div.bolinhas}\n\n${descricao}\n\n${THEME.div.bolinhas}`
+    : descricao;
+
+  const embed = new EmbedBuilder()
+    .setColor(cor || THEME.corPrincipal)
+    .setTitle(titulo ? `${THEME.iconeFooter}  ${titulo}` : null)
+    .setDescription(descFormatada)
+    .setFooter({ text: rodape || rodapeAleatorio() });
+  if (!semTimestamp) embed.setTimestamp();
+  if (thumbnail) embed.setThumbnail(thumbnail);
+  if (image) embed.setImage(image);
+  return embed;
+}
+
+module.exports = { THEME, criarEmbed, criarEmbedDecorada, rodapeAleatorio };

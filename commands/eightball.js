@@ -1,6 +1,7 @@
 const { ActionRowBuilder, ButtonStyle } = require('discord.js');
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { botao } = require('../utils/ui');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 const RESPOSTAS = [
   'Sim, meu favorito~ ♡',
@@ -24,7 +25,7 @@ function embed8(pergunta, autor) {
   const resposta = RESPOSTAS[Math.floor(Math.random() * RESPOSTAS.length)];
   return criarEmbed({
     titulo: '🔮 A Mila consultou a bolinha mágica',
-    descricao: `> ${pergunta}\n\n${THEME.div.linha}\n\n**${resposta}**`,
+    descricao: `${THEME.div.bolinhas}\n\n> ${pergunta}\n\n${THEME.div.linha}\n\n**${resposta}**\n\n${THEME.div.estrelado}`,
     cor: THEME.corPrincipal,
     rodape: rodapeAleatorio(),
   });
@@ -33,6 +34,7 @@ function embed8(pergunta, autor) {
 module.exports = {
   data: { name: '8ball', description: 'A bola mágica responde sua pergunta' },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 1000);
     const pergunta = interaction.options.getString('pergunta');
     const row = new ActionRowBuilder().addComponents(
       botao('🔄 Perguntar de novo', '8ball_reroll', ButtonStyle.Primary, '🔄')

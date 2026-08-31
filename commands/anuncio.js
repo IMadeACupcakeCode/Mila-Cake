@@ -3,6 +3,7 @@ const { PermissionFlagsBits } = require('discord.js');
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { obterConfig, TIPOS_ANUNCIO } = require('../utils/servidorStore');
 const { isStaff } = require('../utils/perms');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 // Rótulos para cada tipo de anúncio
 const ROTULOS = {
@@ -17,6 +18,7 @@ module.exports = {
   data: { name: 'anuncio', description: '📡 Envia um anúncio — Mila Broadcast' },
 
   async execute(interaction, client) {
+    await mostrarDigitando(interaction.channel, 1000);
     const guildId = interaction.guildId;
 
     // Risco original: qualquer usuário podia enviar anúncios, incluindo @everyone.
@@ -99,7 +101,7 @@ module.exports = {
 
     const embedOk = criarEmbed({
       titulo: 'Anúncio enviado',
-      descricao: `Seu anúncio do tipo **${tipo}** foi para ${canal}.`,
+      descricao: `${THEME.div.bolinhas}\n\nSeu anúncio do tipo **${tipo}** foi para ${canal}.\n\n${THEME.div.coracao}`,
       cor: THEME.corSucesso,
     });
     return interaction.reply({ embeds: [embedOk], ephemeral: true });

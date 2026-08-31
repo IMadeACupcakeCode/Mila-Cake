@@ -5,6 +5,7 @@ const { THEME } = require('./utils/theme');
 const { reagendarTodosLembretes } = require('./utils/agendador');
 const { handlePrefix } = require('./utils/prefix');
 const { handleReaction } = require('./utils/guerraManager');
+const logger = require('./utils/logger');
 
 const { DISCORD_TOKEN } = process.env;
 
@@ -132,14 +133,11 @@ client.once('ready', () => {
     '   ║║   ║║║║║╚══╗║║║╚╗',
     '   ╚╝   ╚╝╚╝╚═══╝╚╝╚═╝',
     '',
-    `  ${THEME.iconeFooter}  ${THEME.nome}`,
-    `  ♡  Estou online como ${client.user.tag}`,
-    `  ♡  Servindo ${client.guilds.cache.size} servidor(es)`,
-    '',
-    `${'─'.repeat(58)}`,
-    '',
   ].join('\n');
   console.log(banner);
+
+  // ⋆｡°✩ Log decorado do startup
+  logger.logInicio(THEME.nome, client.user.tag, client.guilds.cache.size);
 
   client.user.setPresence({
     activities: [{ name: 'você, meu favorito~ ♡', type: ActivityType.Watching }],
@@ -829,27 +827,22 @@ function bannerShutdown() {
     '   ║║║╚╗║║ ║║║╚══╗║╚═╝║║║║╚╗',
     '   ╚╝╚═╝╚╝ ╚╝╚═══╝╚═══╝╚╝╚═╝',
     '',
-    `  ${THEME.iconeFooter}  ${THEME.nome}`,
-    '  ♡  Desligando... volto logo, meu favorito~ ♡',
-    '',
-    `${'─'.repeat(58)}`,
-    '',
   ].join('\n');
 }
 
 process.on('SIGINT', async () => {
   console.log(bannerShutdown());
-  console.log(`  🔌 Avisando servidores...`);
+  logger.aviso(`${THEME.nome} desligando — avisando servidores...`);
   await avisarShutdown(client);
-  console.log(`  ✅ Avisos enviados. Saindo...`);
+  logger.sucesso(`Avisos enviados. Volto logo, meu favorito~ ♡`);
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log(bannerShutdown());
-  console.log(`  🔌 Avisando servidores...`);
+  logger.aviso(`${THEME.nome} desligando — avisando servidores...`);
   await avisarShutdown(client);
-  console.log(`  ✅ Avisos enviados. Saindo...`);
+  logger.sucesso(`Avisos enviados. Volto logo, meu favorito~ ♡`);
   process.exit(0);
 });
 

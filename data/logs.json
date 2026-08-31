@@ -1,0 +1,57 @@
+[
+  {
+    "ts": "2026-08-31T20:01:15.698Z",
+    "nivel": "cmd",
+    "mensagem": "$codex executado",
+    "usuario": "acupcakecatsocial",
+    "userId": null,
+    "canal": "⚖’›ˏˋ「comandos」ˎˊ",
+    "canalId": null,
+    "guildId": null,
+    "comando": "$codex"
+  },
+  {
+    "ts": "2026-08-31T20:01:36.177Z",
+    "nivel": "cmd",
+    "mensagem": "$moeda executado",
+    "usuario": "acupcakecatsocial",
+    "userId": null,
+    "canal": "⚖’›ˏˋ「comandos」ˎˊ",
+    "canalId": null,
+    "guildId": null,
+    "comando": "$moeda"
+  },
+  {
+    "ts": "2026-08-31T20:01:48.985Z",
+    "nivel": "cmd",
+    "mensagem": "$status executado",
+    "usuario": "acupcakecatsocial",
+    "userId": null,
+    "canal": "⚖’›ˏˋ「comandos」ˎˊ",
+    "canalId": null,
+    "guildId": null,
+    "comando": "$status"
+  },
+  {
+    "ts": "2026-08-31T20:02:04.721Z",
+    "nivel": "cmd",
+    "mensagem": "$antiship executado",
+    "usuario": "acupcakecatsocial",
+    "userId": null,
+    "canal": "⚖’›ˏˋ「comandos」ˎˊ",
+    "canalId": null,
+    "guildId": null,
+    "comando": "$antiship"
+  },
+  {
+    "ts": "2026-08-31T20:20:37.827Z",
+    "nivel": "cmd",
+    "mensagem": "$wa executado",
+    "usuario": "44byss.",
+    "userId": null,
+    "canal": "ᨓ。mudae。∩⑅∩",
+    "canalId": null,
+    "guildId": null,
+    "comando": "$wa"
+  }
+]

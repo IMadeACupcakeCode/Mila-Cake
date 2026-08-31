@@ -10,6 +10,7 @@ const {
 } = require('discord.js');
 const { criarEmbed, THEME } = require('../utils/theme');
 const { isStaff } = require('../utils/perms');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 const { isGuildStaff, presenceStatus, isOnline, STATUS_EMOJI, buildMembroEmbed } = require('../utils/membroEmbed');
 const { salvarSnapshot, obterMarcacoes, obterHistorico, avaliarRisco } = require('../utils/segurancaStore');
 const { clientCache, presenceMap } = require('../utils/cache');
@@ -192,12 +193,15 @@ function buildPainelEmbed(stats, view, paginaInfo, termo, warning) {
   const embed = criarEmbed({
     titulo: '🛡️ SecurityBreach — Painel de Segurança',
     descricao:
+      `${THEME.div.bolinhas}\n\n` +
       `**Total no cache:** ${stats.total}\n` +
       `**Humanos:** ${stats.humans}  •  **Bots:** ${stats.bots}\n` +
       `**Staff:** ${stats.staff}\n` +
       `**🟢 Online:** ${stats.online}  •  **⚪ Offline/Inv:** ${stats.offline}\n` +
-      `**🚨 Suspeitos/histórico:** ${stats.suspeitos}`,
+      `**🚨 Suspeitos/histórico:** ${stats.suspeitos}\n\n` +
+      `${THEME.div.bolinhas}`,
     cor: THEME.corPrincipal,
+    rodape: `${THEME.nome} vigia cada movimento~ ♡`,
   });
 
   embed.addFields({ name: '🔎 Visão atual', value: VIEW_LABELS[view] || VIEW_LABELS.all, inline: false });
@@ -222,6 +226,9 @@ module.exports = {
   data: { name: 'securitybreach', description: '🛡️ Painel de segurança staff: visão geral completa do servidor' },
 
   async execute(interaction) {
+    // ⋆｡°✩ Typing indicator enquanto carrega dados
+    mostrarDigitando(interaction.channel, 1500).catch(() => {});
+
     if (!isStaff(interaction.member)) {
       return interaction.reply({
         embeds: [criarEmbed({ titulo: 'Acesso negado', descricao: 'Somente staff pode usar este comando.', cor: THEME.corErro })],

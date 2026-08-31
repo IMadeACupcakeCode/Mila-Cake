@@ -1,5 +1,6 @@
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { msg, raras } = require('../utils/antishipMensagens');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 function barraAnti(pct) {
   const vazio = Math.round(pct / 10);
@@ -9,6 +10,7 @@ function barraAnti(pct) {
 module.exports = {
   data: { name: 'antiship', description: 'Calcula a incompatibilidade entre dois membros — o oposto de $ship' },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 900);
     const u1 = interaction.options.getUser('usuario1');
     const u2 = interaction.options.getUser('usuario2');
     const seed = (BigInt(u1.id) ^ BigInt(u2.id)).toString();
@@ -26,9 +28,11 @@ module.exports = {
     const embed = criarEmbed({
       titulo: `💀 Anti-Ship: ${u1.username} × ${u2.username}`,
       descricao:
+        `${THEME.div.bolinhas}\n\n` +
         `**${antiPct}%** de incompatibilidade\n\n` +
         `${barraAnti(antiPct)}\n\n` +
-        mensagem,
+        mensagem +
+        `\n\n${THEME.div.estrelado}`,
       cor: THEME.corErro,
       rodape: rodapeAleatorio(),
     });

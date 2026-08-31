@@ -1,6 +1,7 @@
 const { EmbedBuilder } = require('discord.js');
 const { criarEmbed, THEME } = require('../utils/theme');
 const { isStaff } = require('../utils/perms');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
   data: { name: 'membros', description: '👥 Painel completo: totais, bots, staff, entradas/saídas do dia' },
@@ -10,6 +11,9 @@ module.exports = {
     if (!isStaff(interaction.member)) {
       return interaction.reply({ embeds: [criarEmbed({ titulo: 'Acesso negado', descricao: 'Somente staff pode usar este comando.', cor: THEME.corErro })], ephemeral: true });
     }
+
+    // ⋆｡°✩ Typing indicator enquanto carrega
+    mostrarDigitando(interaction.channel, 1200).catch(() => {});
 
     // Tenta carregar o máximo possível do servidor para contar membros e cargos corretamente.
     await guild.members.fetch().catch(() => {});
@@ -57,16 +61,20 @@ module.exports = {
     });
 
     const descricao =
+      `${THEME.div.bolinhas}\n\n` +
       `**Total:** \`${total}\`\n` +
       `**Humanos:** \`${humanos}\`\n` +
       `**Bots:** \`${bots.length}\`\n` +
       `**Staff:** \`${staff.length}\`\n\n` +
-      `**Hoje:** +${entradasHoje} entradas • ${saidasHoje} saídas`;
+      `${THEME.div.coracao}\n\n` +
+      `**Hoje:** +${entradasHoje} entradas • ${saidasHoje} saídas\n\n` +
+      `${THEME.div.bolinhas}`;
 
     const embedFinal = criarEmbed({
       titulo: `👥 Painel de membros — ${guild.name}`,
       descricao,
       cor: THEME.corPrincipal,
+      rodape: `${THEME.nome} mapeou todos os membros~ ♡`,
     });
 
     campos.forEach((c) => {

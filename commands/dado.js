@@ -1,4 +1,5 @@
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 // Interpreta notação de dados: NdM+X ou NdM-X (ex: 1d20, 2d6+3, 4d8-1)
 function rolarDados(notacao) {
@@ -28,6 +29,7 @@ module.exports = {
   data: { name: 'dado', description: 'Rola dados no estilo NdM (ex: 1d20, 2d6+3)' },
 
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 800);
     const notacao = interaction.options.getString('notacao');
     const resultado = rolarDados(notacao);
 
@@ -50,9 +52,11 @@ module.exports = {
       modificador !== 0 ? `\n**Modificador:** ${modificador > 0 ? '+' : ''}${modificador}` : '';
 
     const descricao =
+      `${THEME.div.bolinhas}\n\n` +
       `${THEME.iconeFooter} Rolando **${quantidade}d${lados}**...\n\n` +
       `${linhaDados}${linhaModificador}\n\n` +
-      `**✦ Resultado: \`${total}\`**`;
+      `**✦ Resultado: \`${total}\`**\n\n` +
+      `${THEME.div.estrelado}`;
 
     const embed = criarEmbed({
       titulo: '🎲 Rolando os dados...',

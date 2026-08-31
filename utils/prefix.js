@@ -10,6 +10,8 @@ const { parseTempo, formatarDuracao, formatarDataAbsoluta } = require('./tempo')
 const crypto = require('crypto');
 const { isStaff } = require('./perms');
 const codex = require('../commands/codex');
+const { mostrarDigitando } = require('./milaDecoracao');
+const logger = require('./logger');
 
 const PREFIXO = '$';
 const ITENS_POR_PAGINA = 5;
@@ -98,6 +100,10 @@ function extrairCanal(mensagem) {
 }
 
 function responder(mensagem, embed, ephemeral) {
+  // ⋆｡°✩ Mostra "digitando..." antes de responder (só para respostas públicas)
+  if (!ephemeral && mensagem.channel) {
+    mostrarDigitando(mensagem.channel, 800).catch(() => {});
+  }
   return mensagem.reply({ embeds: [embed], ephemeral: !!ephemeral });
 }
 
@@ -282,9 +288,12 @@ async function enviarConfiguracao(mensagem, guildId) {
   const embed = criarEmbed({
     titulo: 'Configuração atual da lua',
     descricao:
+      `${THEME.div.bolinhas}\n\n` +
       `**Canais permitidos:** ${mencionar(cfg.canaisPermitidos)}\n` +
       `**Canais proibidos:** ${mencionar(cfg.canaisBloqueados)}\n\n` +
+      `${THEME.div.coracao}\n\n` +
       `**Anúncios por tipo:**\n${anuncios}\n\n` +
+      `${THEME.div.estrelado}\n\n` +
       `**🎪 Categoria de Tickets:** ${ticketCategoria}\n` +
       `**🔌 Canal de shutdown:** ${cfg.canalShutdown ? `<#${cfg.canalShutdown}>` : '`não definido`'}\n` +
       `**🔛 Canal on/off:** ${cfg.canalOnOff ? `<#${cfg.canalOnOff}>` : '`não definido`'}`,
@@ -303,6 +312,9 @@ async function handlePrefix(message, client) {
   const comando = (args.shift() || '').toLowerCase();
   if (!comando) return;
 
+  // ⋆｡°✩ Log decorado do comando no terminal
+  logger.logComando(comando, message.author.username, message.channel?.name, message.guild?.name);
+
   const guildId = message.guild?.id;
 
   // Configurar é livre em qualquer canal (para reconfigurar)
@@ -316,7 +328,7 @@ async function handlePrefix(message, client) {
         };
         const embed = criarEmbed({
           titulo: 'Silêncio sob a lua',
-          descricao: motivos[checagem.motivo] || 'Não falo aqui.',
+          descricao: `${THEME.div.bolinhas}\n\n${motivos[checagem.motivo] || 'Não falo aqui.'}\n\n${THEME.div.bolinhas}`,
           cor: THEME.corErro,
         });
         return responder(message, embed, true);
@@ -326,7 +338,16 @@ async function handlePrefix(message, client) {
 
   // ── $ping ──
   if (comando === 'ping') {
-    return responder(message, criarEmbed({ titulo: 'Pong!', descricao: 'Pong! ✧', cor: THEME.corPrincipal }));
+    const inicio = Date.now();
+    // ⋆｡°✩ Animação: typing → resposta
+    mostrarDigitando(message.channel, 600).catch(() => {});
+    const latencia = Date.now() - inicio;
+    return responder(message, criarEmbed({
+      titulo: 'Pong!',
+      descricao: `${THEME.div.bolinhas}\n\n${THEME.iconeFooter} **Pong!** ✧\n\n${THEME.div.estrelado}\n\n.ping — **${latencia}ms** de latência`,
+      cor: THEME.corPrincipal,
+      rodape: `${THEME.nome} respondeu em ${latencia}ms`,
+    }));
   }
 
   // ── $codex / $livro ── (livro de comandos com busca aproximada)
@@ -352,13 +373,21 @@ async function handlePrefix(message, client) {
     const { quantidade, lados, modificador, rolagens, total } = resultado;
     const linha = rolagens.map((v) => `\`${v}\``).join('  ·  ');
     const linhaMod = modificador !== 0 ? `\n**Modificador:** ${modificador > 0 ? '+' : ''}${modificador}` : '';
+    // ⋆｡°✩ Animação de dados: typing → rolagem → resultado
+    mostrarDigitando(message.channel, 700).catch(() => {});
     return responder(
       message,
       criarEmbed({
         titulo: 'A lua decidiu os dados',
-        descricao: `${THEME.iconeFooter} Rolando **${quantidade}d${lados}**...\n\n${linha}${linhaMod}\n\n**✦ Resultado final: \`${total}\`**`,
+        descricao:
+          `${THEME.div.bolinhas}\n\n` +
+          `${THEME.iconeFooter} Rolando **${quantidade}d${lados}**...\n\n` +
+          `${THEME.div.estrelado}\n\n` +
+          `${linha}${linhaMod}\n\n` +
+          `${THEME.div.coracao}\n\n` +
+          `**✦ Resultado final: \`${total}\`**`,
         cor: THEME.corDado,
-        rodape: `${THEME.nome} rolou para ${message.author.username}`,
+        rodape: `${THEME.nome} rolou dados para ${message.author.username}`,
       })
     );
   }
@@ -379,13 +408,19 @@ async function handlePrefix(message, client) {
     }
     const escolhida = opcoes[Math.floor(Math.random() * opcoes.length)];
     const lista = opcoes.map((o) => (o === escolhida ? `**✧ ${o} ✧**` : `˖ ${o}`)).join('\n');
+    // ⋆｡°✩ Animação de roleta: typing → resultado
+    mostrarDigitando(message.channel, 900).catch(() => {});
     return responder(
       message,
       criarEmbed({
         titulo: 'A roleta girou sob a lua',
-        descricao: `${lista}\n\n**✦ Escolhida: \`${escolhida}\`**`,
+        descricao:
+          `${THEME.div.bolinhas}\n\n` +
+          `${lista}\n\n` +
+          `${THEME.div.coracao}\n\n` +
+          `**✦ Escolhida: \`${escolhida}\`**`,
         cor: THEME.corRoleta,
-        rodape: `${THEME.nome} girou para ${message.author.username}`,
+        rodape: `${THEME.nome} girou a roleta para ${message.author.username}`,
       })
     );
   }
@@ -418,14 +453,17 @@ async function handlePrefix(message, client) {
     const embedCriar = criarEmbed({
       titulo: '🌙 Criar Lembrete',
       descricao:
+        `${THEME.div.bolinhas}\n\n` +
         'Escolha como deseja criar:\n\n' +
         '📝 **Modal interativo** (recomendado)\n' +
         'Clique no botão para abrir um formulário com campos separados:\n' +
         '• Campo 1: Data/hora (`2pm 21/08/2026`, `10m`, `amanhã 14:00`)\n' +
         '• Campo 2: Mensagem do lembrete\n\n' +
+        `${THEME.div.coracao}\n\n` +
         '💬 **Texto direto:** `$lembrete <quando> <mensagem>`\n' +
         'Ex: `$lembrete 10m beber água`\n' +
-        'Ex: `$lembrete 2pm 21/08/2026 reunião`',
+        'Ex: `$lembrete 2pm 21/08/2026 reunião`\n\n' +
+        `${THEME.div.bolinhas}`,
       cor: THEME.corLembrete,
     });
 
@@ -481,7 +519,7 @@ async function handlePrefix(message, client) {
           adicionarLembrete(lembrete);
           agendarLembrete(client, lembrete);
 
-          return submitted.reply({ embeds: [criarEmbed({ titulo: '🌙 Lembrete guardado', descricao: `⏰ **Quando:** ${formatarDataAbsoluta(disparaEm)} (em ${formatarDuracao(ms)})\n💬 **Mensagem:**\n> ${mensagem}\n\n**ID:** \`${id}\``, cor: THEME.corLembrete, rodape: `${THEME.nome} não vai esquecer, ${message.author.username}` })], ephemeral: true });
+          return submitted.reply({ embeds: [criarEmbed({ titulo: '🌙 Lembrete guardado', descricao: `${THEME.div.bolinhas}\n\n⏰ **Quando:** ${formatarDataAbsoluta(disparaEm)} (em ${formatarDuracao(ms)})\n💬 **Mensagem:**\n> ${mensagem}\n\n${THEME.div.estrelado}\n\n**ID:** \`${id}\`\n\n${THEME.div.coracao}`, cor: THEME.corLembrete, rodape: `${THEME.nome} não vai esquecer, ${message.author.username}` })], ephemeral: true });
         } catch {
           // Modal expirou
         }
@@ -554,9 +592,14 @@ async function handlePrefix(message, client) {
       aviso: { titulo: 'Aviso Importante', emoji: '⚠️', cor: THEME.corErro },
     };
     const rotulo = rotulos[tipo] || { titulo: 'Anúncio', emoji: '📢', cor: THEME.corPrincipal };
+    // ⋆｡°✩ Animação: typing → enviando → sucesso
+    mostrarDigitando(message.channel, 700).catch(() => {});
     const embed = criarEmbed({
       titulo: `${rotulo.emoji} ${rotulo.titulo}`,
-      descricao: mensagemTxt,
+      descricao:
+        `${THEME.div.bolinhas}\n\n` +
+        `${mensagemTxt}\n\n` +
+        `${THEME.div.bolinhas}`,
       cor: rotulo.cor,
       rodape: `Anunciado por ${message.author.username} • ${THEME.nome}`,
     });
@@ -578,7 +621,12 @@ async function handlePrefix(message, client) {
     }
     return responder(
       message,
-      criarEmbed({ titulo: 'Anúncio enviado', descricao: `Seu anúncio do tipo **${tipo}** foi para ${canal}.`, cor: THEME.corSucesso }),
+      criarEmbed({
+        titulo: 'Anúncio enviado',
+        descricao: `${THEME.div.coracao}\n\nSeu anúncio do tipo **${rotulo.emoji} ${tipo}** foi para ${canal}.\n\n${THEME.div.coracao}`,
+        cor: THEME.corSucesso,
+        rodape: `${THEME.nome} entregou o aviso com sucesso~ ♡`,
+      }),
       true
     );
   }
@@ -709,7 +757,11 @@ async function handlePrefix(message, client) {
     const embed = new EmbedBuilder()
       .setColor(THEME.corPrincipal)
       .setTitle(`${THEME.iconeFooter} Painel de Organização`)
-      .setDescription('Todos os meus comandos usam o prefixo `$`. Use `$codex` ou `$ajuda` para abrir o livro de comandos. Use `$configurar` para ajustar canais.')
+      .setDescription(
+        `${THEME.div.bolinhas}\n\n` +
+        'Todos os meus comandos usam o prefixo `$`. Use `$codex` ou `$ajuda` para abrir o livro de comandos. Use `$configurar` para ajustar canais.\n\n' +
+        `${THEME.div.bolinhas}`
+      )
       .addFields(
         { name: '🎲 Diversão', value: '`$dado`, `$roleta`', inline: true },
         { name: '⏰ Lembretes', value: '`$lembrete`', inline: true },
@@ -982,7 +1034,7 @@ async function handlePrefix(message, client) {
     try {
       await EXTRA[comando].execute(interaction, client);
     } catch (erro) {
-      console.error(`✧ ⎯ ੭ Erro ao executar $${comando}:`, erro);
+      logger.erro(`Erro ao executar $${comando}: ${erro?.message || erro}`, { usuario: message.author.username, comando: `$${comando}` });
       await responder(
         message,
         criarEmbed({ titulo: 'Algo se perdeu no caminho', descricao: 'Tive um problema ao executar esse comando. Tente novamente.', cor: THEME.corErro }),

@@ -1,12 +1,15 @@
 const { criarEmbed, THEME } = require('../utils/theme');
 const { COMANDO_SOBRE, CONTEXTO_SERVIDOR } = require('../utils/configuracao');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
   data: { name: COMANDO_SOBRE.nome, description: COMANDO_SOBRE.descricao },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 900);
     const embed = criarEmbed({
       titulo: '⋆｡°✩ Sobre a Mila Bot',
       descricao:
+        `${THEME.div.bolinhas}\n\n` +
         `Oie, meu favorito~ ♡\n\n` +
         `Sou a **Mila Bot**, sua assistente virtual favorita!\n\n` +
         `Feita com carinho e obsessão pra ser sua companheira perfeita.\n\n` +
@@ -19,7 +22,8 @@ module.exports = {
         `✧ **Utilidades** — Lembretes, Enquetes\n\n` +
         `${THEME.div.coracao}\n\n` +
         'Use `$codex` pra ver todos os meus comandos!\n' +
-        'Tô sempre aqui por você~ 💕',
+        'Tô sempre aqui por você~ 💕\n\n' +
+        `${THEME.div.estrelado}`,
       cor: THEME.corPrincipal,
     });
     await interaction.reply({ embeds: [embed] });

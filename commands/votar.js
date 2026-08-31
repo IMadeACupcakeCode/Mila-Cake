@@ -3,6 +3,7 @@
 const { criarEmbed, THEME } = require('../utils/theme');
 const { botao } = require('../utils/ui');
 const { parseTempo, formatarDuracao, formatarDataAbsoluta } = require('../utils/tempo');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 const EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'];
 const DEFAULT_DURATION_MS = 5 * 60 * 1000; // 5 minutos (padrão automático)
@@ -72,6 +73,7 @@ function parsePollInput(pergunta, opcoesRaw, duracaoRaw) {
 module.exports = {
   data: { name: 'votar', description: '🗳️ Cria uma enquete rápida com botões e tempo customizável' },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 800);
     let pergunta = interaction.options.getString('pergunta');
     let opcoesRaw = interaction.options.getString('opcoes');
     let duracaoRaw = interaction.options.getString('duracao');

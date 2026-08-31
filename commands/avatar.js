@@ -1,15 +1,17 @@
 const { ActionRowBuilder, ButtonStyle } = require('discord.js');
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { botao } = require('../utils/ui');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
   data: { name: 'avatar', description: '🖼️ Mostra o avatar de um usuário em tamanho grande' },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 700);
     const user = interaction.options.getUser('usuario') || interaction.user;
     const url = user.displayAvatarURL({ size: 512 });
     const embed = criarEmbed({
       titulo: `🖼️ Avatar de ${user.username}`,
-      descricao: `[🔗 Abrir em tela cheia](${url})`,
+      descricao: `${THEME.div.bolinhas}\n\n[🔗 Abrir em tela cheia](${url})\n\n${THEME.div.estrelado}`,
       cor: THEME.corPrincipal,
       rodape: rodapeAleatorio(),
     }).setImage(url);

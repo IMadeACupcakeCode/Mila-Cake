@@ -1,5 +1,6 @@
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { msg, raras } = require('../utils/shipMensagens');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 function barra(pct) {
   const cheio = Math.round(pct / 10);
@@ -9,6 +10,7 @@ function barra(pct) {
 module.exports = {
   data: { name: 'ship', description: 'Calcula a compatibilidade amorosa entre dois membros' },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 900);
     const u1 = interaction.options.getUser('usuario1');
     const u2 = interaction.options.getUser('usuario2');
     const seed = (BigInt(u1.id) ^ BigInt(u2.id)).toString();
@@ -24,9 +26,11 @@ module.exports = {
     const embed = criarEmbed({
       titulo: `💞 Ship: ${u1.username} × ${u2.username}`,
       descricao:
+        `${THEME.div.bolinhas}\n\n` +
         `**${pct}%** de compatibilidade\n\n` +
         `${barra(pct)}\n\n` +
-        mensagem,
+        mensagem +
+        `\n\n${THEME.div.coracao}`,
       cor: THEME.corPrincipal,
       rodape: rodapeAleatorio(),
     });

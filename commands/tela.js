@@ -16,6 +16,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { criarEmbed, THEME } = require('../utils/theme');
 const { estadoTela, verificarDiagnostico } = require('../utils/telaStore');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 const ATIVO = '●';
 
@@ -138,11 +139,15 @@ function renderizarEstado({ verbo = '', diag = null }) {
     cor: THEME.corSucesso,
     titulo: '📺 Sala de Tela — compartilhamento de tela',
     descricao: [
+      `${THEME.div.bolinhas}`,
+      '',
       `${verbo}O camarada que quer **mostrar a tela** escolhe um canal de voz e clica em **Compartilhar tela**; todo mundo que está na call assiste.`,
       '',
       `📡 **O servidor está instalado** e este é o estado atual:`,
       '',
       ...linhas,
+      '',
+      `${THEME.div.estrelado}`,
     ].join('\n'),
   };
 }
@@ -209,6 +214,7 @@ function botoes() {
 }
 
 async function execute(interaction, client = null) {
+  await mostrarDigitando(interaction.channel, 1000);
   // Diagnóstico completo (local + público) para o embed inicial já ser assertivo.
   const diag = await verificarDiagnostico();
   const inicial = renderizarEstado({ diag });

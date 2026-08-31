@@ -1,5 +1,6 @@
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { botao } = require('../utils/ui');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 function caraOuCoroa() {
   return Math.random() < 0.5 ? 'Cara' : 'Coroa';
@@ -8,7 +9,7 @@ function caraOuCoroa() {
 function embedMoeda(resultado, autor) {
   return criarEmbed({
     titulo: '🪙 A moeda girou...',
-    descricao: `**${resultado}**! ${resultado === 'Cara' ? '🙂' : '♡'}\n\n${THEME.div.linha}`,
+    descricao: `${THEME.div.bolinhas}\n\n**${resultado}**! ${resultado === 'Cara' ? '🙂' : '♡'}\n\n${THEME.div.linha}`,
     cor: THEME.corSecundario,
     rodape: rodapeAleatorio(),
   });
@@ -17,6 +18,7 @@ function embedMoeda(resultado, autor) {
 module.exports = {
   data: { name: 'moeda', description: 'Cara ou coroa, com botão para jogar de novo' },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 800);
     const resultado = caraOuCoroa();
     const row = new (require('discord.js').ActionRowBuilder)().addComponents(
       botao('🔄 Jogar de novo', 'moeda_reroll', require('discord.js').ButtonStyle.Primary, '🔄')

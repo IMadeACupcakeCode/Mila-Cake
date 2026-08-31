@@ -1,10 +1,12 @@
 const { criarEmbed, THEME } = require('../utils/theme');
 const { filtrarPorUsuario, todas } = require('../utils/logger');
 const { isStaff } = require('../utils/perms');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
   data: { name: 'logs', description: '📜 Mostra os logs da bot (filtre por uma pessoa específica)' },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 600);
     // Risco original: qualquer usuário podia ler logs contendo IDs de usuário
     // e histórico de comandos. Exige staff.
     if (!isStaff(interaction.member)) {
@@ -49,7 +51,7 @@ module.exports = {
       embeds: [
         criarEmbed({
           titulo,
-          descricao: linhas,
+          descricao: `${THEME.div.bolinhas}\n\n${linhas}\n\n${THEME.div.estrelado}`,
           cor: THEME.corPrincipal,
           rodape: `${THEME.nome} registra tudo pra você~ ♡`,
         }),

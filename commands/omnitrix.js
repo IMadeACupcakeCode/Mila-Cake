@@ -9,6 +9,7 @@ const {
 } = require('discord.js');
 const { criarEmbed, THEME } = require('../utils/theme');
 const { isStaff } = require('../utils/perms');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 const { obterHistorico, avaliarRisco, marcarSuspeito, registrarSuspensao, obterMarcacoes } = require('../utils/segurancaStore');
 const { clientCache } = require('../utils/cache');
 const { formatarDataAbsoluta } = require('../utils/tempo');
@@ -77,10 +78,10 @@ function buildManualEmbed(termo) {
     titulo: '🌟 Omnitrix — Manual de Segurança 🌟',
     descricao:
       t && embeds.length
-        ? `🔎 Resultados para \`${termo}\`:\n\n` + lista.map((s) => `**${s.titulo}**\n${s.texto}`).join('\n\n')
-        : 'O **Omnitrix** é o centro de controle de segurança da Mila Bot. Abaixo está o guia completo.\n\n' +
+        ? `${THEME.div.bolinhas}\n\n🔎 Resultados para \`${termo}\`:\n\n` + lista.map((s) => `**${s.titulo}**\n${s.texto}`).join('\n\n') + `\n\n${THEME.div.estrelado}`
+        : `${THEME.div.bolinhas}\n\nO **Omnitrix** é o centro de controle de segurança da Mila Bot. Abaixo está o guia completo.\n\n` +
           lista.map((s) => `**${s.titulo}**\n${s.texto}`).join('\n\n') +
-          '\n\n💡 Use o botão 🔍 para buscar um termo específico no manual, ou 👤 para abrir o histórico de um membro.',
+          `\n\n💡 Use o botão 🔍 para buscar um termo específico no manual, ou 👤 para abrir o histórico de um membro.\n\n${THEME.div.coracao}`,
     cor: THEME.corPrincipal,
   });
   return embed;
@@ -250,6 +251,7 @@ module.exports = {
   data: { name: 'omnitrix', description: '🌟 Manual de segurança e histórico de membros' },
 
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 1200);
     if (!isStaff(interaction.member)) {
       return interaction.reply({
         embeds: [criarEmbed({ titulo: 'Acesso negado', descricao: 'Somente staff pode usar este comando.', cor: THEME.corErro })],

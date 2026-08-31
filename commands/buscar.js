@@ -2,6 +2,7 @@ const { SlashCommandBuilder } = require('discord.js');
 
 const { criarEmbed, THEME } = require('../utils/theme');
 const { isStaff } = require('../utils/perms');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 const { clientCache } = require('../utils/cache');
 const { buildMembroEmbed, isGuildStaff } = require('../utils/membroEmbed');
 
@@ -149,6 +150,9 @@ module.exports = {
 
   // Quando o usuário escolhe uma sugestão e envia o comando
   async execute(interaction) {
+    // ⋆｡°✩ Typing indicator
+    mostrarDigitando(interaction.channel, 600).catch(() => {});
+
     if (!isStaff(interaction.member)) {
       return interaction.reply({
         embeds: [criarEmbed({ titulo: 'Acesso negado', descricao: 'Somente staff pode usar este comando.', cor: THEME.corErro })],

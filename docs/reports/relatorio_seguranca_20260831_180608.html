@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório de Auditoria de Segurança — Mila Bot</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #fff;
+            padding: 40px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #FF69B4;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #FF69B4;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        .header .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+        .section {
+            margin-bottom: 30px;
+            page-break-inside: avoid;
+        }
+        .section h2 {
+            color: #FF69B4;
+            border-bottom: 2px solid #FFD700;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #FFF0F5 0%, #FFE4E1 100%);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid #FFB6C1;
+        }
+        .stat-card .number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #FF69B4;
+            display: block;
+        }
+        .stat-card .label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .warning-card {
+            background: linear-gradient(135deg, #FFF3CD 0%, #FFEAA7 100%);
+            border-color: #FFC107;
+        }
+        .warning-card .number {
+            color: #FF9800;
+        }
+        .danger-card {
+            background: linear-gradient(135deg, #FFE0E0 0%, #FFCDD2 100%);
+            border-color: #F44336;
+        }
+        .danger-card .number {
+            color: #F44336;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #FF69B4;
+            color: white;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background: #FFF0F5;
+        }
+        tr:hover {
+            background: #FFE4E1;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-success { background: #39FF14; color: #000; }
+        .badge-warning { background: #FFC107; color: #000; }
+        .badge-danger { background: #FF0044; color: #fff; }
+        .badge-info { background: #00CED1; color: #fff; }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #FF69B4;
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+        }
+        .risk-item {
+            background: #FFF3CD;
+            border-left: 4px solid #FFC107;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 0 8px 8px 0;
+        }
+        .risk-item.high {
+            background: #FFE0E0;
+            border-left-color: #F44336;
+        }
+        .recommendation {
+            background: #E8F5E9;
+            border-left: 4px solid #4CAF50;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 0 8px 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ Relatório de Auditoria de Segurança</h1>
+        <div class="subtitle">
+            <strong>Mila Bot</strong> — Análise de Segurança do Servidor<br>
+            Gerado em: 31/08/2026 18:06:08 UTC
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📊 Visão Geral</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="number">51</span>
+                <span class="label">Total de Membros</span>
+            </div>
+            <div class="stat-card">
+                <span class="number">34</span>
+                <span class="label">Humanos</span>
+            </div>
+            <div class="stat-card">
+                <span class="number">17</span>
+                <span class="label">Bots</span>
+            </div>
+            <div class="stat-card warning-card">
+                <span class="number">0</span>
+                <span class="label">Contas Novas (&lt;30 dias)</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🏢 Servidores Monitorados</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID do Servidor</th>
+                    <th>Total</th>
+                    <th>Humanos</th>
+                    <th>Bots</th>
+                    <th>Contas Novas</th>
+                    <th>Última Atualização</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>891693844003971072</code></td>
+                    <td>8</td>
+                    <td>2</td>
+                    <td>6</td>
+                    <td>0</td>
+                    <td>22/08/2026 16:10</td>
+                </tr>
+                <tr>
+                    <td><code>1538724377992888370</code></td>
+                    <td>43</td>
+                    <td>32</td>
+                    <td>11</td>
+                    <td>0</td>
+                    <td>24/08/2026 23:13</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>⚠️ Análise de Riscos</h2>
+        <div class="risk-item high">
+            ⚠️ Servidor 891693844003971072: Mais bots (6) que humanos (2)
+        </div>
+        <div class="risk-item ">
+            ⚠️ Servidor 891693844003971072: 1 membro(s) sem cargo atribuído
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🤖 Bots Detectados</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Tag</th>
+                    <th>ID</th>
+                    <th>Cargo Alto</th>
+                    <th>Criado em</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>rollem</td>
+                    <td>rollem#7705</td>
+                    <td><code>240732567744151553</code></td>
+                    <td>Robozinhos.•°×</td>
+                    <td>26/10/2016 07:05</td>
+                </tr>
+                <tr>
+                    <td>Bongo</td>
+                    <td>Bongo#3445</td>
+                    <td><code>339926969548275722</code></td>
+                    <td>Robozinhos.•°×</td>
+                    <td>27/07/2017 00:28</td>
+                </tr>
+                <tr>
+                    <td>Kashima</td>
+                    <td>Kashima#4514</td>
+                    <td><code>424137718961012737</code></td>
+                    <td>Robozinhos.•°×</td>
+                    <td>16/03/2018 09:31</td>
+                </tr>
+                <tr>
+                    <td>Tupperbox</td>
+                    <td>Tupperbox#4754</td>
+                    <td><code>431544605209788416</code></td>
+                    <td>Robozinhos.•°×</td>
+                    <td>05/04/2018 20:04</td>
+                </tr>
+                <tr>
+                    <td>Count Zero Records</td>
+                    <td>Count Zero Records#5274</td>
+                    <td><code>944116933257732160</code></td>
+                    <td>Robozinhos.•°×</td>
+                    <td>18/02/2022 06:23</td>
+                </tr>
+                <tr>
+                    <td>⎯ ੭📝Mila Cake`</td>
+                    <td>⎯ ੭📝Mila Cake`#7720</td>
+                    <td><code>1495499255497097297</code></td>
+                    <td>Sem cargo</td>
+                    <td>19/04/2026 19:00</td>
+                </tr>
+                <tr>
+                    <td>Rythm</td>
+                    <td>Rythm#3722</td>
+                    <td><code>235088799074484224</code></td>
+                    <td>𝅄  ::  “ Bot's ”</td>
+                    <td>10/10/2016 17:18</td>
+                </tr>
+                <tr>
+                    <td>Confessions</td>
+                    <td>Confessions#1192</td>
+                    <td><code>712011923176030229</code></td>
+                    <td>𝅄  ::  “ Bot's ”</td>
+                    <td>18/05/2020 18:41</td>
+                </tr>
+                <tr>
+                    <td>Carl-bot</td>
+                    <td>Carl-bot#1536</td>
+                    <td><code>235148962103951360</code></td>
+                    <td>𝅄  ::  “ Bot's ”</td>
+                    <td>10/10/2016 21:18</td>
+                </tr>
+                <tr>
+                    <td>Mimu</td>
+                    <td>Mimu#5713</td>
+                    <td><code>493716749342998541</code></td>
+                    <td>𝅄  ::  “ Bot's ”</td>
+                    <td>24/09/2018 09:34</td>
+                </tr>
+                <tr>
+                    <td>Jockie Music</td>
+                    <td>Jockie Music#8158</td>
+                    <td><code>411916947773587456</code></td>
+                    <td>𝅄  ::  “ Bot's ”</td>
+                    <td>10/02/2018 16:10</td>
+                </tr>
+                <tr>
+                    <td>Loritta</td>
+                    <td>Loritta#0219</td>
+                    <td><code>297153970613387264</code></td>
+                    <td>𝅄  ::  “ Bot's ”</td>
+                    <td>30/03/2017 23:43</td>
+                </tr>
+                <tr>
+                    <td>Make it a Quote</td>
+                    <td>Make it a Quote#6660</td>
+                    <td><code>949479338275913799</code></td>
+                    <td>𝅄  ::  “ Bot's ”</td>
+                    <td>05/03/2022 01:31</td>
+                </tr>
+                <tr>
+                    <td>Mudae</td>
+                    <td>Mudae#0807</td>
+                    <td><code>432610292342587392</code></td>
+                    <td>𝅄  ::  “ Bot's ”</td>
+                    <td>08/04/2018 18:38</td>
+                </tr>
+                <tr>
+                    <td>TTS Bot</td>
+                    <td>TTS Bot#3590</td>
+                    <td><code>513423712582762502</code></td>
+                    <td>𝅄  ::  “ Bot's ”</td>
+                    <td>17/11/2018 18:42</td>
+                </tr>
+                <tr>
+                    <td>Menhera Bot</td>
+                    <td>Menhera Bot#2381</td>
+                    <td><code>708014856711962654</code></td>
+                    <td>𝅄  ::  “ Bot's ”</td>
+                    <td>07/05/2020 17:58</td>
+                </tr>
+                <tr>
+                    <td>⎯ ੭📝Mila Cake`</td>
+                    <td>⎯ ੭📝Mila Cake`#7720</td>
+                    <td><code>1495499255497097297</code></td>
+                    <td>𝅄  ::  “ Bot's ”</td>
+                    <td>19/04/2026 19:00</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>👤 Membros Humanos (Amostra)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Tag</th>
+                    <th>ID</th>
+                    <th>Cargo Alto</th>
+                    <th>Idade (dias)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>acupcakecatsocial</td>
+                    <td>acupcakecatsocial</td>
+                    <td><code>475057239485317150</code></td>
+                    <td>O Escritor.•°×</td>
+                    <td style="color: #4CAF50;">2949</td>
+                </tr>
+                <tr>
+                    <td>galaccie</td>
+                    <td>galaccie</td>
+                    <td><code>926920584565227561</code></td>
+                    <td>Sem cargo</td>
+                    <td>1702</td>
+                </tr>
+                <tr>
+                    <td>eusla.047_33904</td>
+                    <td>eusla.047_33904</td>
+                    <td><code>1306106908733870113</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>656</td>
+                </tr>
+                <tr>
+                    <td>.rr4in</td>
+                    <td>.rr4in</td>
+                    <td><code>945008419927126116</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>1653</td>
+                </tr>
+                <tr>
+                    <td>stitch4108</td>
+                    <td>stitch4108</td>
+                    <td><code>915785198807941150</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>1733</td>
+                </tr>
+                <tr>
+                    <td>kodak13_</td>
+                    <td>kodak13_</td>
+                    <td><code>1088114609715679252</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>1258</td>
+                </tr>
+                <tr>
+                    <td>reindre__01277</td>
+                    <td>reindre__01277</td>
+                    <td><code>1479515475216961658</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>178</td>
+                </tr>
+                <tr>
+                    <td>ocyaen</td>
+                    <td>ocyaen</td>
+                    <td><code>1368476533630701608</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>484</td>
+                </tr>
+                <tr>
+                    <td>hikaru_rkl</td>
+                    <td>hikaru_rkl</td>
+                    <td><code>1516515509816791042</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>75</td>
+                </tr>
+                <tr>
+                    <td>fonni</td>
+                    <td>fonni</td>
+                    <td><code>382923865577357315</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td style="color: #4CAF50;">3204</td>
+                </tr>
+                <tr>
+                    <td>calebezera18_25018</td>
+                    <td>calebezera18_25018</td>
+                    <td><code>1408855721214214195</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>373</td>
+                </tr>
+                <tr>
+                    <td>flaxesgtx</td>
+                    <td>flaxesgtx</td>
+                    <td><code>791872306472681472</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td style="color: #4CAF50;">2075</td>
+                </tr>
+                <tr>
+                    <td>sherlockbos999</td>
+                    <td>sherlockbos999</td>
+                    <td><code>1516527607674310656</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>75</td>
+                </tr>
+                <tr>
+                    <td>fodase_morango</td>
+                    <td>fodase_morango</td>
+                    <td><code>955476826321473567</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>1624</td>
+                </tr>
+                <tr>
+                    <td>acupcakecatsocial</td>
+                    <td>acupcakecatsocial</td>
+                    <td><code>475057239485317150</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  𝘿ireção</td>
+                    <td style="color: #4CAF50;">2949</td>
+                </tr>
+                <tr>
+                    <td>juust_mamax</td>
+                    <td>juust_mamax</td>
+                    <td><code>1189599859188183101</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>978</td>
+                </tr>
+                <tr>
+                    <td>neydrag0n</td>
+                    <td>neydrag0n</td>
+                    <td><code>1235750756213194814</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>850</td>
+                </tr>
+                <tr>
+                    <td>elliepe6134</td>
+                    <td>elliepe6134</td>
+                    <td><code>1027376236319739904</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>1425</td>
+                </tr>
+                <tr>
+                    <td>sammyciclista</td>
+                    <td>sammyciclista</td>
+                    <td><code>1358233372362543214</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  𝘿ireção</td>
+                    <td>512</td>
+                </tr>
+                <tr>
+                    <td>papagaio_roxo_69235</td>
+                    <td>papagaio_roxo_69235</td>
+                    <td><code>1365427527220199605</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>492</td>
+                </tr>
+                <tr>
+                    <td>iskra._.x</td>
+                    <td>iskra._.x</td>
+                    <td><code>1124506218615033866</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>1157</td>
+                </tr>
+                <tr>
+                    <td>rockizada</td>
+                    <td>rockizada</td>
+                    <td><code>1249648912244019213</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>812</td>
+                </tr>
+                <tr>
+                    <td>yuuyzx</td>
+                    <td>yuuyzx</td>
+                    <td><code>1261817148989247533</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>778</td>
+                </tr>
+                <tr>
+                    <td>hosh1shin</td>
+                    <td>hosh1shin</td>
+                    <td><code>1391205018564296746</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>421</td>
+                </tr>
+                <tr>
+                    <td>5869410640</td>
+                    <td>5869410640</td>
+                    <td><code>1349460460008636447</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>536</td>
+                </tr>
+                <tr>
+                    <td>1445960186</td>
+                    <td>1445960186</td>
+                    <td><code>1392282726463311952</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td>418</td>
+                </tr>
+                <tr>
+                    <td>44byss.</td>
+                    <td>44byss.</td>
+                    <td><code>1333077917026091028</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  𝘿ireção</td>
+                    <td>582</td>
+                </tr>
+                <tr>
+                    <td>souzaavss</td>
+                    <td>souzaavss</td>
+                    <td><code>805932901879119913</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td style="color: #4CAF50;">2036</td>
+                </tr>
+                <tr>
+                    <td>lyuiz007</td>
+                    <td>lyuiz007</td>
+                    <td><code>629797895482114072</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  ::  “ Alunos ”</td>
+                    <td style="color: #4CAF50;">2522</td>
+                </tr>
+                <tr>
+                    <td>_mistickarma</td>
+                    <td>_mistickarma</td>
+                    <td><code>594543508585709602</code></td>
+                    <td>🖋ꨱ᳕ 𝅄  𝘿ireção</td>
+                    <td style="color: #4CAF50;">2620</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>📋 Recomendações de Segurança</h2>
+        <div class="recommendation">
+            🔐 <strong>Ativar 2FA</strong> — Garanta que todos os administradores tenham autenticação de dois fatores habilitada.
+        </div>
+        <div class="recommendation">
+            👥 <strong>Revisar Cargos</strong> — Verifique se todos os membros possuem cargos apropriados e permissões mínimas necessárias.
+        </div>
+        <div class="recommendation">
+            🤖 <strong>Auditar Bots</strong> — Revise os bots instalados e remova qualquer um que não esteja em uso ou pareça suspeito.
+        </div>
+        <div class="recommendation">
+            📊 <strong>Monitoramento Contínuo</strong> — Execute o comando $securitybreach regularmente para manter o cache atualizado.
+        </div>
+        <div class="recommendation">
+            🚨 <strong>Sistema de Logs</strong> — Configure canais de logs para monitorar ações importantes no servidor.
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>⭐｡°✩ Mila Bot — Relatório de Auditoria de Segurança ⋆｡°✩</p>
+        <p>Gerado automaticamente em {data_geracao}</p>
+        <p>Este relatório é confidencial e destinado apenas aos administradores do servidor.</p>
+    </div>
+</body>
+</html>

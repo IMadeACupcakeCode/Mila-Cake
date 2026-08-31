@@ -1,4 +1,5 @@
 const { criarEmbed, THEME } = require('../utils/theme');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
   data: { name: 'roleta', description: 'Sorteia uma opção entre várias, separadas por vírgula' },
@@ -21,6 +22,9 @@ module.exports = {
       return interaction.reply({ embeds: [embedErro], ephemeral: true });
     }
 
+    // ⋆｡°✩ Animação: typing → roleta
+    mostrarDigitando(interaction.channel, 800).catch(() => {});
+
     const escolhida = opcoes[Math.floor(Math.random() * opcoes.length)];
     const listaFormatada = opcoes
       .map((item) => (item === escolhida ? `**✧ ${item} ✧**` : `˖ ${item}`))
@@ -29,10 +33,12 @@ module.exports = {
     const embed = criarEmbed({
       titulo: 'A roleta girou sob a lua',
       descricao:
+        `${THEME.div.bolinhas}\n\n` +
         `${listaFormatada}\n\n` +
+        `${THEME.div.coracao}\n\n` +
         `**✦ Escolhida: \`${escolhida}\`**`,
       cor: THEME.corRoleta,
-      rodape: `${THEME.nome} girou para ${interaction.user.username}`,
+      rodape: `${THEME.nome} girou a roleta para ${interaction.user.username}`,
     });
 
     await interaction.reply({ embeds: [embed] });

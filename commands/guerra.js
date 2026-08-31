@@ -4,6 +4,7 @@ const path = require('path');
 const { criarEmbed, THEME } = require('../utils/theme');
 const { registerChallenge } = require('../utils/guerraManager');
 const { registrarVitoria, atualizarNome, top } = require('../utils/guerraStore');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const TRANSITION_DELAY = 1600;
@@ -192,6 +193,7 @@ function manualEmbed() {
   return criarEmbed({
     titulo: '⚔️ Manual da Guerra de Memes',
     descricao:
+      `${THEME.div.bolinhas}\n\n` +
       'Uma batalha 1x1 por reações. Cada jogador começa com **100 HP** e **3 pontos de ação**.\n\n' +
       '**🎯 Como jogar**\n' +
       '• Use `$guerra @alguém` para desafiar. O marcado reage ✅ para aceitar ou ❌ para recusar.\n' +
@@ -210,7 +212,8 @@ function manualEmbed() {
       '**🏆 Regras**\n' +
       '• Fraqueza de tipo dá **+25% de dano** (cada tipo é fraco contra outro).\n' +
       '• Sem pontos suficientes para um ataque? Você perde a vez.\n' +
-      '• Vence quem deixar o HP do oponente em 0. Cada vitória entra no **placar**!',
+      '• Vence quem deixar o HP do oponente em 0. Cada vitória entra no **placar**!\n\n' +
+      `${THEME.div.estrelado}`,
     cor: THEME.corPrincipal,
     rodape: 'Use $guerra @oponente e bom combate ✧',
   });
@@ -223,7 +226,7 @@ function placarEmbed() {
     : 'Ainda não houve batalhas. Seja o primeiro campeão!';
   return criarEmbed({
     titulo: '🏆 Placar de Guerra',
-    descricao: corpo,
+    descricao: `${THEME.div.bolinhas}\n\n${corpo}\n\n${THEME.div.coracao}`,
     cor: THEME.corPrincipal,
     rodape: 'Maiores guerreiros de meme da lua ✧',
   });
@@ -255,6 +258,7 @@ function placarPayload() {
 module.exports = {
   data: { name: 'guerra', description: '⚔️ Inicia uma batalha contra outro usuário (desafie usando @)' },
   async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 1200);
     const args = interaction.options && typeof interaction.options.getString === 'function'
       ? (interaction.options.getString('sub') || '').toLowerCase()
       : (interaction._guerraArgs || []).join(' ').toLowerCase();

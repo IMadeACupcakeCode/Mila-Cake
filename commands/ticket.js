@@ -2,6 +2,7 @@ const { ChannelType, PermissionFlagsBits } = require('discord.js');
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { enviarPainel, configurarTicket } = require('../utils/ticketManager');
 const { obterConfig, salvarConfig } = require('../utils/ticketStore');
+const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
   data: {
@@ -51,6 +52,7 @@ module.exports = {
   },
 
   async execute(interaction, client) {
+    await mostrarDigitando(interaction.channel, 800);
     const acao = interaction.options.getString('acao');
     const alvo = interaction.options.get('canal_ou_cargo')?.value;
     const tipo = interaction.options.getString('tipo');
@@ -214,12 +216,16 @@ module.exports = {
       const embed = criarEmbed({
         titulo: '🎫 Configuração dos Tickets',
         descricao: [
+          THEME.div.bolinhas,
+          '',
           `**📂 Categoria padrão:** ${categoriaPadrao ? categoriaPadrao.name : '`Não definida`'}`,
           '',
           linhas,
           '',
           `**👥 Cargos Staff:** ${cargos}`,
           `**🔢 Tickets criados:** ${cfg.contador || 0}`,
+          '',
+          THEME.div.coracao,
         ].join('\n'),
         cor: THEME.corPrincipal,
         rodape: rodapeAleatorio(),
