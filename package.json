@@ -6,14 +6,23 @@
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "screen": "npm --prefix discord-screen start",
-    "screen:fast": "npm --prefix discord-screen run start:fast"
+    "test": "node scripts/test-slash.js && node scripts/test-dice.js && node scripts/test-message-dedup.js",
+    "deploy:commands": "node utils/slash.js",
+    "validate:commands": "node -e \"const s=require('./utils/slash'); const r=s.carregar(); if(r.invalidos.length) process.exitCode=1; console.log('Comandos slash válidos:', r.comandos.size);\"",
+    "simulator": "node scripts/simulator-server.js",
+    "postinstall": "node scripts/fix-ytdlp-plugin.js"
   },
   "dependencies": {
     "@discordjs/voice": "^0.19.2",
+    "@distube/spotify": "^2.0.2",
+    "@distube/yt-dlp": "^2.0.1",
+    "@distube/ytdl-core": "^4.16.12",
+    "better-sqlite3": "^13.0.3",
     "discord.js": "^14.14.1",
+    "distube": "^5.2.3",
     "dotenv": "^16.4.5",
     "ffmpeg-static": "^5.3.0",
-    "libsodium-wrappers": "^0.8.4"
+    "libsodium-wrappers": "^0.8.4",
+    "opusscript": "^0.0.8"
   }
 }

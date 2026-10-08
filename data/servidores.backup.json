@@ -238,5 +238,37 @@
     "categoriaTicket": null,
     "canalOnOff": null,
     "canalTicketFixo": null
+  },
+  "1538724377992888370": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
+  },
+  "1409422805354938501": {
+    "canaisPermitidos": [],
+    "canaisBloqueados": [],
+    "anuncios": {
+      "geral": null,
+      "evento": null,
+      "regra": null,
+      "atualizacao": null,
+      "aviso": null
+    },
+    "cargosStaff": [],
+    "canalShutdown": null,
+    "categoriaTicket": null,
+    "canalOnOff": null,
+    "canalTicketFixo": null
   }
 }

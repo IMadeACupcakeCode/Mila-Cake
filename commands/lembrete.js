@@ -15,7 +15,7 @@ const criarCooldowns = new Map(); // userId → timestamp do último lembrete cr
 const CRIAR_COOLDOWN_MS = 10000; // 10 segundos entre criações
 
 module.exports = {
-  data: { name: 'lembrete', description: 'Cria, lista ou cancela lembretes' },
+  data: { name: 'lembrete', description: 'Cria, lista ou cancela lembretes', options: [{ name: 'criar', description: 'Criar um lembrete pelo formulário', type: 1, required: false }, { name: 'listar', description: 'Listar seus lembretes', type: 1, required: false }, { name: 'cancelar', description: 'Cancelar um lembrete', type: 1, required: false, options: [{ name: 'id', description: 'ID do lembrete', type: 3, required: true, max_length: 100 }] }] },
 
   async execute(interaction, client) {
     const subcomando = interaction.options.getSubcommand();

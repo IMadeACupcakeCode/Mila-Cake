@@ -32,7 +32,7 @@ function embed8(pergunta, autor) {
 }
 
 module.exports = {
-  data: { name: '8ball', description: 'A bola mágica responde sua pergunta' },
+  data: { name: '8ball', description: 'A bola mágica responde sua pergunta', options: [{ name: 'pergunta', description: 'Pergunta para a bola mágica', type: 3, required: true, max_length: 500 }] },
   async execute(interaction) {
     await mostrarDigitando(interaction.channel, 1000);
     const pergunta = interaction.options.getString('pergunta');

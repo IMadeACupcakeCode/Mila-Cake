@@ -4,7 +4,7 @@ const { botao } = require('../utils/ui');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
-  data: { name: 'social', description: '👤 Cartão de perfil do usuário' },
+  data: { name: 'social', description: '👤 Cartão de perfil do usuário', options: [{ name: 'usuario', description: 'Usuário do perfil', type: 6, required: false }] },
   async execute(interaction) {
     await mostrarDigitando(interaction.channel, 800);
     const user = interaction.options.getUser('usuario') || interaction.user;

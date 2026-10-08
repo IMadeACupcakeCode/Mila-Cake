@@ -20,9 +20,9 @@ function linhaNavegacao(prefixo, desabilitar = {}) {
 }
 
 // Menu de seleção para "pular" para uma página/comando
-function menuPular(prefixo, placeholder, opcoes) {
+function menuPular(prefixo, placeholder, opcoes, sufixo = 'jump') {
   const menu = new StringSelectMenuBuilder()
-    .setCustomId(`${prefixo}_jump`)
+    .setCustomId(`${prefixo}_${sufixo}`)
     .setPlaceholder(placeholder)
     .addOptions(
       opcoes.slice(0, 25).map((o) => ({

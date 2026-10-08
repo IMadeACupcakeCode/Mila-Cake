@@ -6,8 +6,39 @@ const { reagendarTodosLembretes } = require('./utils/agendador');
 const { handlePrefix } = require('./utils/prefix');
 const { handleReaction } = require('./utils/guerraManager');
 const logger = require('./utils/logger');
+const { registrar, tratar } = require('./utils/slash');
 
 const { DISCORD_TOKEN } = process.env;
+
+async function sairDeTodasAsCalls(client) {
+  try {
+    const guildIds = new Set([
+      ...client.guilds.cache.keys(),
+      ...(client.distube?.voices?.collection?.keys?.() || []),
+      ...(client.distube?.queues?.collection?.keys?.() || []),
+    ]);
+    for (const guildId of guildIds) {
+      const queue = client.distube?.getQueue(guildId);
+      try {
+        const canal = queue?.textChannel;
+        if (canal?.send) {
+          const embed = require('./utils/theme').criarEmbed({
+            titulo: '👋 Mila saiu da call',
+            descricao: 'A Mila foi desligada e saiu do canal de voz. Até logo~ ♡',
+            cor: THEME.corErro,
+          });
+          await canal.send({ embeds: [embed] });
+        }
+      } catch {}
+      try {
+        if (queue) await queue.stop();
+      } catch {}
+      try { client.distube?.voices?.leave(guildId); } catch {}
+    }
+  } catch (erro) {
+    console.error('Erro ao sair das calls durante o desligamento:', erro);
+  }
+}
 
 async function avisarShutdown(client) {
   try {
@@ -110,9 +141,14 @@ if (intents.includes(GatewayIntentBits.GuildMembers)) partials.push(Partials.Gui
 
 const client = new Client({ intents, partials });
 
+// ── Mila Music / Distube ──
+const { inicializarDistube, handlePlayerInteraction } = require('./utils/distubeHandler');
+inicializarDistube(client);
+
 const { enviarEmbedTicketFixo } = require('./utils/fixedTicketEmbed');
 
-client.once('ready', () => {
+client.once('clientReady', () => {
+  console.log(`Mila online — PID ${process.pid}, sessão gateway ${client.ws.sessionId || 'indisponível'}.`);
   const banner = [
     '',
     `${'='.repeat(58)}`,
@@ -149,48 +185,44 @@ client.once('ready', () => {
   // Embed fixo de ticket — aparece online, some offline
   enviarEmbedTicketFixo(client);
 
+  // Registro dos comandos slash (guild-scoped quando GUILD_ID existe).
+  // Falhas de registro não impedem o bot de continuar online via prefixo.
+  registrar().catch((erro) => console.error('Erro inesperado no registro slash:', erro));
+
   // Aviso online no canal configurado
   avisarOnline(client);
 
-  // ── Mila Tela Monitor — avisa quando o endereço da Sala de Tela muda ──
-  // Lê o PUBLIC_ORIGIN do app periodicamente. Se mudou (túnel reiniciado),
-  // manda um aviso no canal de on/off mostrando o novo endereço e o que
-  // trocar no portal do Discord. Sem isso, o usuário só descobre quando a
-  // atividade abre em branco — que é exatamente o sintoma de "Credenciais
-  // Falhas" / "Redirect_uri Invalid".
-  try {
-    const { iniciarMonitor, criarEmbedMudanca } = require('./utils/telaMonitor');
-    const { obterConfig } = require('./utils/servidorStore');
-    const { criarEmbed } = require('./utils/theme');
-
-    iniciarMonitor({
-      aoMudar: async ({ antigo, novo }) => {
-        console.log(
-          `📺 Endereço da Sala de Tela mudou: ${antigo || '(desconhecido)'} → ${novo}`
-        );
-
-        // Tenta avisar em TODOS os servidores que têm canalOnOff configurado.
-        for (const guild of client.guilds.cache.values()) {
-          try {
-            const cfg = obterConfig(guild.id);
-            const canalId = cfg?.canalOnOff;
-            if (!canalId) continue;
-
-            const canal = await guild.channels.fetch(canalId).catch(() => null);
-            if (!canal) continue;
-
-            await canal.send({ embeds: [criarEmbedMudanca({ antigo, novo })] });
-          } catch {}
-        }
-      },
-    });
-  } catch (err) {
-    console.error('⋆｡°✩ Erro ao iniciar monitor de tela:', err?.message || err);
-  }
+  // ── Mila Tela (serviço externo g.nemtudo.me) — sem app local nem túnel ──
+  // O comando $tela já usa o endereço fixo https://g.nemtudo.me/w/priv.
+  // Não há monitoramento de endereço local nem túnel para gerenciar.
+  console.log(
+    `${THEME.iconeFooter} Compartilhamento de tela: serviço externo em https://g.nemtudo.me`
+  );
 });
 
-client.on('messageCreate', (message) => {
-  handlePrefix(message, client);
+client.on('messageCreate', async (message) => {
+  const db = require('./utils/db');
+  if (!db.reivindicarMensagem(message.id)) {
+    console.log(`↩️ Mensagem ${message.id} ignorada: já processada por outra instância (PID ${process.pid}).`);
+    return;
+  }
+
+  // Processa sistema de economia/XP primeiro para nao depender de ser ou n comando
+  if (!message.author.bot && message.guild) {
+    if (db.podeGanharXp(message.author.id)) {
+      const xpGanho = Math.floor(Math.random() * 11) + 15; // Ganha entre 15 e 25 XP
+      const { subiu, level } = db.addXp(message.author.id, xpGanho);
+      if (subiu) {
+        // Envia parabéns pela subida de nível e paga uma gorgetinha
+        db.addAcucares(message.author.id, level * 50);
+        try {
+          message.channel.send(`🎉 Parabéns ${message.author.toString()}, você alcançou o **Nível ${level}**! (Bônus: ${level * 50} 🍬)`).catch(() => {});
+        } catch {}
+      }
+    }
+  }
+
+  await handlePrefix(message, client);
 });
 
 client.on('messageReactionAdd', async (reaction, user) => {
@@ -198,6 +230,26 @@ client.on('messageReactionAdd', async (reaction, user) => {
     await handleReaction(reaction, user);
   } catch (error) {
     console.error('Erro ao processar reação de guerra:', error);
+  }
+});
+
+// ── Comandos slash e autocomplete ──
+// Componentes (botões, menus e modais) continuam nos handlers abaixo.
+client.on('interactionCreate', async (interaction) => {
+  // Passa clicks do painel de música
+  if (interaction.isButton() && interaction.customId.startsWith('player_')) {
+    await handlePlayerInteraction(interaction, client);
+    return;
+  }
+
+  if (interaction.isChatInputCommand() || interaction.isAutocomplete()) {
+    await tratar(interaction, client);
+    return;
+  }
+
+  if (interaction.isButton() || interaction.isStringSelectMenu()) {
+    const codex = require('./commands/codex');
+    if (await codex.tratarComponente(interaction)) return;
   }
 });
 
@@ -795,7 +847,7 @@ if (intents.includes(GatewayIntentBits.GuildMembers) && intents.includes(Gateway
   });
 
   // Popula o cache de presença já no boot, para o primeiro $securitybreach não depender de fetch
-  client.once('ready', async () => {
+  client.once('clientReady', async () => {
     try {
       for (const guild of client.guilds.cache.values()) {
         const members = await guild.members.fetch({ withPresences: true }).catch(() => null);
@@ -834,6 +886,7 @@ process.on('SIGINT', async () => {
   console.log(bannerShutdown());
   logger.aviso(`${THEME.nome} desligando — avisando servidores...`);
   await avisarShutdown(client);
+  await sairDeTodasAsCalls(client);
   logger.sucesso(`Avisos enviados. Volto logo, meu favorito~ ♡`);
   process.exit(0);
 });
@@ -842,6 +895,7 @@ process.on('SIGTERM', async () => {
   console.log(bannerShutdown());
   logger.aviso(`${THEME.nome} desligando — avisando servidores...`);
   await avisarShutdown(client);
+  await sairDeTodasAsCalls(client);
   logger.sucesso(`Avisos enviados. Volto logo, meu favorito~ ♡`);
   process.exit(0);
 });

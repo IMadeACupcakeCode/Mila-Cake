@@ -9,7 +9,13 @@ function mencionarCanais(ids, client) {
 }
 
 module.exports = {
-  data: { name: 'configurar', description: 'Define onde a bot fala e organiza os canais de anúncio (requer gerir servidor)' },
+  meta: { guildOnly: true, permissions: ['ManageGuild', 'Administrator'] },
+  data: { name: 'configurar', description: 'Define onde a bot fala e organiza os canais de anúncio (requer gerir servidor)', options: [
+    ...['permitir', 'proibir', 'liberar', 'desproibir', 'shutdown', 'ticketcategoria', 'ticketfixo', 'off-on'].map((name) => ({ name, description: `Configurar ${name}`, type: 1, required: false, options: [{ name: 'canal', description: 'Canal ou categoria', type: 7, required: false }] })),
+    { name: 'anuncio', description: 'Configurar canal de anúncio', type: 1, required: false, options: [{ name: 'tipo', description: 'Tipo do anúncio', type: 3, required: true, choices: TIPOS_ANUNCIO.map((value) => ({ name: value, value })) }, { name: 'canal', description: 'Canal do anúncio', type: 7, required: true }] },
+    { name: 'limparanuncio', description: 'Limpar canal de anúncio', type: 1, required: false, options: [{ name: 'tipo', description: 'Tipo do anúncio', type: 3, required: true, choices: TIPOS_ANUNCIO.map((value) => ({ name: value, value })) }] },
+    { name: 'ver', description: 'Ver a configuração atual', type: 1, required: false },
+  ] },
 
   async execute(interaction, client) {
     // Risco original: confiava apenas em default_member_permissions do registro

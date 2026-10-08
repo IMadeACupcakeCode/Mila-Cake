@@ -8,6 +8,8 @@ const TIPOS_ANUNCIO = ['geral', 'evento', 'regra', 'atualizacao', 'aviso'];
 
 function configPadrao() {
   return {
+    prefixo: '$',
+    idioma: 'pt-BR',
     canaisPermitidos: [],
     canaisBloqueados: [],
     anuncios: { geral: null, evento: null, regra: null, atualizacao: null, aviso: null },
@@ -64,6 +66,8 @@ function obterConfig(guildId) {
   }
   const cfg = registro[guildId];
   const padrao = configPadrao();
+  cfg.prefixo = cfg.prefixo || padrao.prefixo;
+  cfg.idioma = cfg.idioma || padrao.idioma;
   cfg.canaisPermitidos = cfg.canaisPermitidos || padrao.canaisPermitidos;
   cfg.canaisBloqueados = cfg.canaisBloqueados || padrao.canaisBloqueados;
   cfg.anuncios = { ...padrao.anuncios, ...(cfg.anuncios || {}) };

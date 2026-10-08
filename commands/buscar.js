@@ -120,6 +120,7 @@ async function sugerir(termo, guild) {
 }
 
 module.exports = {
+  meta: { guildOnly: true, staff: true },
   data: new SlashCommandBuilder()
     .setName('buscar')
     .setDescription('🔍 Busca um membro em tempo real — digite para ver sugestões (como o Google)')

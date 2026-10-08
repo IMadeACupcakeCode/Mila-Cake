@@ -10,7 +10,7 @@ const FRASES = [
 ];
 
 module.exports = {
-  data: { name: 'abraco', description: '🤗 Envia um abraço carinhoso para alguém' },
+  data: { name: 'abraco', description: '🤗 Envia um abraço carinhoso para alguém', options: [{ name: 'usuario', description: 'Pessoa que receberá o abraço', type: 6, required: false }] },
   async execute(interaction) {
     await mostrarDigitando(interaction.channel, 800);
     const alvo = interaction.options.getUser('usuario') || interaction.user;

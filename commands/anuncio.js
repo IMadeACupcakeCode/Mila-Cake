@@ -15,7 +15,8 @@ const ROTULOS = {
 };
 
 module.exports = {
-  data: { name: 'anuncio', description: '📡 Envia um anúncio — Mila Broadcast' },
+  meta: { guildOnly: true, permissions: ['ManageGuild', 'Administrator'] },
+  data: { name: 'anuncio', description: '📡 Envia um anúncio — Mila Broadcast', options: [{ name: 'tipo', description: 'Tipo do anúncio', type: 3, required: true, choices: Object.keys(ROTULOS).map((value) => ({ name: value, value })) }, { name: 'mensagem', description: 'Texto do anúncio', type: 3, required: true, max_length: 4096 }, { name: 'titulo', description: 'Título personalizado', type: 3, required: false, max_length: 256 }, { name: 'mencionar', description: 'Mencionar everyone (staff)', type: 5, required: false }] },
 
   async execute(interaction, client) {
     await mostrarDigitando(interaction.channel, 1000);

@@ -3,7 +3,7 @@ const { criarEmbed, THEME } = require('../utils/theme');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
-  data: { name: 'aviso', description: '📢 Atalho de aviso em destaque no canal atual' },
+  data: { name: 'aviso', description: '📢 Atalho de aviso em destaque no canal atual', options: [{ name: 'mensagem', description: 'Texto do aviso', type: 3, required: true, max_length: 2000 }] },
   async execute(interaction) {
     const msg = interaction.options.getString('mensagem');
     // ⋆｡°✩ Typing indicator antes de responder

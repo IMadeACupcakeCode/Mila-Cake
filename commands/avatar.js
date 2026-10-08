@@ -4,7 +4,7 @@ const { botao } = require('../utils/ui');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
-  data: { name: 'avatar', description: '🖼️ Mostra o avatar de um usuário em tamanho grande' },
+  data: { name: 'avatar', description: '🖼️ Mostra o avatar de um usuário em tamanho grande', options: [{ name: 'usuario', description: 'Usuário cujo avatar será exibido', type: 6, required: false }] },
   async execute(interaction) {
     await mostrarDigitando(interaction.channel, 700);
     const user = interaction.options.getUser('usuario') || interaction.user;

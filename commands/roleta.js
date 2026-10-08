@@ -2,7 +2,7 @@ const { criarEmbed, THEME } = require('../utils/theme');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
-  data: { name: 'roleta', description: 'Sorteia uma opção entre várias, separadas por vírgula' },
+  data: { name: 'roleta', description: 'Sorteia uma opção entre várias, separadas por vírgula', options: [{ name: 'opcoes', description: 'Duas ou mais opções separadas por vírgula', type: 3, required: true, max_length: 1000 }] },
 
   async execute(interaction) {
     const bruto = interaction.options.getString('opcoes');

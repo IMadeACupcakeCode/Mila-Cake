@@ -256,7 +256,7 @@ function placarPayload() {
 }
 
 module.exports = {
-  data: { name: 'guerra', description: '⚔️ Inicia uma batalha contra outro usuário (desafie usando @)' },
+  data: { name: 'guerra', description: '⚔️ Inicia uma batalha contra outro usuário (desafie usando @)', options: [{ name: 'usuario', description: 'Usuário desafiado', type: 6, required: false }, { name: 'sub', description: 'manual, placar ou ranking', type: 3, required: false, choices: [{ name: 'manual', value: 'manual' }, { name: 'placar', value: 'placar' }, { name: 'ranking', value: 'ranking' }] }] },
   async execute(interaction) {
     await mostrarDigitando(interaction.channel, 1200);
     const args = interaction.options && typeof interaction.options.getString === 'function'

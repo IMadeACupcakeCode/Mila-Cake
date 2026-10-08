@@ -4,7 +4,7 @@ const { isStaff } = require('../utils/perms');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
-  data: { name: 'logs', description: '📜 Mostra os logs da bot (filtre por uma pessoa específica)' },
+  data: { name: 'logs', description: '📜 Mostra os logs da bot (filtre por uma pessoa específica)', options: [{ name: 'pessoa', description: 'Nome ou ID para filtrar', type: 3, required: false, max_length: 100 }, { name: 'quantidade', description: 'Quantidade de logs (1 a 50)', type: 4, required: false, min_value: 1, max_value: 50 }] },
   async execute(interaction) {
     await mostrarDigitando(interaction.channel, 600);
     // Risco original: qualquer usuário podia ler logs contendo IDs de usuário

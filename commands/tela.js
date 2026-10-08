@@ -1,207 +1,144 @@
-// ⋆｡°✩ Mila Tela — comando de Compartilhamento de Tela (Sala de Tela)
+// ⋆｡°✩ Mila Tela — comando de Compartilhamento de Tela
 //
-// Este comando é o ATALHO do bot para o sistema de compartilhamento de tela
-// que vem junto: `discord-screen/`. Não é um relé de voz (isso é o $stream) —
-// é a ponte para a Activity de tela, que roda como app web separado.
+// Este comando mostra o link e o passo a passo para o compartilhamento de tela
+// usando o serviço externo golive.nemtudo.me (Nem-Tudo/sharescreen-discord-bot).
+// Não requer app local, túnel, nem configuração complexa — só apontar o portal
+// do Discord para o endereço fixo do serviço.
 //
-// ── Como funciona para quem usa ─────────────────────────────────────────
-// 1. A pessoa entra num canal de voz.
-// 2. Abre a Mila em "Sala da call" OU o link público (fora do Discord).
-// 3. Clica em "Compartilhar tela" e escolhe Chrome/Edge num DESKTOP.
-//
-// ── O que este painel mostra ───────────────────────────────────────────
-// • O endereço público atual (endereço do túnel) para HTML compartilhar.
-// • O passo a passo de usar dentro do Discord (foguete 🚀 → atividade).
-// • O que ainda falta configurar no portal do Discord, quando faltar.
+// Créditos:
+// - discord-screen original: JC007zZ (https://github.com/Jc007zZ/discord-screen)
+// - sharescreen-discord-bot: Nem-Tudo (https://github.com/Nem-Tudo/sharescreen-discord-bot)
+// - Serviço de tela: golive.nemtudo.me (hospedado por Nem-Tudo)
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { criarEmbed, THEME } = require('../utils/theme');
-const { estadoTela, verificarDiagnostico } = require('../utils/telaStore');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
+
+// Endereço fixo do serviço externo de compartilhamento de tela
+const TELA_PUBLIC_ORIGIN = 'https://golive.nemtudo.me';
+const TELA_PUBLIC_PATH = '/app';
+const TELA_BASE_URL = `${TELA_PUBLIC_ORIGIN}${TELA_PUBLIC_PATH}`; // https://golive.nemtudo.me/app
 
 const ATIVO = '●';
 
 /**
- * Monta o estado atual da Sala de Tela de forma legível.
- *
- * `diag` é o resultado opcional de `verificarDiagnostico()`. Quando presente,
- * o embed distingue "servidor no ar" de "endereço público velho" — o caso que
- * vira "Credenciais Falhas" / "Redirect_uri Invalid" na atividade.
+ * Verifica a saúde do serviço externo.
  */
-function renderizarEstado({ verbo = '', diag = null }) {
-  const est = estadoTela();
+async function verificarSaudeExterna() {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${TELA_PUBLIC_ORIGIN}/`, { signal: controller.signal });
+    clearTimeout(timeout);
+    return { ok: res.ok, status: res.status };
+  } catch (e) {
+    return { ok: false, error: e?.message || 'timeout' };
+  }
+}
+
+/**
+ * Monta o estado do serviço externo.
+ */
+async function renderizarEstado({ verbo = '' }) {
+  const saudavel = await verificarSaudeExterna();
   const linhas = [];
 
-  // ── App instalado? ──
-  if (!est.appPresente) {
-    return {
-      cor: THEME.corErro,
-      titulo: '❌ Sala de Tela não instalada',
-      descricao: [
-        'A pasta `discord-screen/` não foi encontrada junto do bot.',
-        '',
-        'Clone o repositório para dentro da pasta do bot:',
-        '```',
-        'git clone https://github.com/Jc007zZ/discord-screen.git',
-        'cd discord-screen',
-        'npm install',
-        '```',
-      ].join('\n'),
-    };
-  }
-
-  // ── Endereço configurado? ──
-  if (!est.origem) {
-    return {
-      cor: THEME.corErro,
-      titulo: '⚠️ Endereço público ainda não definido',
-      descricao: [
-        'O servidor da Sala de Tela está instalado, mas **sem endereço público**.',
-        '',
-        'Na pasta `discord-screen/`, rode:',
-        '```',
-        'npm run start:fast',
-        '```',
-        'Ele sobe o túnel e grava o endereço sozinho. Depois rode `$tela` de novo.',
-      ].join('\n'),
-    };
-  }
-
-  linhas.push(`🔗 **Endereço público:**\n\`${est.origem}\``);
-  linhas.push(
-    `💡 Quem está fora do Discord pode abrir esse link e criar uma **sala** própria.`
-  );
-
-  // Diagnóstico de saúde, quando disponível (verbo de atualização).
-  if (diag) {
-    const localOk = diag.local === 'ok';
-    const pubOk = diag.publico === 'ok';
-
-    linhas.push('');
-    if (diag.tudo) {
-      linhas.push(`✅ **Servidor no ar** — endereço público respondendo.`);
-    } else if (localOk && !pubOk) {
-      return {
-        cor: THEME.corSecundario,
-        titulo: '⚠️ Endereço público desatualizado',
-        descricao: [
-          `${verbo}O servidor local está **rodando**, mas o endereço público **não respondeu**.`,
-          '',
-          'O túnel muda a cada reinício — o portal aponta para um endereço antigo.',
-          '',
-          '**Cole no portal do Discord:**',
-          '',
-          '**1. Activities → URL Mappings → Target:**',
-          '```',
-          est.origem.replace(/^https?:\/\//, ''),
-          '```',
-          '',
-          '**2. OAuth2 → Redirects → Redirect:**',
-          '```',
-          `${est.origem}/auth/callback`,
-          '```',
-          '',
-          'Depois feche e reabra a atividade no servidor.',
-          '',
-          '> Para o endereço **nunca** mudar: `npm run tunel:criar` na pasta',
-          '> `discord-screen/` (precisa de domínio na Cloudflare).',
-        ].join('\n'),
-      };
-    } else if (!localOk && !pubOk) {
-      return {
-        cor: THEME.corErro,
-        titulo: '📡 Sala de Tela offline',
-        descricao: [
-          `${verbo}O servidor da Sala de Tela **não respondeu** (nem local nem público).`,
-          '',
-          'Na pasta `discord-screen/`, rode `npm run start:fast`.',
-          'Depois rode `$tela` de novo.',
-        ].join('\n'),
-      };
-    }
-  }
-
-  // Redirect e Target — SEMPRE visíveis, para copiar e colar no portal.
-  const redirect = `${est.origem}/auth/callback`;
-  const target = est.origem.replace(/^https?:\/\//, '');
+  linhas.push(`${THEME.div.bolinhas}`);
   linhas.push('');
-  linhas.push('📋 **Para a atividade funcionar, cole no portal do Discord:**');
+  linhas.push(`${verbo}Compartilhamento de tela via **serviço externo** (golive.nemtudo.me).`);
   linhas.push('');
-  linhas.push('**1. Activities → URL Mappings → Target:**');
-  linhas.push('```');
-  linhas.push(target);
-  linhas.push('```');
+  linhas.push(`🔗 **Link base:** \`${TELA_BASE_URL}\``);
+  linhas.push(`💡 Quem está fora do Discord pode abrir esse link e criar uma **sala** própria.`);
+  linhas.push('');
+
+  if (saudavel.ok) {
+    linhas.push(`✅ **Serviço online** — endereço respondendo (HTTP ${saudavel.status}).`);
+  } else {
+    linhas.push(`⚠️ **Serviço indisponível** — ${saudavel.error || 'não respondeu'}.`);
+    linhas.push('   Tente novamente em alguns instantes.');
+  }
+
+  linhas.push('');
+  linhas.push('📋 **Para a atividade funcionar, configure no portal do Discord:**');
+  linhas.push('');
+  linhas.push('**1. Activities → Settings** — ative **Enable Activities**');
+  linhas.push('');
   linhas.push('**2. OAuth2 → Redirects → Redirect:**');
   linhas.push('```');
-  linhas.push(redirect);
+  linhas.push(`${TELA_BASE_URL}`);
   linhas.push('```');
+  linhas.push('');
+  linhas.push('**3. Activities → URL Mappings → Target:**');
+  linhas.push('```');
+  linhas.push(TELA_PUBLIC_ORIGIN.replace(/^https?:\/\//, ''));
+  linhas.push('```');
+  linhas.push('   **Prefix:** `/`');
+  linhas.push('');
+  linhas.push('> O endereço é **fixo** — não muda a cada reinício.');
+  linhas.push('> Client ID da aplicação: use o mesmo da Mila Bot.');
+
+  const cor = saudavel.ok ? THEME.corSucesso : THEME.corSecundario;
 
   return {
-    cor: THEME.corSucesso,
-    titulo: '📺 Sala de Tela — compartilhamento de tela',
-    descricao: [
-      `${THEME.div.bolinhas}`,
-      '',
-      `${verbo}O camarada que quer **mostrar a tela** escolhe um canal de voz e clica em **Compartilhar tela**; todo mundo que está na call assiste.`,
-      '',
-      `📡 **O servidor está instalado** e este é o estado atual:`,
-      '',
-      ...linhas,
-      '',
-      `${THEME.div.estrelado}`,
-    ].join('\n'),
+    cor,
+    titulo: '📺 Compartilhamento de Tela — Sala de Tela',
+    descricao: linhas.join('\n'),
   };
 }
 
-/** Embed com o passo a passo de usar (uma vez que o endereço existe). */
-function embedComoUsar(est) {
+/** Embed com o passo a passo de usar. */
+function embedComoUsar() {
   return criarEmbed({
-    titulo: '📺 Como usar a Sala de Tela',
+    titulo: '📺 Como usar o Compartilhamento de Tela',
     descricao: [
       '**Dentro do Discord:**',
       '1️⃣ Entre no canal de voz',
-      '2️⃣ Clique no **foguete 🚀** na barra de baixo',
-      '3️⃣ Abra a atividade **Sala de Tela**',
-      '4️⃣ Clicar em **Compartilhar tela** e escolher o que mostrar',
+      '2️⃣ Clique no **foguete 🚀** na barra de baixo (Atividades)',
+      '3️⃣ Abra a atividade **Sala de Tela** (ou o nome que aparecer)',
+      '4️⃣ Clique em **Compartilhar tela** e escolha o que mostrar',
       '',
       '> 👉 Para **transmitir**, use **Chrome, Edge, Brave, Opera ou Vivaldi** num **DESKTOP**.',
-      '> 👉 Navegador de celular não permite capturar a tela.',
+      '> 👉 Navegador de celular **não permite** capturar a tela.',
       '',
-      '**Fora do Discord (link):**',
-      `🔗 \`${est.origem}\` — abra em qualquer navegador e crie uma sala.`,
+      '**Fora do Discord (link direto):**',
+      `🔗 \`${TELA_BASE_URL}\` — abra em qualquer navegador desktop e entre numa sala.`,
       '',
-      '**Quando o endereço mudar** (o túnel muda a cada reinício), troque o **Target**',
-      'no portal do Discord em **Activities → URL Mappings**. Para o endereço ficar',
-      'fixo: `npm run tunel:criar` (precisa de um domínio na Cloudflare).',
+      '**Configuração no portal (uma vez só):**',
+      '• Activities → Settings → Enable Activities ✅',
+      `• OAuth2 → Redirects → add: \`${TELA_BASE_URL}\``,
+      `• Activities → URL Mappings → Target: \`${TELA_PUBLIC_ORIGIN.replace(/^https?:\/\//, '')}\``,
+      `   · Prefix: \`/\``,
+      '',
+      '> O endereço é **fixo** — não precisa atualizar nunca.',
     ].join('\n'),
     cor: THEME.corPrincipal,
-    rodape: `${THEME.nome} — Sala de Tela de verdade, não um relé`,
+    rodape: `${THEME.nome} — Sala de Tela via serviço externo (sem app local)`,
   });
 }
 
-/** Embed com o que precisa estar no Discord Developer Portal. */
-function embedPortal(est) {
-  const origem = est.origem || 'SEU-ENDERECO';
-  const clientId = est.clientId || 'SEU-CLIENT-ID';
+/** Embed com ajuda do portal. */
+function embedPortal() {
   return criarEmbed({
-    titulo: '⚙️ Portal do Discord (uma vez só)',
+    titulo: '⚙️ Portal do Discord (configuração única)',
     descricao: [
       'Abra [discord.com/developers/applications](https://discord.com/developers/applications)',
-      'na aplicação de vocês (a mesma da Mila) e confira:',
+      'na aplicação da Mila Bot e configure:',
       '',
       `**1. OAuth2 → Redirects** — add:`,
-      `\`${origem}/auth/callback\``,
-      '**2. Activities → Settings** — ative **Enable Activities**',
-      '**3. Activities → URL Mappings** — add:',
-      `**Prefix:** \`/\`  ·  **Target:** \`${origem.replace(/^https?:\/\//, '')}\``,
-      '**4. Instalar no servidor:**',
-      `\`https://discord.com/oauth2/authorize?client_id=${clientId}\``,
-      `**(Client ID:** \`${clientId}\`**)**`,
+      `\`${TELA_BASE_URL}\``,
       '',
-      '> O próprio app tem um assistente que já deixa isso pronto:',
-      '> ```npm run start:fast``` (na pasta `discord-screen/`).',
+      '**2. Activities → Settings** — ative **Enable Activities**',
+      '',
+      '**3. Activities → URL Mappings** — add:',
+      `**Prefix:** \`/\`  ·  **Target:** \`${TELA_PUBLIC_ORIGIN.replace(/^https?:\/\//, '')}\``,
+      '',
+      '**4. Instalar/Reinstalar no servidor:**',
+      `\`https://discord.com/oauth2/authorize?client_id=SEU_CLIENT_ID\``,
+      '**(Substitua `SEU_CLIENT_ID` pelo Client ID da Mila)**',
+      '',
+      '> ✨ Pronto! O endereço **não muda** — não precisa de túnel nem app local.',
     ].join('\n'),
     cor: 0x5865F2,
-    rodape: '♡ Configuração de uma vez só — não é preciso repetir',
+    rodape: '♡ Configuração de uma vez só — serviço externo g.nemtudo.me',
   });
 }
 
@@ -209,15 +146,13 @@ function botoes() {
   return new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('tela_usar').setLabel('📺 Como usar').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('tela_portal').setLabel('⚙️ Ajuda no portal').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('tela_atualizar').setLabel('🔄 Atualizar').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('tela_atualizar').setLabel('🔄 Verificar serviço').setStyle(ButtonStyle.Secondary),
   );
 }
 
 async function execute(interaction, client = null) {
   await mostrarDigitando(interaction.channel, 1000);
-  // Diagnóstico completo (local + público) para o embed inicial já ser assertivo.
-  const diag = await verificarDiagnostico();
-  const inicial = renderizarEstado({ diag });
+  const inicial = await renderizarEstado({ verbo: '' });
 
   const reply = await interaction.reply({
     embeds: [criarEmbed(inicial)],
@@ -233,31 +168,23 @@ async function execute(interaction, client = null) {
   coletor.on('collect', async (i) => {
     try {
       if (i.customId === 'tela_usar') {
-        const est = estadoTela();
-        if (!est.origem) {
-          return i.update({
-            embeds: [criarEmbed(renderizarEstado({}))],
-            components: [botoes()],
-          });
-        }
         return i.update({
-          embeds: [embedComoUsar(est)],
+          embeds: [embedComoUsar()],
           components: [botoes()],
         });
       }
 
       if (i.customId === 'tela_portal') {
         return i.update({
-          embeds: [embedPortal(estadoTela())],
+          embeds: [embedPortal()],
           components: [botoes()],
         });
       }
 
       if (i.customId === 'tela_atualizar') {
         await i.deferUpdate();
-        const novoDiag = await verificarDiagnostico();
-        const embed = criarEmbed(renderizarEstado({ verbo: '🔄 ', diag: novoDiag }));
-        return i.editReply({ embeds: [embed], components: [botoes()] });
+        const novoEstado = await renderizarEstado({ verbo: '🔄 ' });
+        return i.editReply({ embeds: [criarEmbed(novoEstado)], components: [botoes()] });
       }
     } catch (erro) {
       console.error('Erro no coletor $tela:', erro);
@@ -270,6 +197,6 @@ async function execute(interaction, client = null) {
 }
 
 module.exports = {
-  data: { name: 'tela', description: '📺 Compartilhamento de tela da Mila (Sala de Tela) — link e passo a passo' },
+  data: { name: 'tela', description: '📺 Compartilhamento de tela da Mila (Sala de Tela) — link e passo a passo via serviço externo' },
   execute,
 };

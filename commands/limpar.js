@@ -5,7 +5,7 @@ const { isStaff } = require('../utils/perms');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
-  data: { name: 'limpar', description: '🧹 Apaga mensagens recentes do canal' },
+  data: { name: 'limpar', description: '🧹 Apaga mensagens recentes do canal', options: [{ name: 'quantidade', description: 'Quantidade de mensagens (2 a 100)', type: 4, required: true, min_value: 2, max_value: 100 }] },
   async execute(interaction) {
     await mostrarDigitando(interaction.channel, 600);
     // Risco original: qualquer usuário podia apagar até 100 mensagens por vez.

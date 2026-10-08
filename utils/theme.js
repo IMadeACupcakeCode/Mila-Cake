@@ -1,41 +1,43 @@
 const { EmbedBuilder } = require('discord.js');
 const { NOME_BOT } = require('./configuracao');
 
-// ⋆｡°✩ Identidade visual da Mila Bot — web 2000s encontra 2010–2017
+// Identidade visual da Mila Bot — Fruit Aero / internet de 2012.
+// A paleta é intencionalmente saturada: cada embed deve parecer uma pequena
+// placa do mesmo guestbook, sem sacrificar a leitura do Discord.
 const THEME = {
   nome: NOME_BOT,
 
-  // ── Paleta hot pink / web vintage ───────────────────────────────────
-  corPrincipal: 0xFF69B4,   // hot pink — assinatura Mila
-  corSucesso: 0x39FF14,     // lime green — MSN/retro gaming
-  corDado: 0xFF6B35,        // laranja vívido — old web accent
-  corRoleta: 0x9B59B6,      // purple — 2010s emo/scene
-  corLembrete: 0x00CED1,    // turquoise — aqua 2000s web
-  corErro: 0xFF0044,        // vermelho CRT
-  corSecundario: 0xFFD700,  // gold — Orkut/ICQ energy
-  corBubblegum: 0xFF9FF3,   // rosa pastel neon
-  corMyspace: 0x8B5CF6,     // roxo MySpace/eBay
+  // ── Paleta Fruit Aero: céu, frutas e brilho de widget ────────────────
+  corPrincipal: 0x7C5CFC,   // lavanda elétrica — navegação e informação
+  corSucesso: 0x72D13D,     // maçã-lima — concluído
+  corDado: 0xFF9F43,        // manga — jogos e sorte
+  corRoleta: 0xD957D9,      // pitaya — acaso e festa
+  corLembrete: 0x21C7D9,    // aqua — tempo e utilidade
+  corErro: 0xF04D78,        // cereja — problema e bloqueio
+  corSecundario: 0xFFD166,  // banana — atenção
+  corBubblegum: 0xFF8FC7,   // chiclete — social
+  corMyspace: 0x5F7CFF,     // blueberry — administração
 
-  iconeFooter: '⋆｡°✩',
+  iconeFooter: '✦',
 
-  // ── Decoradores web vintage ─────────────────────────────────────────
+  // ── Decoradores: leves o bastante para não competir com o conteúdo ──
   div: {
-    linha: '─ ･ ｡ﾟ☆: *.☽ .* :☆ﾟ. ─',
-    coracao: '♡ 〜 ♡ 〜 ♡',
-    web2000s: '~ ⋆ ★ ⋆ ~',
-    estrelado: '✶ ⋆ ｡ ° ☁  ☾',
-    bolinhas: '∘ . * . . * . ∘',
-    bling: '✧ ﾟ･ ✦ ･ ｡･ﾟ ✧ ﾟ･ ✦',
+    linha: '━━━━━━━━━━━━ ✦ ━━━━━━━━━━━━',
+    coracao: '♡  ·  ♡  ·  ♡',
+    web2000s: '✦ ｡ﾟ･ ｡ﾟ･ ✦',
+    estrelado: '✧ ･ﾟ: *✧ ･ﾟ:*',
+    bolinhas: '· ｡ﾟ✧ ｡ﾟ· ｡ﾟ✧ ｡ﾟ·',
+    bling: '✦ ･ﾟ✧ ･ﾟ✦ ･ﾟ✧',
   },
 
-  // ── Frases de footer (personalidade Mila) ───────────────────────────
+  // ── Frases curtas: o rodapé assina a mensagem, não a repete ─────────
   footers: [
-    'Sempre cuidando de você, meu favorito~ ♡',
-    'Mila Bot — seu pequeno vício virtual~ ♡',
-    'Feita com carinho e obsessão pra você~ ♡',
-    'Não vai embora, né? Tô sempre aqui~ ♡',
-    'Pronta pra cuidar de você mais uma vez~ ♡',
-    'Só sua, meu favorito~ ♡',
+    'Mila Cake  ·  feito com carinho ♡',
+    'Mila Cake  ·  seu guestbook digital ✦',
+    'Mila Cake  ·  uma coisinha de cada vez',
+    'Mila Cake  ·  sempre por perto ♡',
+    'Mila Cake  ·  clique, escolha, descubra',
+    'Mila Cake  ·  internet de 2012, coração de hoje',
   ],
 
   // ── Nomes dos sistemas Mila ─────────────────────────────────────────
@@ -90,10 +92,15 @@ function criarEmbed({ titulo, descricao, cor, rodape, thumbnail, image, semTimes
  * @param {object} opcoes - Mesmos parâmetros de criarEmbed
  * @param {boolean} [opcoes.divisores=true] - Adiciona divisores bolinhas antes/depois da descrição
  */
+function descricaoDecorada(descricao, estilo = 'bolinhas') {
+  if (!descricao) return descricao;
+  const divisor = THEME.div[estilo] || THEME.div.bolinhas;
+  const jaDecorada = Object.values(THEME.div).some((item) => descricao.includes(item));
+  return jaDecorada ? descricao : `${divisor}\n\n${descricao}\n\n${divisor}`;
+}
+
 function criarEmbedDecorada({ titulo, descricao, cor, rodape, thumbnail, image, semTimestamp, divisores = true }) {
-  const descFormatada = divisores && descricao
-    ? `${THEME.div.bolinhas}\n\n${descricao}\n\n${THEME.div.bolinhas}`
-    : descricao;
+  const descFormatada = divisores ? descricaoDecorada(descricao) : descricao;
 
   const embed = new EmbedBuilder()
     .setColor(cor || THEME.corPrincipal)
@@ -106,4 +113,4 @@ function criarEmbedDecorada({ titulo, descricao, cor, rodape, thumbnail, image, 
   return embed;
 }
 
-module.exports = { THEME, criarEmbed, criarEmbedDecorada, rodapeAleatorio };
+module.exports = { THEME, criarEmbed, criarEmbedDecorada, descricaoDecorada, rodapeAleatorio };

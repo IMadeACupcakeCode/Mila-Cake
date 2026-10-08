@@ -11,18 +11,54 @@ const crypto = require('crypto');
 const { isStaff } = require('./perms');
 const codex = require('../commands/codex');
 const { mostrarDigitando } = require('./milaDecoracao');
+const { avaliar: avaliarDados, formatar: formatarDados } = require('./dice');
 const logger = require('./logger');
 
-const PREFIXO = '$';
 const ITENS_POR_PAGINA = 5;
 
+// Evita processar a mesma mensagem mais de uma vez caso o evento seja
+// encaminhado novamente pelo cliente durante uma reconexão.
+const mensagensPrefixoProcessadas = new Map();
+const TEMPO_DEDUPLICACAO = 60_000;
+
+
+// ── Duplicação rápida de comando (proteção contra reenvio do cliente) ──────────
+// Se o mesmo comando + args chegar várias vezes em poucos segundos (ex.: cliente
+// que reenvia 5x), ignoramos todos, exceto o primeiro, evitando respostas 5x.
+const comandosRepeticao = new Map();
+const WINDOW_REPETICAO_MS = 5000;
+
+function temRepeticaoRecente(conteudo) {
+  const agora = Date.now();
+  const ultima = comandosRepeticao.get(conteudo);
+  if (ultima !== undefined && agora - ultima < WINDOW_REPETICAO_MS) {
+    return true;
+  }
+  comandosRepeticao.set(conteudo, agora);
+  if (comandosRepeticao.size > 500) {
+    for (const [chave, timestamp] of comandosRepeticao) {
+      if (agora - timestamp >= WINDOW_REPETICAO_MS) {
+        comandosRepeticao.delete(chave);
+      }
+    }
+  }
+  return false;
+}
 // ── Carga dos comandos (modo prefixo `$`, sem slash) ──────────────────
 // Comandos que já têm tratamento inline abaixo (não precisam do bridge).
-const INLINE = new Set(['ping', 'dado', 'roleta', 'lembrete', 'anuncio', 'configurar', 'organizar', 'codex', 'ticket', 'fechar', 'say', 'falar', 'forca']);
+const INLINE = new Set(['ping', 'dado', 'roleta', 'lembrete', 'anuncio', 'configurar', 'organizar', 'codex', 'ticket', 'fechar', 'say', 'falar', 'forca', 'ajuda', 'help']);
 
 // Assinaturas para converter os argumentos do `$mensagem` nas opções que
 // cada comando slash espera. Tipos: user, int, rest (resto da linha), token.
 const SIGNATURES = {
+  tocar: [{ name: 'musica', rest: true }],
+  play: [{ name: 'musica', rest: true }],
+  limparfila: [],
+  clearqueue: [],
+  playlist: [{ name: 'url', rest: true }],
+  volume: [{ name: 'nivel', int: true }],
+  repetir: [{ name: 'modo', token: true }],
+  repeat: [{ name: 'modo', token: true }],
   abraco: [{ name: 'usuario', user: true, optional: true }],
   avatar: [{ name: 'usuario', user: true, optional: true }],
   aviso: [{ name: 'mensagem', rest: true }],
@@ -45,6 +81,14 @@ const SIGNATURES = {
   stream: [],
   tela: [],
   votar: 'especial',
+};
+
+const MUSIC_ALIASES = {
+  tocar: 'tocar', play: 'play', playlist: 'playlist', fila: 'fila', queue: 'queue',
+  pausar: 'pausar', pause: 'pause', retomar: 'retomar', resume: 'resume',
+  pular: 'pular', skip: 'skip', parar: 'parar', stop: 'stop', volume: 'volume',
+  embaralhar: 'embaralhar', shuffle: 'shuffle', repetir: 'repetir', repeat: 'repeat',
+  agora: 'agora', nowplaying: 'nowplaying', limparfila: 'limparfila', clearqueue: 'clearqueue', sair: 'sair', leave: 'leave',
 };
 
 const USO_PADRAO = {
@@ -73,25 +117,9 @@ for (const arquivo of fs.readdirSync(pastaCmds)) {
 
 // ── Helpers de parsing ────────────────────────────────────────────────
 
-// Interpreta notação de dados: NdM+X ou NdM-X
+// Usa o mesmo avaliador seguro do comando slash, mantendo os dois modos alinhados.
 function rolarDados(notacao) {
-  const regex = /^(\d{1,2})d(\d{1,4})([+-]\d{1,3})?$/i;
-  const match = notacao.trim().match(regex);
-  if (!match) return null;
-
-  const quantidade = parseInt(match[1], 10);
-  const lados = parseInt(match[2], 10);
-  const modificador = match[3] ? parseInt(match[3], 10) : 0;
-  if (quantidade < 1 || quantidade > 50 || lados < 2 || lados > 1000) return null;
-
-  const rolagens = [];
-  let soma = 0;
-  for (let i = 0; i < quantidade; i++) {
-    const valor = Math.floor(Math.random() * lados) + 1;
-    rolagens.push(valor);
-    soma += valor;
-  }
-  return { quantidade, lados, modificador, rolagens, total: soma + modificador };
+  return avaliarDados(notacao);
 }
 
 function extrairCanal(mensagem) {
@@ -219,9 +247,13 @@ function criarInteracao(message, client, valores) {
       if (replyMessage) return replyMessage.edit(payload);
       return message.edit(payload);
     },
-    async deferReply() {
+    async deferReply(payload = {}) {
       this.deferred = true;
-      return message;
+      if (!replyMessage) {
+        replyMessage = await message.reply(stripEphemeral(payload.content ? payload : { content: '⏳ Processando...' }));
+        this.replied = true;
+      }
+      return replyMessage;
     },
     // Shim de createMessageComponentCollector: delega para a reply real.
     // Necessário para comandos interativos por prefixo (ex.: $stream) que usam
@@ -306,16 +338,37 @@ async function enviarConfiguracao(mensagem, guildId) {
 
 async function handlePrefix(message, client) {
   if (message.author.bot) return;
-  if (!message.content.startsWith(PREFIXO)) return;
+  // Ignore messages from ourselves to prevent loops
+  if (message.author.id === client.user?.id) return;
 
-  const args = message.content.slice(PREFIXO.length).trim().split(/\s+/);
-  const comando = (args.shift() || '').toLowerCase();
+  const agora = Date.now();
+  const ultimaExecucao = mensagensPrefixoProcessadas.get(message.id);
+  if (ultimaExecucao && agora - ultimaExecucao < TEMPO_DEDUPLICACAO) return;
+  mensagensPrefixoProcessadas.set(message.id, agora);
+  if (mensagensPrefixoProcessadas.size > 1000) {
+    for (const [id, timestamp] of mensagensPrefixoProcessadas) {
+      if (agora - timestamp >= TEMPO_DEDUPLICACAO) mensagensPrefixoProcessadas.delete(id);
+    }
+  }
+
+  const guildId = message.guild?.id;
+  const cfg = guildId ? obterConfig(guildId) : { prefixo: '$' };
+  const prefixos = [...new Set(['$', '/', cfg.prefixo || '$'])];
+  const prefixo = prefixos.find((item) => message.content.startsWith(item));
+
+  if (!prefixo) return;
+
+  const args = message.content.slice(prefixo.length).trim().split(/\s+/);
+  const comandoDigitado = (args.shift() || '').toLowerCase();
+  const comando = MUSIC_ALIASES[comandoDigitado] || comandoDigitado;
   if (!comando) return;
 
   // ⋆｡°✩ Log decorado do comando no terminal
-  logger.logComando(comando, message.author.username, message.channel?.name, message.guild?.name);
+  logger.logComando(comandoDigitado, message.author.username, message.channel?.name, message.guild?.name);
+  logger.debug?.(`PID ${process.pid} processando mensagem ${message.id} (${prefixo}${comando})`);
 
-  const guildId = message.guild?.id;
+  const conteudoComando = `${prefixo}${comando} ${args.join(' ').trim()}`;
+  if (temRepeticaoRecente(conteudoComando)) return;
 
   // Configurar é livre em qualquer canal (para reconfigurar)
   if (comando !== 'configurar') {
@@ -357,22 +410,21 @@ async function handlePrefix(message, client) {
 
   // ── $dado NdM ──
   if (comando === 'dado') {
-    const notacao = args[0] || '';
+    const detalhar = args.some((arg) => ['detalhar', '--detalhar'].includes(arg.toLowerCase()));
+    const notacao = args.filter((arg) => !['detalhar', '--detalhar'].includes(arg.toLowerCase())).join(' ');
     const resultado = rolarDados(notacao);
     if (!resultado) {
       return responder(
         message,
         criarEmbed({
           titulo: 'Notação inválida',
-          descricao: 'Use `NdM` ou `NdM±X`, ex: `$dado 1d20`, `$dado 2d6+3`.',
+          descricao: 'Use dados com `+`, `-`, `x` ou `*`, ex: `$dado 1d20+2` ou `$dado 1d20-5+4x6 detalhar`.',
           cor: THEME.corErro,
         }),
         true
       );
     }
-    const { quantidade, lados, modificador, rolagens, total } = resultado;
-    const linha = rolagens.map((v) => `\`${v}\``).join('  ·  ');
-    const linhaMod = modificador !== 0 ? `\n**Modificador:** ${modificador > 0 ? '+' : ''}${modificador}` : '';
+    const linha = formatarDados(resultado, detalhar);
     // ⋆｡°✩ Animação de dados: typing → rolagem → resultado
     mostrarDigitando(message.channel, 700).catch(() => {});
     return responder(
@@ -381,11 +433,9 @@ async function handlePrefix(message, client) {
         titulo: 'A lua decidiu os dados',
         descricao:
           `${THEME.div.bolinhas}\n\n` +
-          `${THEME.iconeFooter} Rolando **${quantidade}d${lados}**...\n\n` +
-          `${THEME.div.estrelado}\n\n` +
-          `${linha}${linhaMod}\n\n` +
-          `${THEME.div.coracao}\n\n` +
-          `**✦ Resultado final: \`${total}\`**`,
+          `${THEME.iconeFooter} Rolando a expressão...\n\n` +
+          `${linha}\n\n` +
+          `${THEME.div.coracao}`,
         cor: THEME.corDado,
         rodape: `${THEME.nome} rolou dados para ${message.author.username}`,
       })
@@ -1006,6 +1056,12 @@ async function handlePrefix(message, client) {
   }
 
   // ── $say / $falar ──
+  if (comando === 'sair' || comando === 'desconectar') {
+    const sair = require('../commands/sair');
+    const interaction = criarInteracao(message, client, {});
+    return sair.execute(interaction, client);
+  }
+
   if (comando === 'say' || comando === 'falar') {
     const { falarDireto } = require('./sayManager');
     return falarDireto(message, args);
@@ -1034,7 +1090,7 @@ async function handlePrefix(message, client) {
     try {
       await EXTRA[comando].execute(interaction, client);
     } catch (erro) {
-      logger.erro(`Erro ao executar $${comando}: ${erro?.message || erro}`, { usuario: message.author.username, comando: `$${comando}` });
+      logger.erro(`Erro ao executar ${prefixo}${comando}: ${erro?.message || erro}`, { usuario: message.author.username, comando: `${prefixo}${comando}` });
       await responder(
         message,
         criarEmbed({ titulo: 'Algo se perdeu no caminho', descricao: 'Tive um problema ao executar esse comando. Tente novamente.', cor: THEME.corErro }),
@@ -1170,4 +1226,4 @@ async function mostrarListaLembretes(message, client, filtrosIniciais = {}) {
   });
 }
 
-module.exports = { PREFIXO, handlePrefix };
+module.exports = { handlePrefix, temRepeticaoRecente };

@@ -85,7 +85,7 @@ function modalAutor() {
 }
 
 module.exports = {
-  data: { name: 'cartasecreta', description: '✉️ Entrega uma carta misteriosa para um membro' },
+  data: { name: 'cartasecreta', description: '✉️ Entrega uma carta misteriosa para um membro', options: [{ name: 'usuario', description: 'Destinatário opcional; o formulário completa a carta', type: 6, required: false }] },
   async execute(interaction) {
     const autor = interaction.user;
     const guild = interaction.guild;

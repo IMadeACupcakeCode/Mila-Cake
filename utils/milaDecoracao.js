@@ -3,14 +3,26 @@
 // tanto no Discord (typing, embeds, banners) quanto no terminal (logs coloridos).
 
 const { EmbedBuilder } = require('discord.js');
-const { THEME } = require('./theme');
+const { THEME, criarEmbedDecorada, descricaoDecorada, rodapeAleatorio } = require('./theme');
 
 // ════════════════════════════════════════════════════════════════════════════
 // ANIMAÇÃO NO DISCORD — Typing indicator & loading
 // ════════════════════════════════════════════════════════════════════════════
 
 /** Pontos de "digitando" animados para o Discord */
-const TYPING_DOTS = ['⠀', '⠀⠀', '⠀⠀⠀', '⠀⠀⠀⠀'];
+const TYPING_DOTS = ['·', '··', '···', '✦'];
+
+// Pequenas legendas reutilizáveis para que cada resposta explique seu estado.
+const ESTADOS = {
+  sucesso: '✦ FEITO',
+  info: '✦ MILA DIZ',
+  espera: '✦ SÓ UM SEGUNDO',
+  erro: '✦ PRECISA DE ATENÇÃO',
+};
+
+function faixaEstado(estado = 'info', texto) {
+  return `**${ESTADOS[estado] || ESTADOS.info}**${texto ? `  ·  ${texto}` : ''}`;
+}
 
 /**
  * Mostra "Mila está digitando..." por um tempo determinado.
@@ -98,7 +110,7 @@ async function responderAnimado(message, embed, opcoes = {}) {
   // 2️⃣ Opcional: mensagem de loading animada
   if (mostrarLoading) {
     const loadingEmbed = criarEmbedDecorado({
-      titulo: `${THEME.iconeFooter} Processando...`,
+      titulo: 'Processando...',
       descricao: `_${mensagemLoading(categoria)}_`,
       cor: THEME.corPrincipal,
       semTimestamp: true,
@@ -125,30 +137,28 @@ async function responderAnimado(message, embed, opcoes = {}) {
  * Cria uma embed decorada com a identidade visual da Mila.
  * Versão aprimorada de criarEmbed com divisores e formatação extra.
  */
-function criarEmbedDecorado({ titulo, descricao, cor, rodape, thumbnail, image, semTimestamp, semDecoracao }) {
-  const embed = new EmbedBuilder()
-    .setColor(cor || THEME.corPrincipal);
-
-  // Título com ícone temático
-  if (titulo) {
-    embed.setTitle(`${THEME.iconeFooter}  ${titulo}`);
+function criarEmbedDecorado({ titulo, descricao, cor, rodape, thumbnail, image, semTimestamp, semDecoracao = false }) {
+  if (semDecoracao) {
+    const embed = new EmbedBuilder()
+      .setColor(cor || THEME.corPrincipal)
+      .setTitle(titulo ? `${THEME.iconeFooter}  ${titulo}` : null)
+      .setDescription(descricao)
+      .setFooter({ text: rodape || rodapeAleatorio() });
+    if (!semTimestamp) embed.setTimestamp();
+    if (thumbnail) embed.setThumbnail(thumbnail);
+    if (image) embed.setImage(image);
+    return embed;
   }
 
-  // Descrição com decoração
-  if (descricao) {
-    embed.setDescription(descricao);
-  }
-
-  // Footer decorado
-  embed.setFooter({
-    text: rodape || THEME.footers[Math.floor(Math.random() * THEME.footers.length)],
+  return criarEmbedDecorada({
+    titulo,
+    descricao,
+    cor,
+    rodape,
+    thumbnail,
+    image,
+    semTimestamp,
   });
-
-  if (!semTimestamp) embed.setTimestamp();
-  if (thumbnail) embed.setThumbnail(thumbnail);
-  if (image) embed.setImage(image);
-
-  return embed;
 }
 
 /**
@@ -158,10 +168,7 @@ function criarEmbedDecorado({ titulo, descricao, cor, rodape, thumbnail, image, 
  */
 function decorarEmbed(embed) {
   const desc = embed.data.description;
-  if (desc && !desc.includes('─ ･')) {
-    const decorado = `${THEME.div.bolinhas}\n\n${desc}\n\n${THEME.div.bolinhas}`;
-    embed.setDescription(decorado);
-  }
+  if (desc) embed.setDescription(descricaoDecorada(desc));
   return embed;
 }
 
@@ -171,7 +178,7 @@ function decorarEmbed(embed) {
 function embedSucesso(titulo, descricao) {
   return criarEmbedDecorado({
     titulo,
-    descricao: `✅ ${descricao}`,
+    descricao: `${faixaEstado('sucesso')}\n\n${descricao}`,
     cor: THEME.corSucesso,
   });
 }
@@ -182,7 +189,7 @@ function embedSucesso(titulo, descricao) {
 function embedErro(titulo, descricao) {
   return criarEmbedDecorado({
     titulo,
-    descricao: `❌ ${descricao}`,
+    descricao: `${faixaEstado('erro')}\n\n${descricao}`,
     cor: THEME.corErro,
   });
 }
@@ -193,7 +200,7 @@ function embedErro(titulo, descricao) {
 function embedInfo(titulo, descricao) {
   return criarEmbedDecorado({
     titulo,
-    descricao,
+    descricao: `${faixaEstado('info')}\n\n${descricao}`,
     cor: THEME.corPrincipal,
   });
 }
@@ -272,6 +279,8 @@ module.exports = {
   embedErro,
   embedInfo,
   mensagemLoading,
+  faixaEstado,
+  ESTADOS,
   TYPING_DOTS,
   // Terminal
   COR,

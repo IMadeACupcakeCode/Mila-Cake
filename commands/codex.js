@@ -2,6 +2,7 @@ const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { CATEGORIAS, COMANDOS, TOTAL } = require('../utils/codexData');
 const { linhaNavegacao, menuPular, aproximar, EmbedBuilder } = require('../utils/ui');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
+const { SlashCommandBuilder } = require('discord.js');
 
 const AUTOR_COVER =
   `${THEME.iconeFooter} ⋆｡°✩ Arquivos Mila\n` +
@@ -53,6 +54,27 @@ function renderizarPagina(indice) {
   return embed;
 }
 
+function paginaDaInteracao(interaction) {
+  const rodape = interaction.message?.embeds?.[0]?.footer?.text || '';
+  const match = rodape.match(/Página\s+(\d+)\/(\d+)/i);
+  return match ? Math.max(0, Math.min(TOTAL, Number(match[1]) - 1)) : 0;
+}
+
+async function tratarComponente(interaction) {
+  if (!interaction.customId.startsWith('codex_')) return false;
+
+  let pagina = paginaDaInteracao(interaction);
+  if (interaction.customId === 'codex_first') pagina = 0;
+  else if (interaction.customId === 'codex_prev') pagina = Math.max(0, pagina - 1);
+  else if (interaction.customId === 'codex_next') pagina = Math.min(TOTAL, pagina + 1);
+  else if (interaction.customId === 'codex_last') pagina = TOTAL;
+  else if (interaction.customId === 'codex_jump') pagina = Number(interaction.values?.[0]) || 0;
+  else return false;
+
+  await interaction.update({ embeds: [renderizarPagina(pagina)], components: componentes(pagina) });
+  return true;
+}
+
 function componentes(indice) {
   const ultimo = TOTAL;
   const nav = linhaNavegacao('codex', {
@@ -69,13 +91,36 @@ function componentes(indice) {
     emoji: c.emoji,
   }));
 
-  const menu = menuPular('codex', '⤵️ Pular para um comando...', opcoes);
+  const inicio = Math.floor(Math.max(0, indice - 1) / 24) * 24;
+  const janela = opcoes.slice(inicio, inicio + 24);
+  const menu = menuPular(
+    'codex',
+    `⤵️ Comandos ${inicio + 1}–${Math.min(inicio + 24, opcoes.length)}...`,
+    janela.map((opcao) => ({ ...opcao, value: String(Number(opcao.value)) })),
+  );
   return [nav, menu];
 }
 
 module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('codex')
+    .setDescription('📖 Abre o arquivo de comandos da Mila')
+    .addStringOption((option) => option
+      .setName('termo')
+      .setDescription('Comando ou termo para buscar')
+      .setRequired(false)
+      .setMaxLength(100)),
+  async execute(interaction) {
+    await mostrarDigitando(interaction.channel, 600);
+    const termo = interaction.options.getString('termo');
+    const encontrado = termo ? aproximar(termo, COMANDOS) : null;
+    const indice = encontrado ? COMANDOS.indexOf(encontrado) + 1 : 0;
+    return interaction.reply({ embeds: [renderizarPagina(indice)], components: componentes(indice) });
+  },
   buscar: (termo) => aproximar(termo, COMANDOS),
   renderizarPagina,
   componentes,
+  tratarComponente,
+  paginaDaInteracao,
   TOTAL,
 };

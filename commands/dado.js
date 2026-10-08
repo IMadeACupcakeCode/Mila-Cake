@@ -1,36 +1,29 @@
 const { criarEmbed, THEME, rodapeAleatorio } = require('../utils/theme');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
+const { avaliar, formatar } = require('../utils/dice');
 
-// Interpreta notação de dados: NdM+X ou NdM-X (ex: 1d20, 2d6+3, 4d8-1)
-function rolarDados(notacao) {
-  const regex = /^(\d{1,2})d(\d{1,4})([+-]\d{1,3})?$/i;
-  const match = notacao.trim().match(regex);
-  if (!match) return null;
-
-  const quantidade = parseInt(match[1], 10);
-  const lados = parseInt(match[2], 10);
-  const modificador = match[3] ? parseInt(match[3], 10) : 0;
-
-  if (quantidade < 1 || quantidade > 50 || lados < 2 || lados > 1000) return null;
-
-  const rolagens = [];
-  let soma = 0;
-  for (let i = 0; i < quantidade; i++) {
-    const valor = Math.floor(Math.random() * lados) + 1;
-    rolagens.push(valor);
-    soma += valor;
-  }
-  const total = soma + modificador;
-
-  return { quantidade, lados, modificador, rolagens, total };
+function rolarDados(notacao, rng = Math.random) {
+  return avaliar(notacao, rng);
 }
 
 module.exports = {
-  data: { name: 'dado', description: 'Rola dados no estilo NdM (ex: 1d20, 2d6+3)' },
+  data: {
+    name: 'dado',
+    description: 'Rola dados e calcula expressões (ex: 1d20+2 ou 1d20-5+4x6)',
+    options: [
+      { name: 'notacao', description: 'Expressão de dados, como 1d20-5+4x6', type: 3, required: true, max_length: 100 },
+      { name: 'detalhar', description: 'Mostrar o cálculo completo e a precedência', type: 5, required: false },
+    ],
+  },
+
+  rolarDados,
+  avaliar,
+  formatar,
 
   async execute(interaction) {
     await mostrarDigitando(interaction.channel, 800);
     const notacao = interaction.options.getString('notacao');
+    const detalhar = interaction.options.getBoolean('detalhar') || false;
     const resultado = rolarDados(notacao);
 
     if (!resultado) {
@@ -38,33 +31,20 @@ module.exports = {
         titulo: 'Notação inválida',
         descricao:
           `Não consegui interpretar **\`${notacao}\`**.\n\n` +
-          'Use o formato `NdM` ou `NdM±X`, por exemplo:\n' +
-          '`1d20` • `2d6+3` • `4d8-1`',
+          'Use dados, números e `+`, `-`, `x` ou `*`. Exemplos:\n' +
+          '`1d20` · `1d20+2` · `1d20-5+4x6`',
         cor: THEME.corErro,
       });
       return interaction.reply({ embeds: [embedErro], ephemeral: true });
     }
 
-    const { quantidade, lados, modificador, rolagens, total } = resultado;
-
-    const linhaDados = rolagens.map((v) => `\`${v}\``).join('  ·  ');
-    const linhaModificador =
-      modificador !== 0 ? `\n**Modificador:** ${modificador > 0 ? '+' : ''}${modificador}` : '';
-
-    const descricao =
-      `${THEME.div.bolinhas}\n\n` +
-      `${THEME.iconeFooter} Rolando **${quantidade}d${lados}**...\n\n` +
-      `${linhaDados}${linhaModificador}\n\n` +
-      `**✦ Resultado: \`${total}\`**\n\n` +
-      `${THEME.div.estrelado}`;
-
     const embed = criarEmbed({
-      titulo: '🎲 Rolando os dados...',
-      descricao,
+      titulo: '🎲 Resultado dos dados',
+      descricao: `${THEME.div.bolinhas}\n\n${formatar(resultado, detalhar)}\n\n${THEME.div.estrelado}`,
       cor: THEME.corDado,
       rodape: rodapeAleatorio(),
     });
 
-    await interaction.reply({ embeds: [embed] });
+    return interaction.reply({ embeds: [embed] });
   },
 };

@@ -71,7 +71,7 @@ function parsePollInput(pergunta, opcoesRaw, duracaoRaw) {
 }
 
 module.exports = {
-  data: { name: 'votar', description: '🗳️ Cria uma enquete rápida com botões e tempo customizável' },
+  data: { name: 'votar', description: '🗳️ Cria uma enquete rápida com botões e tempo customizável', options: [{ name: 'pergunta', description: 'Pergunta da enquete', type: 3, required: true, max_length: 500 }, { name: 'opcoes', description: 'Opções separadas por vírgula', type: 3, required: true, max_length: 1000 }, { name: 'duracao', description: 'Duração como 10m, 1h ou 1d', type: 3, required: false, max_length: 20 }] },
   async execute(interaction) {
     await mostrarDigitando(interaction.channel, 800);
     let pergunta = interaction.options.getString('pergunta');

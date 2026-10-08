@@ -3,7 +3,7 @@ const { criarEmbed, THEME } = require('../utils/theme');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
-  data: { name: 'lentidao', description: '🐌 Define o modo lento (slowmode) do canal' },
+  data: { name: 'lentidao', description: '🐌 Define o modo lento (slowmode) do canal', options: [{ name: 'segundos', description: 'Duração entre 0 e 21600 segundos', type: 4, required: true, min_value: 0, max_value: 21600 }] },
   async execute(interaction) {
     await mostrarDigitando(interaction.channel, 600);
     const seg = interaction.options.getInteger('segundos');

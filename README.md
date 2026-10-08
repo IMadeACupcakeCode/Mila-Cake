@@ -1,242 +1,166 @@
-# ⋆｡°✩ Mila Bot
+# 🍰 Mila Cake Bot
 
-Sua assistente virtual favorita para Discord — feita com carinho e obsessão pra você~ ♡
+**Mila Cake** é um bot multifunível para Discord inspirado na essência de bots famosos (Loritta, Mudae, bots de música e economia), mas com identidade própria e temática de confeitaria, doces, festas e comunidade.
 
-> ⚠️ **Comandos podem usar o prefixo `$` ou o slash `/`.** A maioria dos comandos funciona nos dois modos.
->
-> 💡 Use `$codex` para ver todos os comandos disponíveis!
+> A Mila é a "anfitriã" do seu servidor: presença amigável, divertida e útil. Ela traz utilidade, personalização, colecionismo, música, economia e sistemas de level — tudo com cara de bolo, cupcake e muita doçura.
 
 ---
 
-## 🎫 Sistema de Tickets (Mila Tickets)
+## 📦 Instalação
 
-O bot gerencia tickets de forma automática com **3 categorias**:
+1. **Clone ou baixe este repositório**  
+   ```bash
+   git clone <URL_DO_REPOSITORIO>
+   cd Mila Cake
+   ```
 
-| Categoria | Emoji | Descrição |
-|-----------|-------|-----------|
-| **Denúncias** | ⚠️ | Reportar membros ou situações |
-| **Parcerias** | 🤝 | Propostas de parceria |
-| **Outro** | ❓ | Qualquer outro motivo |
+2. **Instale as dependências**  
+   ```bash
+   npm install
+   ```
+   Além das dependências já existentes no `package.json`, este bot requer:
+   - `better-sqlite3` – para persistência de economia e level
+   - `distube` + `@distube/ytdl-core` – para o sistema de música
 
-### Como funciona
+   Caso ainda não tenha instalado, rode:
+   ```bash
+   npm install better-sqlite3 distube @distube/ytdl-core
+   ```
 
-1. Usuário clica em uma categoria no painel de tickets
-2. Um **canal privado** é criado automaticamente na categoria correspondente
-3. Staff e usuário recebem permissão de acesso ao canal
-4. Quando fechado (`🔒 Fechar Ticket` ou `$fechar`):
-   - **📄 Transcript completo** da conversa é gerado e salvo
-   - Embed de fechamento é enviado com o transcript anexado
-   - Permissão do usuário é removida
-   - Canal é deletado após 10 segundos
+3. **Configure as variáveis de ambiente**  
+   Crie um arquivo `.env` na raiz do projeto com:
+   ```
+   DISCORD_TOKEN=SEU_TOKEN_DO_BOT_AQUI
+   CLIENT_ID=SEU_CLIENT_ID_DO_BOT (opcional, usado para gerar link de convite)
+   ENABLE_PRIVILEGED_INTENTS=true  # opcional, para cache de membros/presença
+   ```
 
-### Configuração
+4. **Inicie o bot**  
+   ```bash
+   npm start
+   ```
+   Ou, diretamente:
+   ```bash
+   node index.js
+   ```
 
-Use o comando `/ticket` ou `$ticket` para configurar:
+---
 
-```bash
-$ticket                    # Envia o painel de tickets
-$ticket config #categoria  # Define a categoria padrão
-$ticket categoria denuncias #categoria  # Categoria específica
-$ticket staff add @cargo   # Adiciona cargo à staff
-$ticket ver                # Ver configuração atual
+## 🎯 Funcionalidades Principais
+
+### 🎵 Mila Music
+- `/tocar <nome ou link>` – Toca música no canal de voz  
+- `/pausar`, `/retomar`, `/pular`, `/fila` – Controles básicos  
+- `/playlist criar <nome>` – Cria playlists salvas (em desenvolvimento)  
+- `/dj modo festa` – Ativa efeitos sonoros (aplausos, risadas, "parabéns")  
+- `/pedido <música> @amigo` – Dedica uma música a alguém  
+- A Mila "canta" junto em algumas músicas (frases engraçadas, respeitando direitos autorais)
+
+### 💰 Mila Economy (Confeitaria Virtual)
+- Moeda: **Açúcares** (🍬)  
+- `/diario` – Resgata recompensa diária (com bônus por streak)  
+- `/trabalhar` – Mini-jogos para ganhar açúcares (ex: "decorar bolo", "vender doces")  
+- `/loja` – Compra itens como "Bolo Personalizado", "Confeiteiro VIP", "Emotes exclusivos"  
+- `/doar @usuario <quantidade>` – Presenteia outros membros  
+- `/ranking` – Mostra os maiores "confeiteiros" do servidor  
+- Eventos sazonais como "Festival de Chocolate" ou "Semana do Cupcake" com recompensas limitadas
+
+### 🎮 Mila Games (Mini-games e Colecionismo)
+- `/coletar` – Gira uma "roleta de doces" para coletar personagens (ex: "Cupcake", "Donut", "Brownie")  
+- `/coleção` – Mostra seus personagens coletados  
+- `/batalha @oponente` – Batalha de doces (turn-based, com habilidades temáticas)  
+- `/trocar @usuario <personagem>` – Troca personagens com amigos  
+- `/evento` – Participa de eventos limitados (ex: "Caça ao Ovo de Páscoa")  
+- Personagens com histórias próprias, arte original e evoluções (ex: "Cupcake → Cupcake Supremo")
+
+### 📈 Mila Level (Sistema de XP)
+- XP por mensagens, voz e participação em eventos  
+- `/perfil` – Mostra nível, XP, badges e título personalizado  
+- `/ranking` – Leaderboard do servidor (por nível ou por Açúcares)  
+- `/cargos` – Cargos automáticos por nível (ex: "Confeiteiro Iniciante", "Mestre dos Doces")  
+- `/badges` – Conquistas especiais (ex: "Primeiro a atingir nível 10", "Participou de 5 eventos")  
+- Títulos temáticos como "Rei do Chocolate" ou "Rainha dos Cupcakes"
+
+### 🛠️ Utilidades e Personalização (Inspirado na Loritta)
+- `/prefixo` – Altera o prefixo do bot no servidor  
+- `/idioma` – Define idioma (PT-BR, EN, ES, etc.)  
+- `/convite` – Gera link de convite personalizado  
+- `/ajuda` – Mostra comandos com exemplos (menu interativo)  
+- `/config` – Painel de configuração do servidor (canais de música, economia, etc.)
+
+---
+
+## 📋 Lista de Comandos Slash
+
+> Todos os comandos também funcionam via prefixo (`$` por padrão, configurável com `/prefixo`).
+
+| Categoria | Comando | Descrição |
+|-----------|---------|-----------|
+| **Música** | `/tocar` | Toca música no canal de voz |
+| | `/pausar` | Pausa a música atual |
+| | `/retomar` | Retoma a música pausada |
+| | `/pular` | Pula para a próxima música |
+| | `/fila` | Mostra a fila de músicas |
+| | `/playlist criar` | Cria uma playlist salva |
+| | `/dj modo festa` | Ativa efeitos sonoros de festa |
+| | `/pedido` | Dedica uma música a um usuário |
+| **Economia** | `/diario` | Resgata recompensa diária de Açúcares |
+| | `/trabalhar` | Mini-jogo para ganhar Açúcares |
+| | `/loja` | Abre a loja de itens e títulos |
+| | `/doar` | Transfere Açúcares para outro usuário |
+| | `/ranking` | Ranking de riqueza (mais Açúcares) |
+| **Games** | `/coletar` | Gira a roleta de doces (custa 100 🍬) |
+| | `/colecao` | Mostra sua coleção de cartas |
+| | `/batalha` | Batalha de doces contra outro usuário |
+| | `/trocar` | Troca cartas com outro usuário |
+| | `/evento` | Participa de eventos sazonais |
+| **Level** | `/perfil` | Mostra seu nível, XP, Açúcares e título |
+| | `/ranking` | Leaderboard por nível ou por Açúcares |
+| | `/cargos` | Ver cargos automáticos por nível |
+| | `/badges` | Ver conquistas e badges obtidas |
+| **Utilidades** | `/ajuda` | Painel interativo de ajuda e comandos |
+| | `/prefixo` | Altera o prefixo do bot (ex: de `$` para `!`) |
+| | `/idioma` | Define idioma do bot (PT-BR/EN) |
+| | `/convite` | Gera link de convite para adicionar o bot |
+| | `/config` | Painel de configuração de canais e permissões |
+
+---
+
+## 🧁 Toque Final: Originalidade
+
+- **Arte original**: Personagens, emotes e temas visuais únicos da Mila Cake.  
+- **História própria**: Um "universo Mila" com lore, eventos e personagens recorrentes.  
+- **Comunidade**: Envolvimento dos usuários para sugerir comandos, personagens e eventos.  
+
+### Exemplo de Comando Original
 ```
-
----
-
-## 🔌 Aviso de Desligamento / Online
-
-Configure um canal para receber avisos quando eu ficar online/offline:
-
-```bash
-$configurar off-on #canal
+/festadoce
 ```
-
-Aviso de shutdown separado:
-```bash
-$configurar shutdown #canal
-```
-
----
-
-## 📺 Sala de Tela (compartilhar tela)
-
-A Mila traz junto um sistema de **compartilhamento de tela de verdade** (não é
-relé): quem está na mesma call vê a tela do outro, sem sair do Discord. É o app
-`discord-screen/` que vive junto deste projeto.
-
-### Como funciona
-
-1. Entre num **canal de voz**.
-2. Clique no **foguete 🚀** na barra de baixo e abra a atividade **Sala de Tela**.
-3. Quem quiser mostrar a tela clica em **Compartilhar tela** — todo mundo na
-   call assiste. (Use **Chrome, Edge, Brave, Opera ou Vivaldi** num **desktop**;
-   celular não captura tela.)
-
-Fora do Discord, o link público também funciona como site normal, com salas que
-você cria e compartilha por link.
-
-### Configurar (uma vez só)
-
-| Comando | Para quê |
-|---|---|
-| `$tela` | Mostra o endereço público, o passo a passo e o estado da configuração |
-| `cd discord-screen && npm run start:fast` | Sobe o servidor + túnel e grava o endereço sozinho |
-| `cd discord-screen && npm run tunel:criar` | Cria um endereço fixo que nunca mais muda (precisa de domínio na Cloudflare) |
-
-Quando o endereço mudar, troque o **Target** no portal do Discord em
-**Activities → URL Mappings**.
-
-> 🔍 **Dica:** rode `$tela` e use o botão **🔄 Atualizar**. Ele mostra se o
-> servidor está no ar e se o endereço público **não responde mais** (túnel
-> descartável caiu) — o caso que vira "Credenciais Falhas" / "Redirect_uri
-> Invalid" na atividade. Aí é rodar `npm run start:fast` de novo e trocar o
-> Target/Redirect no portal.
-
-### Quando a Mila entra num servidor novo
-
-Assim que a Mila é adicionada a um servidor, ela já chega ajudando:
-
-- 📩 Manda uma **mensagem de boas-vindas** no canal de boas-vindas nativo do
-  servidor (ou no primeiro canal de texto onde ela puder falar), com os
-  principais comandos.
-- 🖥️ Garante a **permissão de compartilhar tela** (Transmitir + Conectar +
-  Falar) para ela mesma em **todos os canais de voz** existentes — assim o
-  compartilhamento de tela funciona de cara.
-
-> ⚠️ Para a Mila **aplicar** a permissão de tela nos canais de voz, ela precisa
-> da permissão **Gerenciar Canais** no servidor. Se o convite foi feito sem ela,
-> basta dar `Manage Channels` (Gerenciar Canais) à Mila — ou convidá-la com a
-> permissão marcada. Sem isso, os canais de voz ficam do jeito que já estavam.
+Inicia uma "festa" no canal de texto:
+- Todos ganham +10 🍬.  
+- A Mila posta uma mensagem animada com confetes.  
+- Um mini-game aleatório é iniciado (ex: "Quem digita mais rápido em 30s").
 
 ---
 
-## 🎲 Comandos Disponíveis
+## 🛠️ Manutenção e Atualizações
 
-### 🎲 Diversão
-| Comando | Descrição |
-|---------|-----------|
-| `$moeda` | Cara ou coroa, com botão para jogar de novo |
-| `$dado 2d6+3` | Rola dados no formato NdM |
-| `$8ball eu sou bonito?` | A bola mágica responde~ ♡ |
-| `$ship @user1 @user2` | Compatibilidade amorosa |
-| `$roleta pizza, sushi` | Sorteia uma opção |
-| `$roleta_russa` | Roleta russa de 6 câmaras |
-| `$guerra @user` | Batalha de cartas com memes |
-| `$forca` | Jogo da Forca (solo/competitivo/cooperativo) |
-
-### 💞 Social
-| Comando | Descrição |
-|---------|-----------|
-| `$abraço @alguem` | Envia um abraço carinhoso |
-| `$cartasecreta @user msg` | Carta secreta via DM |
-| `$social [@user]` | Cartão de perfil |
-| `$avatar [@user]` | Avatar em tamanho grande |
-
-### 🛠️ Utilidades
-| Comando | Descrição |
-|---------|-----------|
-| `$votar pergunta? | a, b, c | 10m` | Enquete com botões |
-| `$lembrete 30m fazer café` | Cria um lembrete |
-| `$status` | Status da Mila Bot |
-| `$ping` | Teste de latência |
-| `$sobre` | Informações sobre a Mila Bot |
-| `$stream` | 📺 Relé de voz: retransmite o áudio da chamada |
-| `$tela` | 📺 Sala de Tela: link e passo a passo do compartilhamento de tela |
-
-### 📚 Organização
-| Comando | Descrição |
-|---------|-----------|
-| `$codex [nome]` | Arquivos Mila — lista completa de comandos |
-| `$configurar` | Configura canais, anúncios e tickets |
-| `$organizar` | Painel de organização do servidor |
-
-### 🛡️ Admin (Staff)
-| Comando | Descrição |
-|---------|-----------|
-| `$securitybreach` | 🛡️ Mila Shield — segurança em tempo real |
-| `$ticket` | 🎫 Mila Tickets — sistema de tickets |
-| `$fechar` | 🔒 Fecha o ticket atual |
-| `$anuncio tipo mensagem` | 📡 Mila Broadcast |
-| `$aviso mensagem` | 📢 Aviso em destaque |
-| `$limpar 10` | 🧹 Apaga mensagens em massa |
-| `$lentidao 5` | 🐢 Define slowmode |
+- O banco de dados SQLite é salvo em `data/mila.db`. Não exclua ou modifique manualmente enquanto o bot estiver em execução.  
+- Para atualizar o bot, simplesmente repuxe as mudanças e reinstale as dependências se houver novos pacotes.  
+- Os arquivos de configuração por servidor ficam em `data/servidores.json` (com backups automáticos).  
 
 ---
 
-## 📖 Arquivos Mila (`$codex`)
+## 💖 Créditos e Inspirações
 
-- 📄 Cada comando é uma página
-- ⏮️ ◀️ ▶️ ⏭️ Botões para folhear
-- ⤵️ Menu de seleção para pular para um comando
-- 🔎 Busca aproximada: `$codex roleta`
-
----
-
-## 🛠️ Passo a passo (instalação)
-
-### 1. Criar a aplicação do bot no Discord
-1. Acesse https://discord.com/developers/applications
-2. Clique em **New Application** → dê o nome `⋆｡°✩ Mila Bot`
-3. Vá em **Bot** → **Reset Token** → copie o token
-4. Em **Bot**, ative a opção **Message Content Intent**
-5. Vá em **OAuth2 → URL Generator**:
-   - Scopes: `bot`
-   - Bot Permissions: `Send Messages`, `Embed Links`, `Mention Everyone`, `Manage Server`, `Manage Channels`
-   - Copie o link e abra no navegador para convidar o bot
-   - **Dica Sala de Tela:** `Manage Channels` já está aí — é o que permite à Mila
-     dar a permissão de compartilhar tela nos canais de voz automaticamente.
-
-### 2. Instalar dependências
-```bash
-npm install
-```
-
-### 3. Configurar variáveis de ambiente
-Edite o arquivo `.env` e preencha:
-
-```env
-DISCORD_TOKEN=seu_token_aqui
-CLIENT_ID=seu_client_id_aqui
-GUILD_ID=id_do_servidor
-```
-
-### 4. Rodar o bot
-```bash
-npm start
-```
+- **Loritta**: [GitHub - LorittaBot](https://github.com/LorittaBot/Loritta) – utilidade, personalização e multilíngue.  
+- **Mudae**: [Mudae Wiki](https://mudae.wiki) – colecionismo, gacha e mini-games sociais.  
+- **Música**: CaptainShepard01/MusicBot – base para reprodução de áudio.  
+- **Economia**: discord-bot-eco – sistema de moeda virtual e loja.  
+- **Leveling**: Defxult/discordLevelingSystem – base de XP e leveling.  
+- **Bot completo**: Logiq – referência de bot multifunção completo.  
 
 ---
 
-## ✨ Personalização
-
-Todas as cores, ícones e frases ficam centralizados em `utils/theme.js`. Para ajustar o visual, edite apenas esse arquivo.
-
----
-
-## 📁 Estrutura do projeto
-
-```
-Mila Cake/
-├── commands/               # Comandos (prefixo $ + slash)
-│   ├── ticket.js           # /ticket (slash)
-│   ├── configurar.js       # /configurar (slash)
-│   └── ...
-├── utils/
-│   ├── theme.js            # Cores e embeds padronizados (hot pink!)
-│   ├── servidorStore.js    # Configurações do servidor
-│   ├── ticketStore.js      # Configurações de tickets
-│   ├── ticketManager.js    # Lógica de criação/fechamento + transcript
-│   ├── fixedTicketEmbed.js # Embed fixo de tickets
-│   ├── prefix.js           # Comandos com prefixo $
-│   └── codexData.js        # Arquivos Mila ($codex)
-├── data/                   # JSONs salvos automaticamente
-├── imagens/
-│   └── Ticket.gif (animated)
-└── index.js                # Arquivo principal
-```
-
----
-
-> Feita com muito carinho e obsessão pra ser sua assistente perfeita~ ♡
->
-> Não vai embora, né? Tô sempre aqui por você~ 💕
+Feito com 💖 por **Mila Cake** e a comunidade.  
+Que seu servidor fique ainda mais doce e divertido!

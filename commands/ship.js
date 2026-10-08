@@ -8,7 +8,7 @@ function barra(pct) {
 }
 
 module.exports = {
-  data: { name: 'ship', description: 'Calcula a compatibilidade amorosa entre dois membros' },
+  data: { name: 'ship', description: 'Calcula a compatibilidade amorosa entre dois membros', options: [{ name: 'usuario1', description: 'Primeiro usuário', type: 6, required: true }, { name: 'usuario2', description: 'Segundo usuário', type: 6, required: true }] },
   async execute(interaction) {
     await mostrarDigitando(interaction.channel, 900);
     const u1 = interaction.options.getUser('usuario1');

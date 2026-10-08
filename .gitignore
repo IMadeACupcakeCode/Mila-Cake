@@ -1,6 +1,16 @@
 # Environment — never commit secrets
 .env
 
+# AI tooling and local agent configuration
+.claude/
+.impeccable/
+CLAUDE.md
+PRODUCT.md
+.cursor/
+.windsurf/
+.aider*
+.continue/
+
 # Dependencies
 node_modules/
 
