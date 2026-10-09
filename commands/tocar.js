@@ -1,14 +1,90 @@
 const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
+const SpotifyWebApi = require('spotify-web-api-node');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { Song } = require('distube');
 const { criarEmbed, THEME } = require('../utils/theme');
+const { obterAccessToken } = require('../utils/spotifyAuth');
 
 const execFileAsync = promisify(execFile);
 const YTDLP_PATH = path.join(__dirname, '..', 'node_modules', '@distube', 'yt-dlp', 'bin', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
 const RESULTADOS_POR_PAGINA = 5;
 const SUNO_HOSTS = new Set(['suno.com', 'www.suno.com', 'app.suno.ai', 'suno.ai', 'www.suno.ai']);
+const spotifyApi = process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET ? new SpotifyWebApi({ clientId: process.env.SPOTIFY_CLIENT_ID, clientSecret: process.env.SPOTIFY_CLIENT_SECRET }) : null;
+let spotifyTokenPromise;
+
+async function obterSpotifyToken() {
+  if (!spotifyApi) return null;
+  if (!spotifyTokenPromise) spotifyTokenPromise = obterAccessToken().then((token) => {
+    spotifyApi.setAccessToken(token);
+    return token;
+  }).catch((erro) => {
+    spotifyTokenPromise = null;
+    throw erro;
+  });
+  return spotifyTokenPromise;
+}
+
+function normalizarTexto(valor) {
+  return String(valor || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[()[\]{}]/g, ' ').replace(/\b(official|official video|lyrics?|audio|video|music video|hd|hq|remastered)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function pontuacaoCorrespondencia(candidato, alvo) {
+  const a = normalizarTexto(`${candidato.title || candidato.name || ''} ${candidato.uploader || candidato.artist || ''}`);
+  const b = normalizarTexto(`${alvo.title || alvo.name || ''} ${alvo.uploader || alvo.artist || ''}`);
+  const palavras = new Set(b.split(' ').filter((palavra) => palavra.length > 2));
+  return palavras.size ? [...palavras].filter((palavra) => a.includes(palavra)).length / palavras.size : 0;
+}
+
+async function buscarSpotify(query) {
+  if (!spotifyApi) return [];
+  await obterSpotifyToken();
+  const resposta = await spotifyApi.searchTracks(query, { limit: 10, market: process.env.SPOTIFY_MARKET || 'BR' });
+  return (resposta.body.tracks?.items || []).map((item) => ({
+    id: item.id,
+    title: item.name,
+    name: item.name,
+    artist: item.artists.map((artista) => artista.name).join(', '),
+    duration: Math.round(item.duration_ms / 1000),
+    thumbnail: item.album?.images?.[0]?.url,
+    webpage_url: item.external_urls?.spotify,
+    fonte: 'Spotify',
+  }));
+}
+
+async function metadadosYouTube(url) {
+  const { stdout } = await execFileAsync(YTDLP_PATH, [url, '--dump-single-json', '--no-warnings', '--no-update', '--skip-download'], { windowsHide: true, maxBuffer: 2 * 1024 * 1024 });
+  return extrairJson(stdout);
+}
+
+async function substituirYouTubePorSpotify(url) {
+  if (!spotifyApi) return null;
+  const metadados = await metadadosYouTube(url);
+  const consulta = `${metadados.artist || metadados.uploader || ''} ${metadados.track || metadados.title || ''}`.trim();
+  const candidatos = await buscarSpotify(consulta);
+  const melhor = candidatos.sort((a, b) => pontuacaoCorrespondencia(b, metadados) - pontuacaoCorrespondencia(a, metadados))[0];
+  if (!melhor || pontuacaoCorrespondencia(melhor, metadados) < 0.75) return null;
+  return melhor;
+}
+
+async function prepararUrlParaTocar(query) {
+  return ehUrlSuno(query) ? await resolverUrlSuno(query) : query;
+}
+
+async function tocarComFallbackSpotify(client, interaction, voiceChannel, member, resultado) {
+  const url = obterUrlResultado(resultado);
+  try {
+    await tocar(client, interaction, voiceChannel, member, resultado);
+    return { fonte: resultado.fonte };
+  } catch (erro) {
+    if (resultado.fonte !== 'YouTube') throw erro;
+    const spotify = await substituirYouTubePorSpotify(url);
+    if (!spotify) throw erro;
+    await tocar(client, interaction, voiceChannel, member, spotify);
+    return { fonte: 'Spotify', substituida: true };
+  }
+}
 
 function ehUrlSuno(valor) {
   try {
@@ -66,8 +142,11 @@ async function resolverUrlSuno(url) {
     } catch {}
   }
   if (!audioUrl) throw new Error('Não encontrei um áudio público nesse link do Suno. Verifique se a música está publicada.');
+  const letra = valorJson(html, 'lyrics') || valorJson(html, 'lyric') || valorJson(html, 'prompt');
   return {
     url: audioUrl,
+    pageUrl: url,
+    lyrics: letra,
     name: valorJson(html, 'title') || valorMeta(html, 'og:title') || valorMeta(html, 'twitter:title') || (id ? `Música do Suno (${id.slice(0, 8)})` : 'Música do Suno'),
     thumbnail: valorJson(html, 'image_url') || valorJson(html, 'image_large_url') || valorMeta(html, 'og:image') || valorMeta(html, 'twitter:image'),
     duration: Number(valorJson(html, 'duration')) || 0,
@@ -75,8 +154,10 @@ async function resolverUrlSuno(url) {
 }
 
 function resumirErro(erro) {
-  const mensagem = erro?.message || String(erro);
-  return mensagem.replace(/\s+/g, ' ').trim().slice(0, 180);
+  const status = erro?.statusCode || erro?.status ? `HTTP ${erro.statusCode || erro.status}` : '';
+  const detalhe = erro?.body?.error?.message || erro?.body?.error_description || erro?.response?.body?.error?.message || '';
+  const mensagem = detalhe || erro?.message || String(erro);
+  return `${status}${status && mensagem ? ': ' : ''}${mensagem}`.replace(/\s+/g, ' ').trim().slice(0, 180);
 }
 
 function ehUrl(valor) {
@@ -90,6 +171,7 @@ function fonteDaUrl(url) {
 }
 
 function obterUrlResultado(item) {
+  if (item.fonte === 'Spotify' && item.id) return `https://open.spotify.com/track/${item.id}`;
   if (item.webpage_url) return item.webpage_url;
   if (item.url && /^https?:\/\//i.test(item.url)) return item.url;
   if (item.id && item.ie_key === 'Youtube') return `https://www.youtube.com/watch?v=${item.id}`;
@@ -113,7 +195,8 @@ async function buscarFonte(prefixo, query) {
     '--skip-download',
   ], { windowsHide: true, maxBuffer: 2 * 1024 * 1024 });
   const info = extrairJson(stdout);
-  return (info.entries || []).filter((item) => obterUrlResultado(item)).slice(0, 5).map((item) => ({ ...item, fonte: prefixo.startsWith('yt') ? 'YouTube' : 'SoundCloud' }));
+  const entradas = info.entries || (info.webpage_url ? [info] : []);
+  return entradas.filter((item) => obterUrlResultado(item)).slice(0, 5).map((item) => ({ ...item, fonte: prefixo.startsWith('yt') ? 'YouTube' : 'SoundCloud' }));
 }
 
 function formatarDuracao(segundos) {
@@ -127,7 +210,7 @@ function formatarDuracao(segundos) {
 function formatarResultados(estado) {
   const inicio = estado.pagina * RESULTADOS_POR_PAGINA;
   const itens = estado.resultados.slice(inicio, inicio + RESULTADOS_POR_PAGINA);
-  return ['YouTube', 'SoundCloud'].map((fonte) => {
+  return ['Spotify', 'SoundCloud', 'YouTube'].map((fonte) => {
     const linhas = itens.map((item, indice) => ({ item, numero: inicio + indice + 1 })).filter(({ item }) => item.fonte === fonte).map(({ item, numero }) => (
       `**${numero}.** ${item.title || item.name || 'Sem título'}${formatarDuracao(item.duration)}`
     ));
@@ -171,7 +254,7 @@ function componentesBusca(estado) {
 }
 
 async function tocar(client, interaction, voiceChannel, member, query) {
-  const musica = typeof query === 'string' ? query : new Song({
+  const musica = typeof query === 'string' || query.fonte === 'Spotify' ? (typeof query === 'string' ? query : obterUrlResultado(query)) : new Song({
     source: 'suno',
     id: query.url,
     name: query.name,
@@ -213,23 +296,29 @@ module.exports = {
 
     try {
        if (ehUrl(query)) {
-         const urlParaTocar = ehUrlSuno(query) ? await resolverUrlSuno(query) : query;
-         await tocar(client, interaction, voiceChannel, member, urlParaTocar);
-         await interaction.editReply({ content: `✔️ Pedido do **${ehUrlSuno(query) ? 'Suno' : fonteDaUrl(query)}** engatado com sucesso!`, components: [] });
+          const urlParaTocar = await prepararUrlParaTocar(query);
+          await tocar(client, interaction, voiceChannel, member, urlParaTocar);
+          await interaction.editReply({ content: `✔️ Pedido do **${ehUrlSuno(query) ? 'Suno' : fonteDaUrl(query)}** engatado com sucesso!`, components: [] });
          return;
        }
 
-      const resultadosPorFonte = await Promise.allSettled([
-        buscarFonte('ytsearch5:', query),
-        buscarFonte('scsearch5:', query),
-      ]);
-      const resultados = resultadosPorFonte.flatMap((resultado) => resultado.status === 'fulfilled' ? resultado.value : []);
-      if (!resultados.length) throw new Error('Nenhum resultado encontrado no YouTube ou SoundCloud. Para Spotify, cole o link da música, álbum ou playlist.');
+      const resultadosSpotify = await buscarSpotify(query).catch((erro) => {
+        console.warn(`[Música] Busca do Spotify indisponível: ${resumirErro(erro)}`);
+        return [];
+      });
+      const resultadosSoundCloud = await buscarFonte('scsearch10:', query).catch(() => []);
+      const resultadosYouTube = await buscarFonte('ytsearch5:', query).catch(() => []);
+      const prioridadeFonte = { Spotify: 0, SoundCloud: 1, YouTube: 2 };
+      const resultados = [...resultadosSpotify, ...resultadosSoundCloud, ...resultadosYouTube].sort((a, b) => {
+        const diferenca = prioridadeFonte[a.fonte] - prioridadeFonte[b.fonte];
+        return diferenca || pontuacaoCorrespondencia(b, { title: query, name: query }) - pontuacaoCorrespondencia(a, { title: query, name: query });
+      });
+      if (!resultados.length) throw new Error('Nenhum resultado encontrado no Spotify, SoundCloud ou YouTube. Cole um link direto do SoundCloud, Suno ou Spotify.');
 
       const estado = { pagina: 0, resultados, query };
       const totalPaginas = Math.ceil(resultados.length / RESULTADOS_POR_PAGINA);
       const resposta = await interaction.editReply({
-        content: `🔎 Resultados para **${query}**\n${formatarResultados(estado)}\n\nOs resultados estão separados por fonte. Clique no número da música que deseja tocar. Página 1/${totalPaginas}.`,
+        content: `🔎 Resultados por prioridade (Spotify → SoundCloud → YouTube) para **${query}**\n${formatarResultados(estado)}\n\nClique no número da música que deseja tocar. Página 1/${totalPaginas}.`,
         components: componentesBusca(estado),
       });
       const coletor = resposta.createMessageComponentCollector({
@@ -249,7 +338,7 @@ module.exports = {
              if (botao.user.id !== interaction.user.id) return botao.reply({ content: '❌ Apenas quem iniciou a busca pode navegar pelos resultados.', ephemeral: true });
              estado.pagina += botao.customId === 'music_next' ? 1 : -1;
             await botao.update({
-              content: `🔎 Resultados para **${estado.query}**\n${formatarResultados(estado)}\n\nOs resultados estão separados por fonte. Clique no número da música que deseja tocar. Página ${estado.pagina + 1}/${totalPaginas}.`,
+               content: `🔎 Resultados por prioridade (Spotify → SoundCloud → YouTube) para **${estado.query}**\n${formatarResultados(estado)}\n\nClique no número da música que deseja tocar. Página ${estado.pagina + 1}/${totalPaginas}.`,
               components: componentesBusca(estado),
             });
             return;
@@ -258,25 +347,30 @@ module.exports = {
            const resultado = estado.resultados[indice];
            if (botao.user.id !== interaction.user.id) return botao.reply({ content: '❌ Apenas quem iniciou a busca pode escolher a música.', ephemeral: true });
           if (!resultado) return botao.reply({ content: '❌ Esse resultado expirou.', ephemeral: true });
-           await botao.update({ embeds: [criarLoading(resultado.title || resultado.name, resultado.thumbnail, 1)], content: '', components: [] });
+            if (estado.selecionando) return botao.reply({ content: '⏳ Já estou carregando uma música.', ephemeral: true });
+            estado.selecionando = true;
+            await botao.update({ embeds: [criarLoading(resultado.title || resultado.name, resultado.thumbnail, 1)], content: '', components: [] });
            let passo = 1;
            const loading = setInterval(() => {
              passo += 1;
              botao.message.edit({ embeds: [criarLoading(resultado.title || resultado.name, resultado.thumbnail, passo)] }).catch(() => {});
            }, 700);
            try {
-             const urlResultado = obterUrlResultado(resultado);
-           const urlParaTocar = ehUrlSuno(urlResultado) ? await resolverUrlSuno(urlResultado) : urlResultado;
-           await tocar(client, interaction, voiceChannel, member, urlParaTocar);
+             const resultadoExecucao = resultado.fonte === 'YouTube'
+              ? await tocarComFallbackSpotify(client, interaction, voiceChannel, member, resultado)
+              : { fonte: resultado.fonte, tocou: await tocar(client, interaction, voiceChannel, member, resultado.fonte === 'Spotify' ? resultado : (ehUrlSuno(obterUrlResultado(resultado)) ? await resolverUrlSuno(obterUrlResultado(resultado)) : obterUrlResultado(resultado))) };
+            if (resultadoExecucao?.substituida) await botao.message.edit({ embeds: [criarLoading(`${resultado.title || resultado.name} · Spotify`, resultado.thumbnail, passo)] }).catch(() => {});
              coletor.stop('selecionado');
              await botao.message.delete().catch(() => {});
            } finally {
              clearInterval(loading);
            }
-        } catch (erro) {
-          console.error('Erro ao selecionar música:', erro);
-          await botao.followUp({ content: `❌ Não consegui tocar esse resultado.\n\`${resumirErro(erro)}\``, ephemeral: true }).catch(() => {});
-        }
+         } catch (erro) {
+           console.error('Erro ao selecionar música:', erro);
+           await botao.followUp({ content: `❌ Não consegui tocar esse resultado.\n\`${resumirErro(erro)}\``, ephemeral: true }).catch(() => {});
+         } finally {
+           estado.selecionando = false;
+         }
       });
       coletor.on('end', async () => interaction.editReply({ components: [] }).catch(() => {}));
     } catch (erro) {

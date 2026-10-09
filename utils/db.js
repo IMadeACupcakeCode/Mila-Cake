@@ -35,6 +35,11 @@ db.exec(`
     message_id TEXT PRIMARY KEY,
     processada_em INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS comandos_processados (
+    fingerprint TEXT PRIMARY KEY,
+    processada_em INTEGER NOT NULL
+  );
 `);
 
 /**
@@ -141,6 +146,16 @@ function reivindicarMensagem(messageId) {
   return resultado.changes === 1;
 }
 
+function reivindicarComando(fingerprint, janelaMs = 5000) {
+  if (!fingerprint) return false;
+  const agora = Date.now();
+  db.prepare('DELETE FROM comandos_processados WHERE processada_em < ?').run(agora - janelaMs);
+  const resultado = db
+    .prepare('INSERT OR IGNORE INTO comandos_processados (fingerprint, processada_em) VALUES (?, ?)')
+    .run(String(fingerprint), agora);
+  return resultado.changes === 1;
+}
+
 // Transação de Doar
 function transferirAcucares(deId, paraId, quantidade) {
   if (quantidade <= 0) return false;
@@ -169,5 +184,6 @@ module.exports = {
   addInventario,
   transferirAcucares,
   atualizarTitulo,
-  reivindicarMensagem
+  reivindicarMensagem,
+  reivindicarComando
 };

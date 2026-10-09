@@ -13,6 +13,7 @@ const codex = require('../commands/codex');
 const { mostrarDigitando } = require('./milaDecoracao');
 const { avaliar: avaliarDados, formatar: formatarDados } = require('./dice');
 const logger = require('./logger');
+const { reivindicarComando } = require('./db');
 
 const ITENS_POR_PAGINA = 5;
 
@@ -53,6 +54,7 @@ const INLINE = new Set(['ping', 'dado', 'roleta', 'lembrete', 'anuncio', 'config
 const SIGNATURES = {
   tocar: [{ name: 'musica', rest: true }],
   play: [{ name: 'musica', rest: true }],
+  tts: [{ name: 'texto', rest: true }],
   limparfila: [],
   clearqueue: [],
   playlist: [{ name: 'url', rest: true }],
@@ -81,6 +83,7 @@ const SIGNATURES = {
   stream: [],
   tela: [],
   votar: 'especial',
+  letra: [{ name: 'busca', rest: true }],
 };
 
 const MUSIC_ALIASES = {
@@ -368,7 +371,8 @@ async function handlePrefix(message, client) {
   logger.debug?.(`PID ${process.pid} processando mensagem ${message.id} (${prefixo}${comando})`);
 
   const conteudoComando = `${prefixo}${comando} ${args.join(' ').trim()}`;
-  if (temRepeticaoRecente(conteudoComando)) return;
+  const fingerprint = `${message.guild?.id || 'dm'}:${message.author.id}:${message.channelId}:${conteudoComando}`;
+  if (!reivindicarComando(fingerprint)) return;
 
   // Configurar é livre em qualquer canal (para reconfigurar)
   if (comando !== 'configurar') {
@@ -1062,9 +1066,43 @@ async function handlePrefix(message, client) {
     return sair.execute(interaction, client);
   }
 
+  if (comando === 'letra') {
+    const comandoLetra = require('../commands/letra');
+    const valores = await parseArgs(comando, args, message, client);
+    return comandoLetra.execute(criarInteracao(message, client, valores), client);
+  }
+
   if (comando === 'say' || comando === 'falar') {
     const { falarDireto } = require('./sayManager');
     return falarDireto(message, args);
+  }
+
+  if (comando === 'tts') {
+    const { falar, formatarConfig, obterTtsConfig, salvarTtsConfig, normalizarIdioma, normalizarPerfil } = require('./tts');
+    if (!message.member?.permissions?.has('Administrator')) return message.reply('❌ Apenas administradores podem configurar a voz.');
+    if (!args.length) return message.reply(`🗣️ ${formatarConfig(obterTtsConfig(message.guildId))}`);
+    const subcomando = args[0].toLowerCase();
+    if (subcomando === 'idioma' && args[1]) {
+      if (!normalizarIdioma(args[1])) return message.reply('❌ Idioma inválido. Use códigos como pt-BR, en-US, es-ES, fr-FR, de-DE, it-IT, ja-JP, ko-KR, zh-CN ou ru-RU.');
+      const config = salvarTtsConfig(message.guildId, { idioma: args[1] });
+      return message.reply(`✅ Idioma alterado.\n${formatarConfig(config)}`);
+    }
+    if (subcomando === 'perfil' && args[1]) {
+      if (!normalizarPerfil(args[1])) return message.reply('❌ Perfil inválido. Use padrao, paulista, carioca, chines, americana ou japonesa.');
+      const config = salvarTtsConfig(message.guildId, { perfil: args[1].toLowerCase() });
+      return message.reply(`✅ Perfil alterado.\n${formatarConfig(config)}`);
+    }
+    if (subcomando === 'nome' && args[1]) {
+      const valor = ['on', 'sim', 'true', '1'].includes(args[1].toLowerCase());
+      const config = salvarTtsConfig(message.guildId, { dizerNome: valor });
+      return message.reply(`✅ Falar o nome: **${valor ? 'sim' : 'não'}**.`);
+    }
+    try {
+      await falar(message.guild, message.member, args.join(' '));
+      return message.reply('✅ Falei no canal de voz.');
+    } catch (erro) {
+      return message.reply(`❌ ${erro.message}`);
+    }
   }
 
   // ── $ajuda / $help ── (mesmo resultado do $codex)

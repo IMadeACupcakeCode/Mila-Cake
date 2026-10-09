@@ -4,8 +4,62 @@ const { SpotifyPlugin } = require('@distube/spotify');
 const { criarEmbed, THEME } = require('./theme');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const ffmpegPath = require('ffmpeg-static');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('child_process');
 
-const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+function navegadorAberto(tipo) {
+  if (process.platform !== 'win32') return false;
+  const processos = { brave: 'brave.exe', chrome: 'chrome.exe', edge: 'msedge.exe', chromium: 'chromium.exe', vivaldi: 'vivaldi.exe', opera: 'opera.exe', firefox: 'firefox.exe' };
+  try {
+    const saida = execFileSync('tasklist.exe', ['/FI', `IMAGENAME eq ${processos[tipo]}`], { encoding: 'utf8', windowsHide: true });
+    return new RegExp(`^${processos[tipo].replace('.', '\\.')}`, 'im').test(saida);
+  } catch {
+    return false;
+  }
+}
+
+function navegadorTemCookies(tipo, diretorio) {
+  if (tipo === 'firefox') {
+    try { return fs.readdirSync(diretorio, { withFileTypes: true }).some((entrada) => entrada.isDirectory() && fs.existsSync(path.join(diretorio, entrada.name, 'cookies.sqlite'))); } catch { return false; }
+  }
+  const perfis = ['Default', 'Profile 1', 'Profile 2', 'Profile 3', 'Profile 4'];
+  return perfis.some((perfil) => [
+    path.join(diretorio, perfil, 'Network', 'Cookies'),
+    path.join(diretorio, perfil, 'Cookies'),
+  ].some((arquivo) => fs.existsSync(arquivo)));
+}
+
+function detectarNavegadorCookies() {
+  if (process.env.YTDLP_COOKIES_FILE) return 'arquivo';
+  if (process.platform !== 'win32') return null;
+  const local = process.env.LOCALAPPDATA || '';
+  const roaming = process.env.APPDATA || '';
+  const candidatos = [
+    ['brave', path.join(local, 'BraveSoftware', 'Brave-Browser', 'User Data')],
+    ['chrome', path.join(local, 'Google', 'Chrome', 'User Data')],
+    ['edge', path.join(local, 'Microsoft', 'Edge', 'User Data')],
+    ['chromium', path.join(local, 'Chromium', 'User Data')],
+    ['vivaldi', path.join(local, 'Vivaldi', 'User Data')],
+    ['opera', path.join(roaming, 'Opera Software', 'Opera Stable')],
+    ['firefox', path.join(roaming, 'Mozilla', 'Firefox', 'Profiles')],
+  ];
+  const configurado = String(process.env.YTDLP_COOKIES_FROM_BROWSER || '').split(':')[0].toLowerCase();
+  const ordem = configurado ? candidatos.sort(([tipo]) => tipo === configurado ? -1 : 1) : candidatos;
+  const encontrado = ordem.find(([tipo, diretorio]) => fs.existsSync(diretorio) && navegadorTemCookies(tipo, diretorio) && !navegadorAberto(tipo));
+  if (!encontrado) {
+    delete process.env.YTDLP_COOKIES_FROM_BROWSER;
+    const existentes = ordem.filter(([tipo, diretorio]) => fs.existsSync(diretorio) && navegadorTemCookies(tipo, diretorio)).map(([tipo]) => tipo);
+    if (existentes.length) console.warn(`[Música] Cookies encontrados, mas os navegadores estão abertos: ${existentes.join(', ')}. Feche-os antes de iniciar o bot.`);
+    else console.warn('[Música] Nenhum perfil de navegador com cookies foi encontrado para o yt-dlp.');
+    return null;
+  }
+  process.env.YTDLP_COOKIES_FROM_BROWSER = encontrado[0];
+  return encontrado[0];
+}
+
+const IDLE_TIMEOUT = 10 * 60 * 1000;
 const DECORACOES_MUSICA = [
   ['🌈', '✦ ｡ﾟ･ ｡ﾟ･ ✦'], ['🍓', '♡  ·  ♡  ·  ♡'], ['🪩', '✧ ･ﾟ: *✧ ･ﾟ:*'], ['🍋', '· ｡ﾟ✧ ｡ﾟ· ｡ﾟ✧ ｡ﾟ·'], ['💿', '✦ ･ﾟ✧ ･ﾟ✦ ･ﾟ✧'],
   ['🌙', '━━━━━━━━━━━━ ✦ ━━━━━━━━━━━━'], ['🍬', '✦ ｡ﾟ･ ｡ﾟ･ ✦'], ['🫧', '♡  ·  ♡  ·  ♡'], ['🎀', '✧ ･ﾟ: *✧ ･ﾟ:*'], ['🌸', '· ｡ﾟ✧ ｡ﾟ· ｡ﾟ✧ ｡ﾟ·'],
@@ -31,7 +85,7 @@ function agendarSaidaOciosa(client, queue) {
     const atual = client.distube.getQueue(guildId);
     if (atual) return;
     client.distube.voices.leave(guildId);
-  }, IDLE_TIMEOUT_MS);
+  }, IDLE_TIMEOUT);
   client.musicIdleTimers.set(guildId, timer);
 }
 
@@ -45,7 +99,8 @@ function getPlayerButtons(isPaused = false) {
       new ButtonBuilder().setCustomId('player_queue').setEmoji('📜').setLabel('Fila').setStyle(ButtonStyle.Secondary)
     ),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('player_clear').setEmoji('🧹').setLabel('Limpar fila').setStyle(ButtonStyle.Danger)
+      new ButtonBuilder().setCustomId('player_clear').setEmoji('🧹').setLabel('Limpar fila').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('player_lyrics').setEmoji('🎤').setLabel('Letra').setStyle(ButtonStyle.Primary)
     )
   ];
 }
@@ -103,11 +158,14 @@ function responderBotao(interaction, content) {
 }
 
 function inicializarDistube(client) {
+  const origemCookies = detectarNavegadorCookies();
+  if (origemCookies) console.log(`[Música] Cookies do yt-dlp configurados: ${origemCookies}.`);
+  else console.warn('[Música] Reprodução do YouTube pode falhar por bloqueio anti-bot; use uma fonte alternativa.');
   client.distube = new DisTube(client, {
     emitNewSongOnly: true,
     emitAddSongWhenCreatingQueue: false,
     emitAddListWhenCreatingQueue: false,
-    plugins: [new SpotifyPlugin(), new YtDlpPlugin({ update: false })],
+    plugins: [new SpotifyPlugin(), new YtDlpPlugin({ update: false, ytdlpOptions: { retries: 3, fragmentRetries: 3, extractorRetries: 2, socketTimeout: 15 } })],
     customFilters: {},
     ffmpeg: { path: ffmpegPath },
   });
@@ -169,7 +227,10 @@ function inicializarDistube(client) {
 
   client.distube.on('error', (e, queue) => {
     const mensagem = e?.message || e?.toString?.() || String(e);
-    if (queue?.textChannel?.send) queue.textChannel.send(`❌ Ocorreu um erro musical: \`${mensagem.slice(0, 180)}\``).catch(() => {});
+    const mensagemPublica = /429|YOUTUBE|FFMPEG_EXITED|Premature close/i.test(mensagem)
+      ? 'A fonte recusou ou encerrou o áudio. Escolha um resultado do Spotify ou SoundCloud.'
+      : mensagem.slice(0, 180);
+    if (queue?.textChannel?.send) queue.textChannel.send(`❌ Ocorreu um erro musical: \`${mensagemPublica}\``).catch(() => {});
     console.error('Erro do DisTube:', e);
   });
 }
@@ -227,6 +288,22 @@ async function handlePlayerInteraction(interaction, client) {
         break;
       }
 
+      case 'player_lyrics': {
+        await interaction.deferReply({ ephemeral: true });
+        try {
+          const { buscarLetra, dividirLetra } = require('./lyrics');
+          const resultado = await buscarLetra(queue.songs[0]);
+          const partes = dividirLetra(resultado.lyrics, 1900);
+          await interaction.editReply({ embeds: [criarEmbed({ titulo: `🎤 ${resultado.songName}`, descricao: partes[0], cor: THEME.corPrincipal, rodape: `Fonte: ${resultado.source}${partes.length > 1 ? ` · Parte 1/${partes.length}` : ''}` })] });
+          for (let indice = 1; indice < partes.length; indice += 1) {
+            await interaction.followUp({ embeds: [criarEmbed({ titulo: `🎤 ${resultado.songName} · continuação`, descricao: partes[indice], cor: THEME.corPrincipal, rodape: `Fonte: ${resultado.source} · Parte ${indice + 1}/${partes.length}` })], ephemeral: true });
+          }
+        } catch (erro) {
+          await interaction.editReply(`❌ ${erro.message}`);
+        }
+        break;
+      }
+
       case 'player_queue':
         const cur = queue.songs[0];
         const res = queue.songs.slice(1, 11).map((s, i) => `**${i + 1}.** [${s.name}](${s.url}) (\`${s.formattedDuration}\`)`).join('\n');
@@ -247,6 +324,7 @@ async function handlePlayerInteraction(interaction, client) {
 
 module.exports = {
   inicializarDistube,
+  detectarNavegadorCookies,
   handlePlayerInteraction,
   limparTemporizadorOcioso,
 };

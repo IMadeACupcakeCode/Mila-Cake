@@ -18,6 +18,7 @@ function configPadrao() {
     categoriaTicket: null,
     canalOnOff: null,
     canalTicketFixo: null,
+    tts: { idioma: 'pt-BR', perfil: 'padrao', voz: '', dizerNome: false },
   };
 }
 
@@ -76,6 +77,7 @@ function obterConfig(guildId) {
   cfg.categoriaTicket = cfg.categoriaTicket || padrao.categoriaTicket;
   cfg.canalOnOff = cfg.canalOnOff || padrao.canalOnOff;
   cfg.canalTicketFixo = cfg.canalTicketFixo || padrao.canalTicketFixo;
+  cfg.tts = { ...padrao.tts, ...(cfg.tts || {}) };
   return cfg;
 }
 

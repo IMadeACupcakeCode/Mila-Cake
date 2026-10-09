@@ -1,5 +1,6 @@
 # Environment — never commit secrets
 .env
+.spotify-token.json
 
 # AI tooling and local agent configuration
 .claude/
@@ -10,6 +11,9 @@ PRODUCT.md
 .windsurf/
 .aider*
 .continue/
+.opencode/
+opencode.json
+opencode*.log
 
 # Dependencies
 node_modules/
