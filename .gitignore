@@ -1,39 +1,201 @@
-# Environment — never commit secrets
-.env
-.spotify-token.json
+# ═══════════════════════════════════════════════════════════════════
+#  ⋆｡°✩ Mila Bot — .gitignore
+#  Regra de ouro: segredos e dependências NUNCA entram no repositório.
+# ═══════════════════════════════════════════════════════════════════
 
-# AI tooling and local agent configuration
+# ── 1. Variáveis de ambiente e segredos ────────────────────────────
+.env
+.env.*
+.env.*.*
+*.env
+*.env.*
+!.env.example
+!*.env.example
+.envrc
+.env.keys
+.env.vault
+.secrets
+secrets.json
+secrets.*.json
+credentials.json
+service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+.spotify-token.json
+*-token.json
+*_token.json
+cookies.txt
+cookies*.txt
+
+# ── 2. Dependências (npm/pnpm/yarn/bun) — inclusive pacotes de IA ──
+node_modules/
+node_modules
+bower_components/
+jspm_packages/
+.pnpm-store/
+.pnpm-store
+.yarn/
+.yarn/cache/
+.yarn/install-state.gz
+.pnp.js
+.pnp.cjs
+.pnp.loader.mjs
+.npm/
+.npmrc.local
+package-lock.json.tmp
+npm-shrinkwrap.json.tmp
+
+# ── 3. Ferramentas de IA / agentes locais ──────────────────────────
+# Claude / Anthropic
 .claude/
-.impeccable/
+.claude.json
+.claude.local.json
 CLAUDE.md
-PRODUCT.md
-.cursor/
-.windsurf/
-.aider*
-.continue/
+CLAUDE.local.md
+# OpenCode
 .opencode/
 opencode.json
+opencode.jsonc
 opencode*.log
+# Impeccable
+.impeccable/
+.impeccable.json
+PRODUCT.md
+# Cursor / Windsurf / Zed / VS Code AI
+.cursor/
+.cursorrules
+.cursorignore
+.windsurf/
+.windsurfrules
+.zed/
+.continue/
+.aider*
+.aider.tags.cache*
+# Copilot / Codeium / Tabnine / Cody / Qodo
+.github/copilot-instructions.md
+.codeium/
+.codeiumignore
+.tabnine*
+.cody/
+.sourcegraph/
+.qodo/
+# Cline / Roo / Kilo / Goose / Crush / Amp / Kiro
+.cline/
+.roo/
+.kilocode/
+.kiro/
+.goose/
+.goosedir/
+.crush/
+.amp/
+.mentat/
+.magic/
+.copilot/
+# MCP (Model Context Protocol) — configs e caches locais
+.mcp.json
+.mcp/
+mcp.json
+*-mcp.json
+.cache/mcp/
+# Rastreadores/caches genéricos de agentes de IA e RAG/embeddings
+.cache/
+.aider.cache/
+.rag/
+.rag-cache/
+.llm/
+.llm-cache/
+.vectorstore/
+.vectors/
+.chroma/
+.chromadb/
+.lancedb/
+.qdrant/
+.weaviate/
+.embeddings/
+prompt-history/
+.prompt_history/
+ai-history/
+.chat-history/
+*.ai.log
 
-# Dependencies
-node_modules/
+# ── 4. Modelos locais de IA ────────────────────────────────────────
+*.gguf
+*.ggml
+*.safetensors
+*.onnx
+*.llamafile
+*.ort
+Ollama/
+.ollama/
+.lmstudio/
+.lmstudio-home/
+lmstudio/
+*.lmstudio.json
+.hf/
+huggingface/
+.cache/huggingface/
 
-# Logs
+# ── 5. Logs ────────────────────────────────────────────────────────
 *.log
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# OS files
-.DS_Store
-Thumbs.db
+# ── 6. Testes / cobertura ──────────────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+test-results/
 
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Build output
+# ── 7. Build / cache / temporários ─────────────────────────────────
 dist/
 build/
+out/
+.next/
+.nuxt/
+.cache-loader/
+.temp/
+.tmp/
+tmp/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+.parcel-cache/
+node_modules/.cache/
+
+# ── 8. Sistema operacional ─────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+# ── 9. Editores / IDE ──────────────────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+.history/
+
+# ── 10. Arquivos do próprio Git e de backups ───────────────────────
+*.orig
+*.bak
+*.rej
+.backup/
+*.backup
