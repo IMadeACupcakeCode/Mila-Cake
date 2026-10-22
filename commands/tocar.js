@@ -317,6 +317,7 @@ module.exports = {
     const member = interaction.member;
     const voiceChannel = member?.voice?.channel;
     if (!voiceChannel) return interaction.reply({ content: '❌ Entre em um canal de voz primeiro.', ephemeral: true });
+    if (!client.distube) return interaction.reply({ content: '⏳ O player está iniciando (a primeira execução baixa o yt-dlp). Tente novamente em alguns segundos.', ephemeral: true });
 
     const query = interaction.options?.getString('musica') || (interaction.content ? interaction.content.replace(/^[$/]tocar\s*/i, '').trim() : '');
     if (!query) return interaction.reply({ content: '❌ Informe o nome ou URL da música.', ephemeral: true });

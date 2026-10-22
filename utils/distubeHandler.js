@@ -1,3 +1,6 @@
+const { configurarAmbiente, binarioValido, prepararCookies, garantirBinario } = require('./ytdlpSetup');
+// Precisa vir antes do require do plugin, que lê YTDLP_DIR/YTDLP_FILENAME ao carregar.
+configurarAmbiente();
 const { DisTube } = require('distube');
 const { YtDlpPlugin } = require('@distube/yt-dlp');
 const { SpotifyPlugin } = require('@distube/spotify');
@@ -170,7 +173,7 @@ function responderBotao(interaction, content) {
   return interaction.reply({ content, ephemeral: true });
 }
 
-function inicializarDistube(client) {
+function criarDistube(client) {
   const origemCookies = detectarNavegadorCookies();
   if (origemCookies) console.log(`[Música] Cookies do yt-dlp configurados: ${origemCookies}.`);
   else console.warn('[Música] Reprodução do YouTube pode falhar por bloqueio anti-bot; use uma fonte alternativa.');
@@ -266,6 +269,30 @@ function inicializarDistube(client) {
     if (queue?.textChannel?.send) queue.textChannel.send(`❌ Ocorreu um erro musical: \`${mensagemPublica}\``).catch(() => {});
     console.error('Erro do DisTube:', e);
   });
+}
+
+// Inicializa o player o quanto antes: com o binário presente (caso normal) tudo
+// acontece de forma síncrona, como antes. Só na primeira execução — ou depois
+// de uma instalação limpa — o download automático adia a criação do player por
+// alguns segundos, sem exigir nenhum comando manual.
+function inicializarDistube(client) {
+  prepararCookies();
+  if (binarioValido()) {
+    criarDistube(client);
+    return Promise.resolve();
+  }
+  console.warn('[Música] yt-dlp não encontrado. Baixando automaticamente (só na primeira execução)...');
+  return garantirBinario()
+    .then((dados) => {
+      const detalhe = dados.versao ? ` versão ${dados.versao}` : (dados.reaproveitado ? ' (reaproveitado do npm)' : '');
+      console.log(`[Música] yt-dlp pronto${detalhe}: ${dados.caminho}`);
+      criarDistube(client);
+    })
+    .catch((erro) => {
+      console.error(`[Música] Não foi possível preparar o yt-dlp: ${erro.message}`);
+      console.warn('[Música] YouTube ficará indisponível; Spotify, SoundCloud e links diretos continuam funcionando.');
+      criarDistube(client);
+    });
 }
 
 // Exportar um middleware custom pra ouvir cliques dos botoes no index.js ou algum evento

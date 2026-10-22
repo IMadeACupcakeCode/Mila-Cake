@@ -18,14 +18,7 @@
    ```bash
    npm install
    ```
-   Além das dependências já existentes no `package.json`, este bot requer:
-   - `better-sqlite3` – para persistência de economia e level
-   - `distube` + `@distube/ytdl-core` – para o sistema de música
-
-   Caso ainda não tenha instalado, rode:
-   ```bash
-   npm install better-sqlite3 distube @distube/ytdl-core
-   ```
+   O sistema de música usa `distube`, `@distube/yt-dlp`, `@distube/spotify` e `ffmpeg-static`, todos declarados no `package.json`. Não é preciso instalar yt-dlp nem ffmpeg no sistema operacional: o bot gerencia os binários sozinho.
 
 3. **Configure as variáveis de ambiente**  
    Crie um arquivo `.env` na raiz do projeto com:
@@ -46,7 +39,36 @@
 
 ---
 
-## 🎯 Funcionalidades Principais
+## ☁️ Rodar apenas com `npm start` (local ou nuvem)
+
+O bot foi feito para não precisar de nenhum processo auxiliar aberto ao mesmo tempo:
+
+| Recurso | Como funciona | Passo manual |
+| --- | --- | --- |
+| yt-dlp (YouTube e SoundCloud) | Na primeira execução reaproveita o binário baixado pelo npm ou baixa do GitHub para `data/bin` | nenhum |
+| ffmpeg | Binário estático do pacote `ffmpeg-static` | nenhum |
+| Spotify | Busca e metadados via Client Credentials (`SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET`) | nenhum |
+| Cookies do YouTube | Detectados do navegador local **ou** fornecidos por variável de ambiente | opcional |
+
+Em VPS, container ou painel de hospedagem (sem navegador instalado), configure os cookies uma única vez por variável de ambiente — o bot grava o arquivo e passa a usá-lo sozinho:
+
+```bash
+# Linux/macOS: gere a string a partir do cookies.txt exportado
+base64 -w0 cookies.txt
+```
+
+```env
+YTDLP_COOKIES_BASE64=<string gerada acima>
+```
+
+Sem cookies o bot continua funcionando; apenas alguns vídeos do YouTube podem exigir login e cair no fallback de SoundCloud/links diretos.
+
+**Limites reais da "nuvem"** (nenhum código contorna):
+- O Discord exige que o próprio bot receba e transmita o áudio no canal de voz; o processo do bot precisa estar rodando continuamente (em casa ou em um servidor).
+- A Web API do Spotify não entrega áudio — só metadados e previews de 30 s. O bot usa o Spotify para buscar e identificar a faixa e reproduz a versão equivalente do YouTube/SoundCloud.
+- APIs públicas de terceiros (Piped/Invidious/Cobalt) foram testadas e se mostraram instáveis (instâncias fora do ar ou sem streams de áudio), por isso não são usadas como caminho principal.
+
+---
 
 ### 🎵 Mila Music
 - `/tocar <nome ou link>` – Toca música no canal de voz  

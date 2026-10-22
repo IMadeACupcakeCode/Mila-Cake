@@ -5,6 +5,7 @@ module.exports = {
     description: '🚪 Sai do canal de voz e encerra a música',
   },
   async execute(interaction, client) {
+    if (!client.distube) return interaction.reply({ content: '⏳ O player está iniciando. Tente novamente em alguns segundos.', ephemeral: true });
     const queue = client.distube.getQueue(interaction.guildId);
     const voice = client.distube.voices.get(interaction.guildId);
 

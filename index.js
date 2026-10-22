@@ -145,7 +145,7 @@ const client = new Client({ intents, partials });
 
 // ── Mila Music / Distube ──
 const { inicializarDistube, handlePlayerInteraction } = require('./utils/distubeHandler');
-inicializarDistube(client);
+inicializarDistube(client).catch((erro) => console.error(`[Música] Falha ao iniciar o player: ${erro.message}`));
 
 const { enviarEmbedTicketFixo } = require('./utils/fixedTicketEmbed');
 

@@ -10,6 +10,7 @@ module.exports = {
   async execute(interaction, client) {
     const voiceChannel = interaction.member?.voice?.channel;
     if (!voiceChannel) return interaction.reply({ content: '❌ Entre em um canal de voz primeiro.', ephemeral: true });
+    if (!client.distube) return interaction.reply({ content: '⏳ O player está iniciando. Tente novamente em alguns segundos.', ephemeral: true });
     const url = interaction.options?.getString('url') || (interaction.content || '').replace(/^[$/]playlist\s*/i, '').trim();
     if (!url) return interaction.reply({ content: '❌ Informe a URL da playlist.', ephemeral: true });
     if (interaction.replied || interaction.deferred) return;

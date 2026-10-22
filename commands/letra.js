@@ -10,7 +10,7 @@ module.exports = {
   },
   async execute(interaction, client) {
     const busca = interaction.options?.getString('busca');
-    const queue = client.distube.getQueue(interaction.guildId);
+    const queue = client.distube?.getQueue(interaction.guildId);
     if (!busca && !queue?.songs?.[0]) return interaction.reply({ content: '❌ Não há música tocando agora.', ephemeral: true });
     await interaction.deferReply({ ephemeral: false });
     try {

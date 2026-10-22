@@ -1,4 +1,8 @@
 function obterFila(interaction, client) {
+  if (!client.distube) {
+    responder(interaction, '⏳ O player está iniciando (a primeira execução baixa o yt-dlp). Tente novamente em alguns segundos.');
+    return null;
+  }
   return client.distube.getQueue(interaction.guildId);
 }
 
