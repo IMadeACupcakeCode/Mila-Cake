@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { criarEmbed, THEME } = require('./theme');
 const { botao } = require('./ui');
-const { ActionRowBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { ActionRowBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } = require('discord.js');
 const { verificarCanal, obterConfig, salvarConfig, TIPOS_ANUNCIO } = require('./servidorStore');
 const { adicionarLembrete, carregarLembretes, removerLembrete, filtrarLembretes } = require('./lembretesStore');
 const { agendarLembrete } = require('./agendador');
@@ -135,7 +135,41 @@ function responder(mensagem, embed, ephemeral) {
   if (!ephemeral && mensagem.channel) {
     mostrarDigitando(mensagem.channel, 800).catch(() => {});
   }
-  return mensagem.reply({ embeds: [embed], ephemeral: !!ephemeral });
+  // Mensagens de prefixo não suportam resposta efêmera: o parâmetro só controla
+  // o indicador de digitação. Enviar `ephemeral` aqui gera aviso de depreciação.
+  return mensagem.reply({ embeds: [embed] });
+}
+
+/**
+ * Aplica o mesmo contrato de `meta` usado no caminho slash (utils/slash.js)
+ * também para os comandos disparados por prefixo. Sem isso, `meta.staff` e
+ * `meta.permissions` eram ignorados por `$comando` — uma escalada de privilégio.
+ * @returns {string|null} mensagem de erro, ou null quando autorizado.
+ */
+function autorizarComando(mod, message) {
+  const meta = mod?.meta || {};
+  if (meta.guildOnly && !message.guildId) return '❌ Este comando só pode ser usado dentro de um servidor.';
+  if (meta.staff && !isStaff(message.member)) return '❌ Você não tem permissão para usar este comando.';
+  if (meta.permissions?.length) {
+    const membro = message.member;
+    const permitido = meta.permissions.some((permissao) => {
+      const flag = PermissionFlagsBits[permissao] || permissao;
+      return membro?.permissions?.has?.(flag);
+    });
+    if (!permitido) return '❌ Você não tem permissão para usar este comando.';
+  }
+  return null;
+}
+
+/** Lê o tópico (JSON) de um canal de ticket sem confiar no conteúdo. */
+function lerTopicoTicket(canal) {
+  if (!canal?.topic) return null;
+  try {
+    const dados = JSON.parse(canal.topic);
+    return dados && typeof dados === 'object' ? dados : null;
+  } catch {
+    return null;
+  }
 }
 
 async function resolveUser(token, message, client) {
@@ -370,14 +404,13 @@ async function handlePrefix(message, client) {
   logger.logComando(comandoDigitado, message.author.username, message.channel?.name, message.guild?.name);
   logger.debug?.(`PID ${process.pid} processando mensagem ${message.id} (${prefixo}${comando})`);
 
-  const conteudoComando = `${prefixo}${comando} ${args.join(' ').trim()}`;
-  const fingerprint = `${message.guild?.id || 'dm'}:${message.author.id}:${message.channelId}:${conteudoComando}`;
+  const fingerprint = `${message.guild?.id || 'dm'}:${message.author.id}:${message.channelId}:${message.id}`;
   if (!reivindicarComando(fingerprint)) return;
 
   // Configurar é livre em qualquer canal (para reconfigurar)
   if (comando !== 'configurar') {
     if (guildId) {
-      const checagem = verificarCanal(guildId, message.channelId);
+      const checagem = verificarCanal(guildId, message.channelId, cfg);
       if (!checagem.ok) {
         const motivos = {
           bloqueado: 'Este canal está na lista de **proibidos**. Use outro ou ajuste com `$configurar`.',
@@ -395,13 +428,15 @@ async function handlePrefix(message, client) {
 
   // ── $ping ──
   if (comando === 'ping') {
-    const inicio = Date.now();
     // ⋆｡°✩ Animação: typing → resposta
     mostrarDigitando(message.channel, 600).catch(() => {});
-    const latencia = Date.now() - inicio;
+    // Latência real: tempo entre a criação da mensagem no Discord e o
+    // processamento aqui (API) + round-trip do gateway (WebSocket).
+    const latencia = Math.max(0, Date.now() - message.createdTimestamp);
+    const ws = Math.max(0, Math.round(message.client.ws.ping));
     return responder(message, criarEmbed({
       titulo: 'Pong!',
-      descricao: `${THEME.div.bolinhas}\n\n${THEME.iconeFooter} **Pong!** ✧\n\n${THEME.div.estrelado}\n\n.ping — **${latencia}ms** de latência`,
+      descricao: `${THEME.div.bolinhas}\n\n${THEME.iconeFooter} **Pong!** ✧\n\n${THEME.div.estrelado}\n\n📡 API — **${latencia}ms**\n💫 WebSocket — **${ws}ms**`,
       cor: THEME.corPrincipal,
       rodape: `${THEME.nome} respondeu em ${latencia}ms`,
     }));
@@ -843,24 +878,38 @@ async function handlePrefix(message, client) {
   // ── $ticket ──
   if (comando === 'ticket') {
     const { enviarPainel, configurarTicket, enviarPainelConvidar, convidarUsuario } = require('./ticketManager');
-    const { isStaff } = require('./perms');
     const sub = (args[0] || '').toLowerCase();
+    const staff = isStaff(message.member);
+    const topico = lerTopicoTicket(message.channel);
+    // O dono do ticket pode convidar/remover pessoas do próprio ticket;
+    // qualquer outra ação (painel, configuração) exige staff.
+    const donoDoTicket = Boolean(topico?.userId && topico.userId === message.author.id);
+    const semPermissao = () => responder(
+      message,
+      criarEmbed({
+        titulo: 'Sem permissão',
+        descricao: `${THEME.div.bolinhas}\n\nVocê precisa ser **staff** para gerenciar tickets.\n\n${THEME.div.bolinhas}`,
+        cor: THEME.corErro,
+      }),
+      true
+    );
 
     if (sub === '') {
+      if (!staff) return semPermissao();
       return enviarPainel(message, client);
     }
 
-    if (sub === 'remove') {
-      const { enviarPainelRemover, removerUsuario } = require('./ticketManager');
-      const userId = args[1]?.replace(/[<@!]/g, '') || '';
-      if (!userId) {
-        // Sem usuário → abre painel interativo
-        return enviarPainelRemover(message, client);
+    if (sub === 'remove' || sub === 'invite') {
+      if (!staff && !donoDoTicket) return semPermissao();
+      if (sub === 'remove') {
+        const { enviarPainelRemover, removerUsuario } = require('./ticketManager');
+        const userId = args[1]?.replace(/[<@!]/g, '') || '';
+        if (!userId) {
+          // Sem usuário → abre painel interativo
+          return enviarPainelRemover(message, client);
+        }
+        return removerUsuario(message, userId);
       }
-      return removerUsuario(message, userId);
-    }
-
-    if (sub === 'invite') {
       const userId = args[1]?.replace(/[<@!]/g, '') || '';
       if (!userId) {
         // Sem argumento → abre painel interativo
@@ -869,13 +918,7 @@ async function handlePrefix(message, client) {
       return convidarUsuario(message, userId);
     }
 
-    if (!isStaff(message.member)) {
-      return responder(
-        message,
-        criarEmbed({ titulo: 'Sem permissão', descricao: 'Você precisa ser **staff** para configurar tickets.', cor: THEME.corErro }),
-        true
-      );
-    }
+    if (!staff) return semPermissao();
 
     return configurarTicket(message, args, client);
   }
@@ -1125,6 +1168,16 @@ async function handlePrefix(message, client) {
       );
     }
     const interaction = criarInteracao(message, client, valores);
+    // O caminho de prefixo precisa respeitar o mesmo `meta` do slash
+    // (staff/permissões/guildOnly), que antes era ignorado aqui.
+    const bloqueio = autorizarComando(EXTRA[comando], message);
+    if (bloqueio) {
+      return responder(
+        message,
+        criarEmbed({ titulo: 'Acesso restrito', descricao: `${THEME.div.bolinhas}\n\n${bloqueio}\n\n${THEME.div.bolinhas}`, cor: THEME.corErro }),
+        true
+      );
+    }
     try {
       await EXTRA[comando].execute(interaction, client);
     } catch (erro) {

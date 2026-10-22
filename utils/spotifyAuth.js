@@ -9,12 +9,16 @@ const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || `http://127.0.0.1:${POR
 const TOKEN_FILE = path.join(__dirname, '..', '.spotify-token.json');
 const SCOPES = 'user-read-private';
 let authPromise;
+let cacheToken = undefined; // undefined = ainda não lido do disco
 
 function lerToken() {
-  try { return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8')); } catch { return null; }
+  if (cacheToken !== undefined) return cacheToken;
+  try { cacheToken = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8')); } catch { cacheToken = null; }
+  return cacheToken;
 }
 
 function guardarToken(token) {
+  cacheToken = token;
   fs.writeFileSync(TOKEN_FILE, JSON.stringify(token, null, 2), { mode: 0o600 });
 }
 
@@ -41,7 +45,7 @@ function iniciarAutorizacao() {
         return;
       }
       try {
-        const resposta = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: CLIENT_ID, grant_type: 'authorization_code', code: url.searchParams.get('code'), redirect_uri: REDIRECT_URI, code_verifier: verifier }) });
+        const resposta = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, signal: AbortSignal.timeout(15000), body: new URLSearchParams({ client_id: CLIENT_ID, grant_type: 'authorization_code', code: url.searchParams.get('code'), redirect_uri: REDIRECT_URI, code_verifier: verifier }) });
         const dados = await resposta.json();
         if (!resposta.ok) throw new Error(dados.error_description || dados.error || `HTTP ${resposta.status}`);
         guardarToken({ ...dados, expires_at: Date.now() + (dados.expires_in * 1000) });
@@ -57,6 +61,15 @@ function iniciarAutorizacao() {
       }
     });
     servidor.once('error', (erro) => { authPromise = null; reject(erro); });
+    // Sem este teto, uma autorização esquecida deixava o Promise pendurado
+    // para sempre (e o comando esperando).
+    const expiracao = setTimeout(() => {
+      try { servidor.close(); } catch {}
+      authPromise = null;
+      reject(new Error('Tempo de autorização do Spotify esgotado. Tente novamente.'));
+    }, 5 * 60 * 1000);
+    expiracao.unref?.();
+    servidor.once('close', () => clearTimeout(expiracao));
     servidor.listen(PORT, '127.0.0.1', () => console.log(`[Spotify] Autorize o bot abrindo: ${authorization}`));
   });
   return authPromise;
@@ -67,7 +80,7 @@ async function obterAccessToken() {
   const token = lerToken();
   if (token?.access_token && token.expires_at > Date.now() + 60_000) return token.access_token;
   if (token?.refresh_token) {
-    const resposta = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: CLIENT_ID, grant_type: 'refresh_token', refresh_token: token.refresh_token }) });
+    const resposta = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, signal: AbortSignal.timeout(15000), body: new URLSearchParams({ client_id: CLIENT_ID, grant_type: 'refresh_token', refresh_token: token.refresh_token }) });
     const dados = await resposta.json();
     if (resposta.ok) {
       guardarToken({ ...token, ...dados, refresh_token: dados.refresh_token || token.refresh_token, expires_at: Date.now() + (dados.expires_in * 1000) });

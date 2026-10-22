@@ -13,6 +13,7 @@ module.exports = {
     await mostrarDigitando(interaction.channel, 900);
     const u1 = interaction.options.getUser('usuario1');
     const u2 = interaction.options.getUser('usuario2');
+    if (!u1 || !u2) return interaction.reply({ content: '❌ Marque dois usuários válidos para calcular a compatibilidade.', ephemeral: true });
     const seed = (BigInt(u1.id) ^ BigInt(u2.id)).toString();
     let n = 0;
     for (const c of seed) n = (n * 31 + c.charCodeAt(0)) % 100;

@@ -35,7 +35,13 @@ async function dispararLembrete(client, lembrete) {
         cor: THEME.corLembrete,
         rodape: THEME.nome,
       });
-      await canal.send({ content: `<@${lembrete.userId}>`, embeds: [embed] });
+      await canal.send({
+        content: `<@${lembrete.userId}>`,
+        embeds: [embed],
+        // O conteúdo do lembrete é escrito pelo usuário: nunca permita que ele
+        // dispare @everyone/@here/@cargo (o embed já não menciona ninguém).
+        allowedMentions: { parse: [], users: [lembrete.userId] },
+      });
     }
   } catch (erro) {
     console.error(`Não consegui entregar o lembrete ${lembrete.id}:`, erro.message);

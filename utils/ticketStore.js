@@ -1,5 +1,5 @@
-const fs = require('fs');
 const path = require('path');
+const { lerJson, salvarJson } = require('./jsonStore');
 
 const CAMINHO_ARQUIVO = path.join(__dirname, '..', 'data', 'tickets.json');
 const CAMINHO_BACKUP = path.join(__dirname, '..', 'data', 'tickets.backup.json');
@@ -14,41 +14,13 @@ function configPadrao() {
   };
 }
 
-function garantirArquivo() {
-  const pasta = path.dirname(CAMINHO_ARQUIVO);
-  if (!fs.existsSync(pasta)) fs.mkdirSync(pasta, { recursive: true });
-  if (!fs.existsSync(CAMINHO_ARQUIVO)) fs.writeFileSync(CAMINHO_ARQUIVO, '{}', 'utf-8');
-}
-
-function fazerBackup() {
-  try {
-    if (fs.existsSync(CAMINHO_ARQUIVO)) fs.copyFileSync(CAMINHO_ARQUIVO, CAMINHO_BACKUP);
-  } catch {
-    // silêncio
-  }
-}
-
 function carregarTodos() {
-  garantirArquivo();
-  const conteudo = fs.readFileSync(CAMINHO_ARQUIVO, 'utf-8');
-  try {
-    return JSON.parse(conteudo);
-  } catch {
-    try {
-      const backup = fs.readFileSync(CAMINHO_BACKUP, 'utf-8');
-      const dados = JSON.parse(backup);
-      fs.writeFileSync(CAMINHO_ARQUIVO, backup, 'utf-8');
-      return dados;
-    } catch {
-      return {};
-    }
-  }
+  const dados = lerJson(CAMINHO_ARQUIVO, {}, CAMINHO_BACKUP);
+  return dados && typeof dados === 'object' && !Array.isArray(dados) ? dados : {};
 }
 
 function salvarTodos(registro) {
-  garantirArquivo();
-  fazerBackup();
-  fs.writeFileSync(CAMINHO_ARQUIVO, JSON.stringify(registro, null, 2), 'utf-8');
+  salvarJson(CAMINHO_ARQUIVO, registro, { backup: CAMINHO_BACKUP });
 }
 
 function obterConfig(guildId) {

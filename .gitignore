@@ -199,3 +199,15 @@ $RECYCLE.BIN/
 *.rej
 .backup/
 *.backup
+
+# ── 11. Estado de execução e dados de usuários (PII) ───────────────
+# O banco SQLite, logs, tickets, transcripts e caches contêm IDs, conversas
+# privadas e histórico de membros. Nada disso deve ir para o repositório;
+# tudo é recriado automaticamente na primeira execução.
+data/*
+!data/.gitkeep
+data/transcripts/
+*.db
+*.db-wal
+*.db-shm
+

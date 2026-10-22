@@ -54,7 +54,7 @@ async function buscarSpotify(query) {
 }
 
 async function metadadosYouTube(url) {
-  const { stdout } = await execFileAsync(YTDLP_PATH, [url, '--dump-single-json', '--no-warnings', '--no-update', '--skip-download'], { windowsHide: true, maxBuffer: 2 * 1024 * 1024 });
+  const { stdout } = await execFileAsync(YTDLP_PATH, ['--', url, '--dump-single-json', '--no-warnings', '--no-update', '--skip-download'], { windowsHide: true, maxBuffer: 2 * 1024 * 1024, timeout: 20000 });
   return extrairJson(stdout);
 }
 
@@ -69,6 +69,10 @@ async function substituirYouTubePorSpotify(url) {
 }
 
 async function prepararUrlParaTocar(query) {
+  if (!ehUrl(query)) return query;
+  if (!urlPublicaPermitida(query)) {
+    throw new Error('Esse endereço não é permitido. Use links públicos de música (YouTube, SoundCloud ou Spotify).');
+  }
   return ehUrlSuno(query) ? await resolverUrlSuno(query) : query;
 }
 
@@ -115,7 +119,7 @@ function valorJson(html, propriedade) {
 }
 
 async function resolverUrlSuno(url) {
-  const resposta = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0' } });
+  const resposta = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12000) });
   if (!resposta.ok) throw new Error(`Suno respondeu HTTP ${resposta.status}.`);
   const html = await resposta.text();
   const urlCanonica = resposta.url || url;
@@ -134,7 +138,7 @@ async function resolverUrlSuno(url) {
   let audioUrl = null;
   for (const candidato of candidatos) {
     try {
-      const respostaAudio = await fetch(candidato, { method: 'HEAD' });
+      const respostaAudio = await fetch(candidato, { method: 'HEAD', signal: AbortSignal.timeout(10000) });
       if (respostaAudio.ok) {
         audioUrl = candidato;
         break;
@@ -162,6 +166,30 @@ function resumirErro(erro) {
 
 function ehUrl(valor) {
   return /^https?:\/\//i.test(valor);
+}
+
+/**
+ * Bloqueia SSRF: o yt-dlp/ffmpeg não podem ser apontados para localhost,
+ * rede privada, link-local ou protocolos não-HTTP. Sem isso, `$tocar` virava
+ * um leitor de serviços internos da máquina que hospeda o bot.
+ */
+function urlPublicaPermitida(valor) {
+  let url;
+  try {
+    url = new URL(valor);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!host) return false;
+  if (['localhost', '0.0.0.0', '::1', '::', 'metadata.google.internal'].includes(host)) return false;
+  if (host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.localhost')) return false;
+  // IPv4 privado / loopback / link-local / CGNAT
+  if (/^(?:10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(host)) return false;
+  // IPv6 loopback, ULA (fc00::/7) e link-local (fe80::/10)
+  if (/^(?:fc|fd|fe[89ab])[0-9a-f]{2}:/i.test(host)) return false;
+  return true;
 }
 
 function fonteDaUrl(url) {
@@ -193,7 +221,7 @@ async function buscarFonte(prefixo, query) {
     '--no-warnings',
     '--no-update',
     '--skip-download',
-  ], { windowsHide: true, maxBuffer: 2 * 1024 * 1024 });
+  ], { windowsHide: true, maxBuffer: 2 * 1024 * 1024, timeout: 20000 });
   const info = extrairJson(stdout);
   const entradas = info.entries || (info.webpage_url ? [info] : []);
   return entradas.filter((item) => obterUrlResultado(item)).slice(0, 5).map((item) => ({ ...item, fonte: prefixo.startsWith('yt') ? 'YouTube' : 'SoundCloud' }));
@@ -367,7 +395,7 @@ module.exports = {
            }
          } catch (erro) {
            console.error('Erro ao selecionar música:', erro);
-           await botao.followUp({ content: `❌ Não consegui tocar esse resultado.\n\`${resumirErro(erro)}\``, ephemeral: true }).catch(() => {});
+           await botao.followUp({ content: '❌ Não consegui tocar esse resultado. Tente novamente em instantes.', ephemeral: true }).catch(() => {});
          } finally {
            estado.selecionando = false;
          }
@@ -375,7 +403,7 @@ module.exports = {
       coletor.on('end', async () => interaction.editReply({ components: [] }).catch(() => {}));
     } catch (erro) {
       console.error('Erro ao buscar música:', erro);
-      await interaction.editReply({ content: `❌ Não consegui encontrar ou tocar essa música.\n\`${resumirErro(erro)}\`` }).catch(() => {});
+      await interaction.editReply({ content: '❌ Não consegui encontrar ou tocar essa música. Tente novamente em instantes.' }).catch(() => {});
     }
   },
 };

@@ -1,36 +1,16 @@
-const fs = require('fs');
 const path = require('path');
+const { lerJson, salvarJson } = require('./jsonStore');
 
 const CAMINHO = path.join(__dirname, '..', 'data', 'seguranca.json');
 const CAMINHO_BACKUP = path.join(__dirname, '..', 'data', 'seguranca.backup.json');
 
-function garantir() {
-  const pasta = path.dirname(CAMINHO);
-  if (!fs.existsSync(pasta)) fs.mkdirSync(pasta, { recursive: true });
-  if (!fs.existsSync(CAMINHO)) fs.writeFileSync(CAMINHO, '{}', 'utf-8');
-}
-
 function carregar() {
-  garantir();
-  try {
-    return JSON.parse(fs.readFileSync(CAMINHO, 'utf-8'));
-  } catch {
-    try {
-      const b = JSON.parse(fs.readFileSync(CAMINHO_BACKUP, 'utf-8'));
-      fs.writeFileSync(CAMINHO, JSON.stringify(b, null, 2));
-      return b;
-    } catch {
-      return {};
-    }
-  }
+  const dados = lerJson(CAMINHO, {}, CAMINHO_BACKUP);
+  return dados && typeof dados === 'object' && !Array.isArray(dados) ? dados : {};
 }
 
 function salvar(dados) {
-  garantir();
-  try {
-    if (fs.existsSync(CAMINHO)) fs.copyFileSync(CAMINHO, CAMINHO_BACKUP);
-  } catch {}
-  fs.writeFileSync(CAMINHO, JSON.stringify(dados, null, 2), 'utf-8');
+  salvarJson(CAMINHO, dados, { backup: CAMINHO_BACKUP });
 }
 
 // Salva um instantâneo dos membros atuais do servidor
@@ -81,16 +61,16 @@ function obterMarcacoes(guildId) {
 const CAMINHO_HIST = path.join(__dirname, '..', 'data', 'historico.json');
 
 function carregarHistorico() {
-  try {
-    if (fs.existsSync(CAMINHO_HIST)) return JSON.parse(fs.readFileSync(CAMINHO_HIST, 'utf-8'));
-  } catch {}
-  return {};
+  const dados = lerJson(CAMINHO_HIST, {});
+  return dados && typeof dados === 'object' && !Array.isArray(dados) ? dados : {};
 }
 
 function salvarHistorico(dados) {
   try {
-    fs.writeFileSync(CAMINHO_HIST, JSON.stringify(dados, null, 2), 'utf-8');
-  } catch {}
+    salvarJson(CAMINHO_HIST, dados);
+  } catch {
+    // histórico é auxiliar: falha de disco não interrompe a moderação
+  }
 }
 
 // Registra uma suspensão (ban/kick/time-out) de um membro.

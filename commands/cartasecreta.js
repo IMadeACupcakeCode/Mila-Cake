@@ -85,10 +85,14 @@ function modalAutor() {
 }
 
 module.exports = {
+  meta: { guildOnly: true },
   data: { name: 'cartasecreta', description: '✉️ Entrega uma carta misteriosa para um membro', options: [{ name: 'usuario', description: 'Destinatário opcional; o formulário completa a carta', type: 6, required: false }] },
   async execute(interaction) {
     const autor = interaction.user;
     const guild = interaction.guild;
+    if (!guild) {
+      return interaction.reply({ content: '❌ Cartas secretas só podem ser enviadas dentro de um servidor.', ephemeral: true });
+    }
     const client = interaction.client;
     const msgOriginal = interaction.message; // mensagem `$cartasecreta ...` no canal
 

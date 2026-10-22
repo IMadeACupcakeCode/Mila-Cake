@@ -4,6 +4,7 @@ const { isStaff } = require('../utils/perms');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
+  meta: { guildOnly: true, staff: true },
   data: {
     name: 'idioma',
     description: '⚙️ Altera o idioma da Mila no servidor (WIP)',
@@ -29,6 +30,12 @@ module.exports = {
     }
 
     const novo = interaction.options.getString('novo');
+    if (!['pt-BR', 'en-US'].includes(novo)) {
+      return interaction.reply({
+        embeds: [criarEmbed({ titulo: 'Idioma inválido', descricao: `${THEME.div.bolinhas}\n\nEscolha entre **Português (Brasil)** ou **English (US)**.\n\n${THEME.div.bolinhas}`, cor: THEME.corErro })],
+        ephemeral: true,
+      });
+    }
     const config = obterConfig(interaction.guildId);
     config.idioma = novo;
     salvarConfig(interaction.guildId, config);

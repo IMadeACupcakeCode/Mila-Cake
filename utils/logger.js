@@ -34,6 +34,7 @@ const COR = {
 const NIVEIS = {
   info: { cor: COR.ciano, rotulo: '✦ INFO', emoji: '📋' },
   cmd: { cor: COR.rosa, rotulo: '♡ CMD', emoji: '⭐' },
+  debug: { cor: COR.cinza, rotulo: '· DEBUG', emoji: '🔍' },
   sucesso: { cor: COR.verde, rotulo: '✓ OK', emoji: '✅' },
   aviso: { cor: COR.amarelo, rotulo: '⚠ AVISO', emoji: '⚠️' },
   erro: { cor: COR.vermelho, rotulo: '✗ ERRO', emoji: '❌' },
@@ -62,10 +63,35 @@ function salvar() {
   try {
     const pasta = path.dirname(CAMINHO_LOGS);
     if (!fs.existsSync(pasta)) fs.mkdirSync(pasta, { recursive: true });
-    fs.writeFileSync(CAMINHO_LOGS, JSON.stringify(registros.slice(-MEMORIA_MAX), null, 2), 'utf-8');
+    const json = JSON.stringify(registros.slice(-MEMORIA_MAX), null, 2);
+    const temporario = `${CAMINHO_LOGS}.tmp`;
+    fs.writeFileSync(temporario, json, 'utf-8');
+    fs.renameSync(temporario, CAMINHO_LOGS);
   } catch {
     /* ignora falhas de escrita */
   }
+}
+
+// Gravação agrupada: antes cada log reescrevia o arquivo inteiro de forma
+// síncrona (uma operação de disco por mensagem). Agora várias entradas caem
+// na mesma gravação, sem risco de perder o arquivo em caso de crash.
+let timerSalvar = null;
+function agendarSalvar() {
+  if (timerSalvar) return;
+  timerSalvar = setTimeout(() => {
+    timerSalvar = null;
+    salvar();
+  }, 1500);
+  timerSalvar.unref?.();
+}
+
+/** Força a gravação imediata (usado no desligamento gracioso). */
+function flush() {
+  if (timerSalvar) {
+    clearTimeout(timerSalvar);
+    timerSalvar = null;
+  }
+  salvar();
 }
 
 /**
@@ -113,7 +139,7 @@ function log(nivel, mensagem, ctx = {}) {
   };
   registros.push(entrada);
   if (registros.length > MEMORIA_MAX) registros = registros.slice(-MEMORIA_MAX);
-  salvar();
+  agendarSalvar();
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -122,6 +148,7 @@ function log(nivel, mensagem, ctx = {}) {
 
 function info(m, ctx) { log('info', m, ctx); }
 function cmd(m, ctx) { log('cmd', m, ctx); }
+function debug(m, ctx) { log('debug', m, ctx); }
 function sucesso(m, ctx) { log('sucesso', m, ctx); }
 function aviso(m, ctx) { log('aviso', m, ctx); }
 function erro(m, ctx) { log('erro', m, ctx); }
@@ -221,7 +248,7 @@ function todas(limite = 15) {
 }
 
 module.exports = {
-  log, info, cmd, sucesso, aviso, erro,
+  log, info, cmd, debug, sucesso, aviso, erro,
   logComando, logSucesso, logErro, separador, logInicio,
-  filtrarPorUsuario, todas, NIVEIS, COR,
+  filtrarPorUsuario, todas, flush, NIVEIS, COR,
 };

@@ -10,10 +10,14 @@ const CATEGORIAS = [
 ];
 
 module.exports = {
+  meta: { guildOnly: true },
   data: { name: 'organizar', description: 'Mostra um painel de organização do servidor e como a bot está distribuída' },
 
   async execute(interaction, client) {
     const guild = interaction.guild;
+    if (!guild) {
+      return interaction.reply({ content: '❌ Este comando só funciona dentro de um servidor.', ephemeral: true });
+    }
     const cfg = obterConfig(guild.id);
 
     // Campo: estrutura de categorias de comandos

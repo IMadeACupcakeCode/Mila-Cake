@@ -79,8 +79,8 @@ function criarComandoVolume(name, description) {
     meta: { guildOnly: true },
     data: { name, description, options: [{ name: 'nivel', description: 'Volume entre 0 e 100', type: 4, required: true, min_value: 0, max_value: 100 }] },
     execute: async (interaction, client) => executarControle(interaction, client, async (queue) => {
-      const nivel = interaction.options.getInteger('nivel');
-      if (nivel < 0 || nivel > 100) return responder(interaction, '❌ O volume deve estar entre 0 e 100.');
+      const nivel = Number(interaction.options.getInteger('nivel'));
+      if (!Number.isFinite(nivel) || nivel < 0 || nivel > 100) return responder(interaction, '❌ O volume deve estar entre 0 e 100.');
       queue.setVolume(nivel);
       return responder(interaction, `🔊 Volume ajustado para **${nivel}%**.`);
     }),

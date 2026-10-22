@@ -1,5 +1,19 @@
 const CACHE = new Map();
 const CACHE_MS = 10 * 60 * 1000;
+const CACHE_MAX = 200;
+
+function guardarNoCache(chave, valor) {
+  CACHE.set(chave, valor);
+  // Cache limitado: antes crescia sem teto durante toda a vida do processo.
+  const agora = Date.now();
+  for (const [k, v] of CACHE) {
+    if (agora - v.timestamp > CACHE_MS) CACHE.delete(k);
+    else break;
+  }
+  while (CACHE.size > CACHE_MAX) {
+    CACHE.delete(CACHE.keys().next().value);
+  }
+}
 
 function separarMusica(nome = '') {
   const valor = String(nome).replace(/\s*\([^)]*\)\s*$/, '').trim();
@@ -13,7 +27,7 @@ function limparTexto(valor) {
 }
 
 async function buscarJson(url) {
-  const resposta = await fetch(url, { headers: { accept: 'application/json', 'user-agent': 'MilaBot/1.0' } });
+  const resposta = await fetch(url, { headers: { accept: 'application/json', 'user-agent': 'MilaBot/1.0' }, signal: AbortSignal.timeout(12000) });
   if (!resposta.ok) return null;
   return resposta.json();
 }
@@ -62,9 +76,9 @@ function procurarJsons(html) {
 async function buscarNoSuno(song) {
   const url = song?.pageUrl || song?.url || song?.webpage_url;
   if (!ehSuno(url)) return null;
-  const resposta = await fetch(url, { headers: { accept: 'text/html', 'user-agent': 'MilaBot/1.0' } });
+  const resposta = await fetch(url, { headers: { accept: 'text/html', 'user-agent': 'MilaBot/1.0' }, signal: AbortSignal.timeout(12000) });
   if (!resposta.ok) return null;
-  const html = await resposta.text();
+  const html = (await resposta.text()).slice(0, 2 * 1024 * 1024);
   const objeto = procurarJsons(html).map(procurarLetraEmObjeto).find(Boolean);
   const correspondencia = html.match(/(?:"lyrics"|"lyric"|"prompt")\s*:\s*"((?:\\.|[^"])*)"/i);
   const letra = objeto || correspondencia?.[1]?.replace(/\\n/g, '\n').replace(/\\"/g, '"');
@@ -91,7 +105,7 @@ async function buscarLetra(song) {
   }
   if (!valor) throw new Error(`Não encontrei letra pública para "${nome}".`);
   const resultado = { ...valor, artist, title, songName: nome };
-  CACHE.set(chave, { timestamp: Date.now(), valor: resultado });
+  guardarNoCache(chave, { timestamp: Date.now(), valor: resultado });
   return resultado;
 }
 

@@ -1,5 +1,5 @@
-const fs = require('fs');
 const path = require('path');
+const { lerJson, salvarJson } = require('./jsonStore');
 const { criarEmbedPainel, criarBotoesPainel } = require('./ticketManager');
 const { obterConfig } = require('./servidorStore');
 
@@ -7,18 +7,12 @@ const { obterConfig } = require('./servidorStore');
 const CAMINHO_CACHE = path.join(__dirname, '..', 'data', 'fixedEmbedCache.json');
 
 function lerCache() {
-  try {
-    if (fs.existsSync(CAMINHO_CACHE)) {
-      return JSON.parse(fs.readFileSync(CAMINHO_CACHE, 'utf-8'));
-    }
-  } catch {}
-  return {};
+  const dados = lerJson(CAMINHO_CACHE, {});
+  return dados && typeof dados === 'object' && !Array.isArray(dados) ? dados : {};
 }
 
 function salvarCache(dados) {
-  const pasta = path.dirname(CAMINHO_CACHE);
-  if (!fs.existsSync(pasta)) fs.mkdirSync(pasta, { recursive: true });
-  fs.writeFileSync(CAMINHO_CACHE, JSON.stringify(dados, null, 2), 'utf-8');
+  salvarJson(CAMINHO_CACHE, dados);
 }
 
 /**

@@ -244,6 +244,7 @@ async function iniciarJogo(interaction, config) {
   const palavra = escolherPalavra(dificuldade);
 
   const game = {
+    criadorId: interaction.user.id,
     palavra,
     acertos: new Set(),
     erros: 0,
@@ -542,7 +543,14 @@ async function atualizarJogo(interaction, sessao) {
     sessao.msgId = msg.id;
   }
 
-  if (game.terminou) setTimeout(() => JOGOS.delete(interaction.channelId), 300_000);
+  if (game.terminou) {
+    const channelId = interaction.channelId;
+    const timer = setTimeout(() => {
+      // Só remove se ninguém começou uma partida nova no mesmo canal.
+      if (JOGOS.get(channelId) === sessao) JOGOS.delete(channelId);
+    }, 300_000);
+    timer.unref?.();
+  }
 }
 
 // ══════════════════════════════════════════════════════════════

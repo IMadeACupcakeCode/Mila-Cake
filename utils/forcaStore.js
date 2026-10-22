@@ -1,35 +1,16 @@
-const fs = require('fs');
 const path = require('path');
+const { lerJson, salvarJson } = require('./jsonStore');
 
 const CAMINHO = path.join(__dirname, '..', 'data', 'forcaRanking.json');
 const CAMINHO_BACKUP = path.join(__dirname, '..', 'data', 'forcaRanking.backup.json');
 
-function garantir() {
-  const pasta = path.dirname(CAMINHO);
-  if (!fs.existsSync(pasta)) fs.mkdirSync(pasta, { recursive: true });
-  if (!fs.existsSync(CAMINHO)) fs.writeFileSync(CAMINHO, '{}', 'utf-8');
-}
-
 function carregar() {
-  garantir();
-  try {
-    return JSON.parse(fs.readFileSync(CAMINHO, 'utf-8'));
-  } catch {
-    try {
-      const backup = fs.readFileSync(CAMINHO_BACKUP, 'utf-8');
-      const dados = JSON.parse(backup);
-      fs.writeFileSync(CAMINHO, backup, 'utf-8');
-      return dados;
-    } catch {
-      return {};
-    }
-  }
+  const dados = lerJson(CAMINHO, {}, CAMINHO_BACKUP);
+  return dados && typeof dados === 'object' && !Array.isArray(dados) ? dados : {};
 }
 
 function salvar(dados) {
-  garantir();
-  try { fs.copyFileSync(CAMINHO, CAMINHO_BACKUP); } catch {}
-  fs.writeFileSync(CAMINHO, JSON.stringify(dados, null, 2), 'utf-8');
+  salvarJson(CAMINHO, dados, { backup: CAMINHO_BACKUP });
 }
 
 // ── API de Ranking ──

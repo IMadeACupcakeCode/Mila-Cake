@@ -12,6 +12,9 @@ module.exports = {
       return interaction.reply({ embeds: [criarEmbed({ titulo: 'Acesso negado', descricao: 'Somente staff pode usar este comando.', cor: THEME.corErro })], ephemeral: true });
     }
 
+    // ── Resposta adiada: buscar todos os membros/cargos pode passar de 3s ──
+    await interaction.deferReply({ ephemeral: true });
+
     // ⋆｡°✩ Typing indicator enquanto carrega
     mostrarDigitando(interaction.channel, 1200).catch(() => {});
 
@@ -81,6 +84,6 @@ module.exports = {
       if (c.value) embedFinal.addFields({ name: c.name, value: c.value, inline: true });
     });
 
-    await interaction.reply({ embeds: [embedFinal], ephemeral: true });
+    await interaction.editReply({ embeds: [embedFinal] });
   },
 };

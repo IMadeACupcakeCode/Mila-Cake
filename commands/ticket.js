@@ -5,6 +5,7 @@ const { obterConfig, salvarConfig } = require('../utils/ticketStore');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
+  meta: { guildOnly: true, staff: true },
   data: {
     name: 'ticket',
     description: '🎫 Sistema de Tickets da Mila Bot',

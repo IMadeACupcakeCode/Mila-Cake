@@ -66,6 +66,8 @@ function tocarWav(player, caminhoWav) {
     inputType: StreamType.OggOpus,
     inlineVolume: false,
   });
+  proc.on('error', (erro) => console.error('ffmpeg (aviso TTS) falhou:', erro.message));
+  proc.stderr?.on('data', () => {});
   player.play(resource);
   return proc;
 }
@@ -82,6 +84,8 @@ function recursoSilencio(duracaoMs = 12 * 60 * 60 * 1000) {
     inputType: StreamType.OggOpus,
     inlineVolume: false,
   });
+  proc.on('error', (erro) => console.error('ffmpeg (silêncio) falhou:', erro.message));
+  proc.stderr?.on('data', () => {});
   return { proc, resource };
 }
 
@@ -249,6 +253,12 @@ async function iniciarStream(guildId, canalVozId, fonte, client = null, donoUser
         sessao.player.stop(true);
         iniciarSilencio();
       }
+    });
+    // Um stream de voz pode falhar (usuário saiu, pacote corrompido). Sem
+    // este listener, o EventEmitter derruba o processo inteiro.
+    stream.on('error', (erro) => {
+      console.error(`⋆｡°✩ Mila Stream — erro no áudio de ${userId}:`, erro?.message || erro);
+      pararSubs(userId);
     });
     console.log(`⋆｡°✩ Mila Stream — retransmitindo ${userId}...`);
   }

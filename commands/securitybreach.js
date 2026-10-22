@@ -13,14 +13,16 @@ const { isStaff } = require('../utils/perms');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
 const { isGuildStaff, presenceStatus, isOnline, STATUS_EMOJI, buildMembroEmbed } = require('../utils/membroEmbed');
 const { salvarSnapshot, obterMarcacoes, obterHistorico, avaliarRisco } = require('../utils/segurancaStore');
-const { clientCache, presenceMap } = require('../utils/cache');
+const { clientCache, presenceMap, cacheValido } = require('../utils/cache');
 const { formatarDataAbsoluta } = require('../utils/tempo');
 
 const TIPO_LABEL = { bot: '🤖', humano: '👤' };
 
 function cacheArray(guildId) {
   const entry = clientCache.get(guildId);
-  if (!entry || !entry.members) return [];
+  // Cache vencido é tratado como vazio: o painel refaz o fetch com presenças
+  // em vez de mostrar uma lista desatualizada para sempre.
+  if (!cacheValido(entry)) return [];
   return Array.from(entry.members.values());
 }
 

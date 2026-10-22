@@ -3,7 +3,7 @@ const { SlashCommandBuilder } = require('discord.js');
 const { criarEmbed, THEME } = require('../utils/theme');
 const { isStaff } = require('../utils/perms');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
-const { clientCache } = require('../utils/cache');
+const { clientCache, cacheValido } = require('../utils/cache');
 const { buildMembroEmbed, isGuildStaff } = require('../utils/membroEmbed');
 
 // ── Cache de fallback simples (evita fetch repetido na mesma sessão) ──────
@@ -13,7 +13,7 @@ const fallbackCache = new Map(); // guildId -> { members: Map, timestamp }
 async function obterMembros(guild) {
   // 1. Tenta do cache gerenciado (populado no boot)
   const entry = clientCache.get(guild.id);
-  if (entry && entry.members && entry.members.size) {
+  if (cacheValido(entry)) {
     return Array.from(entry.members.values());
   }
 
@@ -24,7 +24,7 @@ async function obterMembros(guild) {
 
   // 3. Tenta do nosso fallback local
   const fb = fallbackCache.get(guild.id);
-  if (fb && fb.members.size) {
+  if (cacheValido(fb)) {
     return Array.from(fb.members.values());
   }
 
@@ -32,7 +32,7 @@ async function obterMembros(guild) {
   try {
     const fetched = await guild.members.fetch({ withPresences: false });
     const arr = Array.from(fetched.values());
-    // Guarda no fallback para não precisar refetchar
+    // Guarda no fallback por tempo limitado para não precisar refetchar.
     fallbackCache.set(guild.id, { members: fetched, timestamp: Date.now() });
     return arr;
   } catch {
@@ -161,6 +161,9 @@ module.exports = {
       });
     }
 
+    // A busca pode cair no fetch de membro (lento em servidores grandes).
+    await interaction.deferReply({ ephemeral: true });
+
     const id = interaction.options.getString('membro');
     const guild = interaction.guild;
 
@@ -179,12 +182,11 @@ module.exports = {
     }
 
     if (!m) {
-      return interaction.reply({
+      return interaction.editReply({
         embeds: [criarEmbed({ titulo: 'Membro não encontrado', descricao: 'Não achei esse ID.', cor: THEME.corErro })],
-        ephemeral: true,
       });
     }
 
-    await interaction.reply({ embeds: [buildMembroEmbed(m)], ephemeral: true });
+    await interaction.editReply({ embeds: [buildMembroEmbed(m)] });
   },
 };

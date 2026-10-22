@@ -9,15 +9,28 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
+let processosAbertosCache = null;
+function listarProcessosAbertos() {
+  if (process.platform !== 'win32') return null;
+  try {
+    const saida = execFileSync('tasklist.exe', ['/FO', 'CSV', '/NH'], { encoding: 'utf8', windowsHide: true, timeout: 5000 });
+    return new Set(
+      saida.split(/\r?\n/)
+        .map((linha) => linha.match(/^"([^"]+)"/)?.[1]?.toLowerCase())
+        .filter(Boolean)
+    );
+  } catch {
+    return null;
+  }
+}
+
 function navegadorAberto(tipo) {
   if (process.platform !== 'win32') return false;
   const processos = { brave: 'brave.exe', chrome: 'chrome.exe', edge: 'msedge.exe', chromium: 'chromium.exe', vivaldi: 'vivaldi.exe', opera: 'opera.exe', firefox: 'firefox.exe' };
-  try {
-    const saida = execFileSync('tasklist.exe', ['/FI', `IMAGENAME eq ${processos[tipo]}`], { encoding: 'utf8', windowsHide: true });
-    return new RegExp(`^${processos[tipo].replace('.', '\\.')}`, 'im').test(saida);
-  } catch {
-    return false;
-  }
+  // Uma única chamada ao tasklist para todos os navegadores (antes eram até
+  // sete execuções síncronas bloqueando o boot).
+  if (!processosAbertosCache) processosAbertosCache = listarProcessosAbertos();
+  return Boolean(processosAbertosCache?.has(processos[tipo]));
 }
 
 function navegadorTemCookies(tipo, diretorio) {
@@ -227,9 +240,20 @@ function inicializarDistube(client) {
 
   client.distube.on('error', (e, queue) => {
     const mensagem = e?.message || e?.toString?.() || String(e);
+    // Sem limpar o intervalo/painel, o timer de 10s continuava rodando para
+    // uma fila morta até o processo terminar.
+    const intervalo = queue?.id ? client.playerIntervals.get(queue.id) : null;
+    if (intervalo) clearInterval(intervalo);
+    if (queue?.id) {
+      client.playerIntervals.delete(queue.id);
+      const msg = client.playerMessages.get(queue.id);
+      if (msg) msg.delete().catch(() => {});
+      client.playerMessages.delete(queue.id);
+    }
+    // Detalhes internos ficam no log; o chat recebe uma mensagem acionável.
     const mensagemPublica = /429|YOUTUBE|FFMPEG_EXITED|Premature close/i.test(mensagem)
       ? 'A fonte recusou ou encerrou o áudio. Escolha um resultado do Spotify ou SoundCloud.'
-      : mensagem.slice(0, 180);
+      : 'Não consegui continuar a reprodução. Tente outro resultado.';
     if (queue?.textChannel?.send) queue.textChannel.send(`❌ Ocorreu um erro musical: \`${mensagemPublica}\``).catch(() => {});
     console.error('Erro do DisTube:', e);
   });

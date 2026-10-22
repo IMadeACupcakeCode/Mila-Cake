@@ -9,6 +9,7 @@ const {
   ChannelType,
 } = require('discord.js');
 const { criarEmbed, THEME } = require('./theme');
+const { isStaff } = require('./perms');
 
 const COR_FALA = 0xD4A017;
 
@@ -576,6 +577,13 @@ async function mostrarPreview(interaction) {
 // ══════════════════════════════════════════════════════════════
 
 async function confirmarEnvio(interaction) {
+  // Defesa em profundidade: o botão publica em canal/DM arbitrário, então
+  // precisa exigir a mesma sessão e o mesmo nível de permissão do comando.
+  if (!verificarSessao(interaction)) return;
+  if (!isStaff(interaction.member)) {
+    return interaction.reply({ content: '❌ Apenas a staff pode publicar mensagens.', ephemeral: true }).catch(() => {});
+  }
+
   const partes = interaction.customId.split('_');
   const destino = partes[2];
   const alvoId = partes.slice(3).join('_');

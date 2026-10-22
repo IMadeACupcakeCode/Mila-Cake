@@ -4,6 +4,7 @@ const { isStaff } = require('../utils/perms');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
 
 module.exports = {
+  meta: { guildOnly: true, staff: true },
   data: {
     name: 'prefixo',
     description: '⚙️ Altera o prefixo de comandos de texto da Mila',
@@ -24,7 +25,13 @@ module.exports = {
       });
     }
 
-    const novo = interaction.options.getString('novo').trim();
+    const novo = String(interaction.options.getString('novo') ?? '').trim();
+    if (!novo) {
+      return interaction.reply({
+        embeds: [criarEmbed({ titulo: 'Prefixo vazio', descricao: `${THEME.div.bolinhas}\n\nEscolha um prefixo com pelo menos 1 caractere (ex.: \`!\`, \`$\`, \`mila.\`).\n\n${THEME.div.coracao}`, cor: THEME.corErro })],
+        ephemeral: true,
+      });
+    }
     if (novo.length > 5) {
       return interaction.reply({
         embeds: [criarEmbed({ titulo: 'Prefixo muito longo', descricao: `${THEME.div.bolinhas}\n\nO prefixo deve ter no máximo 5 caracteres.\n\n${THEME.div.coracao}`, cor: THEME.corErro })],

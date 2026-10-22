@@ -6,7 +6,9 @@ const { reagendarTodosLembretes } = require('./utils/agendador');
 const { handlePrefix } = require('./utils/prefix');
 const { handleReaction } = require('./utils/guerraManager');
 const logger = require('./utils/logger');
+const db = require('./utils/db');
 const { registrar, tratar } = require('./utils/slash');
+const { isStaff } = require('./utils/perms');
 
 const { DISCORD_TOKEN } = process.env;
 
@@ -201,7 +203,6 @@ client.once('clientReady', () => {
 });
 
 client.on('messageCreate', async (message) => {
-  const db = require('./utils/db');
   if (!db.reivindicarMensagem(message.id)) {
     console.log(`↩️ Mensagem ${message.id} ignorada: já processada por outra instância (PID ${process.pid}).`);
     return;
@@ -209,16 +210,15 @@ client.on('messageCreate', async (message) => {
 
   // Processa sistema de economia/XP primeiro para nao depender de ser ou n comando
   if (!message.author.bot && message.guild) {
-    if (db.podeGanharXp(message.author.id)) {
-      const xpGanho = Math.floor(Math.random() * 11) + 15; // Ganha entre 15 e 25 XP
-      const { subiu, level } = db.addXp(message.author.id, xpGanho);
-      if (subiu) {
-        // Envia parabéns pela subida de nível e paga uma gorgetinha
-        db.addAcucares(message.author.id, level * 50);
-        try {
-          message.channel.send(`🎉 Parabéns ${message.author.toString()}, você alcançou o **Nível ${level}**! (Bônus: ${level * 50} 🍬)`).catch(() => {});
-        } catch {}
-      }
+    const xpGanho = Math.floor(Math.random() * 11) + 15; // Ganha entre 15 e 25 XP
+    const progresso = db.ganharXp(message.author.id, xpGanho);
+    if (progresso.ganhou && progresso.subiu) {
+      const bonus = progresso.level * 50;
+      // Envia parabéns pela subida de nível e paga uma gorgetinha
+      db.addAcucares(message.author.id, bonus);
+      try {
+        message.channel.send(`🎉 Parabéns ${message.author.toString()}, você alcançou o **Nível ${progresso.level}**! (Bônus: ${bonus} 🍬)`).catch(() => {});
+      } catch {}
     }
   }
 
@@ -604,6 +604,12 @@ client.on('interactionCreate', async (interaction) => {
 
   try {
     const forca = require('./utils/forcaManager');
+    const sessaoJogo = forca.JOGOS.get(interaction.channelId);
+    const jogo = sessaoJogo?.game;
+    // Ações destrutivas (revelar/desistir/encerrar/avançar) só podem ser
+    // acionadas por quem criou a partida ou pela staff.
+    const podeControlarJogo = () => !jogo?.criadorId || interaction.user.id === jogo.criadorId || isStaff(interaction.member);
+    const negarControle = () => interaction.reply({ content: '❌ Só quem criou a partida (ou a staff) pode fazer isso.', ephemeral: true }).catch(() => {});
 
     // ── Ranking ──
     if (interaction.isButton() && interaction.customId.startsWith('forca_rank_')) {
@@ -719,36 +725,42 @@ client.on('interactionCreate', async (interaction) => {
 
     // ── Revelar ──
     if (interaction.isButton() && interaction.customId === 'forca_revelar') {
+      if (!podeControlarJogo()) return negarControle();
       await forca.revelarPalavra(interaction);
       return;
     }
 
     // ── Desistir ──
     if (interaction.isButton() && interaction.customId === 'forca_desistir') {
+      if (!podeControlarJogo()) return negarControle();
       await forca.desistir(interaction);
       return;
     }
 
     // ── Próxima Rodada (competitivo) ──
     if (interaction.isButton() && interaction.customId === 'forca_proxima_rodada') {
+      if (!podeControlarJogo()) return negarControle();
       await forca.proximaRodada(interaction);
       return;
     }
 
     // ── Encerrar Partida (competitivo) ──
     if (interaction.isButton() && interaction.customId === 'forca_encerrar_partida') {
+      if (!podeControlarJogo()) return negarControle();
       await forca.encerrarPartida(interaction);
       return;
     }
 
     // ── Próxima Palavra (cooperativo) ──
     if (interaction.isButton() && interaction.customId === 'forca_proxima_palavra') {
+      if (!podeControlarJogo()) return negarControle();
       await forca.proximaPalavraCoop(interaction);
       return;
     }
 
     // ── Encerrar Coop ──
     if (interaction.isButton() && interaction.customId === 'forca_encerrar_coop') {
+      if (!podeControlarJogo()) return negarControle();
       await forca.encerrarPartida(interaction);
       return;
     }
@@ -888,6 +900,7 @@ process.on('SIGINT', async () => {
   await avisarShutdown(client);
   await sairDeTodasAsCalls(client);
   logger.sucesso(`Avisos enviados. Volto logo, meu favorito~ ♡`);
+  logger.flush();
   process.exit(0);
 });
 
@@ -897,6 +910,7 @@ process.on('SIGTERM', async () => {
   await avisarShutdown(client);
   await sairDeTodasAsCalls(client);
   logger.sucesso(`Avisos enviados. Volto logo, meu favorito~ ♡`);
+  logger.flush();
   process.exit(0);
 });
 

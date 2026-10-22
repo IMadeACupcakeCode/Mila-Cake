@@ -8,6 +8,7 @@ const { criarEmbed, THEME } = require('../utils/theme');
 const { listarJanelas, listarMonitores, fonteDesktop, decodificarFonte } = require('../utils/streamSources');
 const { iniciarStream, pararStream, desconectar, listarSessoes, getSessao, suportaStream, FRASE_TTS } = require('../utils/milaStream');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
+const { isStaff } = require('../utils/perms');
 
 // ── Configuração de paginação das janelas ──
 const POR_PAGINA = 25; // Discord permite até 25 opções por select
@@ -159,6 +160,10 @@ async function executarInicio(interaction, fonte, canalId, client) {
 // ── Execute principal ─────────────────────────────────────────────────
 
 async function execute(interaction, client = null) {
+  // A transmissao captura a tela do host: nunca deve ser aberta a qualquer membro.
+  if (!isStaff(interaction.member)) {
+    return interaction.reply({ content: '❌ Apenas a staff pode iniciar a transmissão da tela.', ephemeral: true });
+  }
   await mostrarDigitando(interaction.channel, 800);
   const canalId = canalVozDoAutor(interaction);
   if (!canalId) {
@@ -364,6 +369,7 @@ async function execute(interaction, client = null) {
 }
 
 module.exports = {
+  meta: { guildOnly: true, staff: true },
   data: { name: 'stream', description: '📺 Relé de voz: retransmite o áudio da chamada no canal de voz (escolhe janela/monitor)' },
   execute,
   embedPainel,

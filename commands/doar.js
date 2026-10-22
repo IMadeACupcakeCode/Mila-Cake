@@ -22,11 +22,12 @@ module.exports = {
   },
   async execute(interaction) {
     const alvo = interaction.options?.getUser('usuario');
-    const quantia = interaction.options?.getInteger('quantidade');
+    const quantia = Number(interaction.options?.getInteger('quantidade'));
 
+    if (!alvo) return interaction.reply({ content: '❌ Escolha um usuário válido para receber a doação.', ephemeral: true });
     if (alvo.bot) return interaction.reply({ content: '❌ Os bots não precisam de dinheiro (nem sabem comer doces)!', ephemeral: true });
     if (alvo.id === interaction.user.id) return interaction.reply({ content: '❌ Você não pode doar dinheiro para o seu espelho!', ephemeral: true });
-    if (quantia <= 0) return interaction.reply({ content: '❌ Só podemos doar quantidades positivas que existem!', ephemeral: true });
+    if (!Number.isInteger(quantia) || quantia <= 0) return interaction.reply({ content: '❌ Só podemos doar quantidades positivas que existem!', ephemeral: true });
 
     const sucesso = db.transferirAcucares(interaction.user.id, alvo.id, quantia);
 

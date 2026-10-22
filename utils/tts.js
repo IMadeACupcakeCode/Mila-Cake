@@ -66,34 +66,53 @@ async function vozesWindows() {
 
 async function gerarSapi(texto, config, caminho) {
   const perfil = PERFIS[config.perfil] || PERFIS.padrao;
-  const idioma = config.idioma || perfil.idioma;
-  const velocidade = Number(perfil.velocidade || 0);
-  const voz = String(config.voz || '').replace(/'/g, "''");
+  const velocidade = Math.max(-10, Math.min(10, Number(perfil.velocidade || 0)));
+  // Só aceita nomes de voz plausíveis; o texto do usuário NÃO entra no
+  // comando do PowerShell — ele é lido de um arquivo UTF-8 separado.
+  const voz = String(config.voz || '').replace(/['`"]/g, '').trim().slice(0, 80);
   const selecao = voz ? `$s.SelectVoice('${voz}')` : '';
-  const frase = texto.replace(/'/g, "''");
-  const ps = [
-    'Add-Type -AssemblyName System.Speech',
-    '$s = New-Object System.Speech.Synthesis.SpeechSynthesizer',
-    selecao,
-    `$s.Rate = ${velocidade}`,
-    `$s.SetOutputToWaveFile('${caminho.replace(/'/g, "''")}')`,
-    `$s.Speak('${frase}')`,
-    '$s.Dispose()',
-  ].filter(Boolean).join('; ');
-  await execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { timeout: 30000, windowsHide: true });
+  const caminhoTexto = `${caminho}.txt`;
+  const caminhoScript = `${caminho}.ps1`;
+  const q = (valor) => String(valor).replace(/'/g, "''");
+  try {
+    fs.writeFileSync(caminhoTexto, texto, 'utf8');
+    const ps = [
+      'Add-Type -AssemblyName System.Speech',
+      '$s = New-Object System.Speech.Synthesis.SpeechSynthesizer',
+      selecao,
+      `$s.Rate = ${velocidade}`,
+      `$texto = [System.IO.File]::ReadAllText('${q(caminhoTexto)}', [System.Text.Encoding]::UTF8)`,
+      `$s.SetOutputToWaveFile('${q(caminho)}')`,
+      '$s.Speak($texto)',
+      '$s.Dispose()',
+    ].filter(Boolean).join('\r\n');
+    fs.writeFileSync(caminhoScript, ps, 'utf8');
+    await execFileAsync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', caminhoScript], { timeout: 30000, windowsHide: true });
+  } finally {
+    fs.rmSync(caminhoTexto, { force: true });
+    fs.rmSync(caminhoScript, { force: true });
+  }
   if (!fs.existsSync(caminho)) throw new Error('A voz do Windows não gerou áudio.');
 }
 
 async function gerarGoogle(texto, idioma, caminho) {
   const idiomaGoogle = String(idioma || 'pt-BR').split('-')[0];
   const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${encodeURIComponent(idiomaGoogle)}&q=${encodeURIComponent(texto)}`;
-  const resposta = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0' } });
+  const resposta = await fetch(url, {
+    headers: { 'user-agent': 'Mozilla/5.0' },
+    signal: AbortSignal.timeout(15000),
+  });
   if (!resposta.ok) throw new Error(`Fallback de voz respondeu HTTP ${resposta.status}.`);
-  fs.writeFileSync(caminho, Buffer.from(await resposta.arrayBuffer()));
+  const buffer = Buffer.from(await resposta.arrayBuffer());
+  if (buffer.length < 500) throw new Error('Fallback de voz retornou áudio vazio.');
+  fs.writeFileSync(caminho, buffer);
 }
 
 function converterParaOpus(caminho) {
   const processo = spawn(ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-i', caminho, '-ac', '2', '-ar', '48000', '-c:a', 'libopus', '-f', 'ogg', 'pipe:1'], { windowsHide: true });
+  // Sem este listener, uma falha do ffmpeg derruba o processo inteiro.
+  processo.on('error', (erro) => console.error('ffmpeg (TTS) falhou:', erro.message));
+  processo.stderr?.on('data', () => {});
   return { processo, recurso: createAudioResource(processo.stdout, { inputType: StreamType.OggOpus }) };
 }
 
@@ -114,19 +133,35 @@ async function falar(guild, member, texto, alteracoes = {}) {
     connection.subscribe(sessao.player);
     sessoes.set(guild.id, sessao);
   }
-  sessao.fila = sessao.fila.then(async () => {
+  // A fila precisa se auto-curar: sem o catch, um único erro rejeitava a
+  // promise e todos os falar() seguintes nunca mais executavam.
+  sessao.fila = sessao.fila.catch(() => {}).then(async () => {
     const caminho = path.join(os.tmpdir(), `mila-tts-${process.pid}-${Date.now()}.wav`);
+    let processo = null;
     try {
       try { await gerarSapi(final, config, caminho); } catch (erroSapi) {
         try { await gerarGoogle(final, config.idioma, caminho); } catch (erroGoogle) {
           throw new Error(`Não consegui gerar a voz gratuitamente: ${erroGoogle.message || erroSapi.message}`);
         }
       }
-      const { processo, recurso } = converterParaOpus(caminho);
-      sessao.player.play(recurso);
-      await new Promise((resolve) => sessao.player.once(AudioPlayerStatus.Idle, resolve));
-      processo.kill();
+      const convertido = converterParaOpus(caminho);
+      processo = convertido.processo;
+      sessao.player.play(convertido.recurso);
+      await new Promise((resolve) => {
+        let terminado = false;
+        const finalizar = () => {
+          if (terminado) return;
+          terminado = true;
+          clearTimeout(timer);
+          resolve();
+        };
+        const timer = setTimeout(finalizar, 45_000);
+        sessao.player.once(AudioPlayerStatus.Idle, finalizar);
+        processo.once('error', finalizar);
+        processo.once('close', finalizar);
+      });
     } finally {
+      if (processo && !processo.killed) processo.kill();
       fs.rmSync(caminho, { force: true });
     }
   });

@@ -1,26 +1,15 @@
-const fs = require('fs');
 const path = require('path');
+const { lerJson, salvarJson } = require('./jsonStore');
 
 const CAMINHO_ARQUIVO = path.join(__dirname, '..', 'data', 'guerra.json');
 
-function garantirArquivo() {
-  const pasta = path.dirname(CAMINHO_ARQUIVO);
-  if (!fs.existsSync(pasta)) fs.mkdirSync(pasta, { recursive: true });
-  if (!fs.existsSync(CAMINHO_ARQUIVO)) fs.writeFileSync(CAMINHO_ARQUIVO, '{}', 'utf-8');
-}
-
 function carregar() {
-  garantirArquivo();
-  try {
-    return JSON.parse(fs.readFileSync(CAMINHO_ARQUIVO, 'utf-8'));
-  } catch {
-    return {};
-  }
+  const dados = lerJson(CAMINHO_ARQUIVO, {});
+  return dados && typeof dados === 'object' && !Array.isArray(dados) ? dados : {};
 }
 
 function salvar(registro) {
-  garantirArquivo();
-  fs.writeFileSync(CAMINHO_ARQUIVO, JSON.stringify(registro, null, 2), 'utf-8');
+  salvarJson(CAMINHO_ARQUIVO, registro);
 }
 
 function registrarVitoria(userId, username) {

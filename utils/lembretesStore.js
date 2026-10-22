@@ -1,27 +1,15 @@
-const fs = require('fs');
 const path = require('path');
+const { lerJson, salvarJson } = require('./jsonStore');
 
 const CAMINHO_ARQUIVO = path.join(__dirname, '..', 'data', 'lembretes.json');
 
-function garantirArquivo() {
-  const pasta = path.dirname(CAMINHO_ARQUIVO);
-  if (!fs.existsSync(pasta)) fs.mkdirSync(pasta, { recursive: true });
-  if (!fs.existsSync(CAMINHO_ARQUIVO)) fs.writeFileSync(CAMINHO_ARQUIVO, '[]', 'utf-8');
-}
-
 function carregarLembretes() {
-  garantirArquivo();
-  const conteudo = fs.readFileSync(CAMINHO_ARQUIVO, 'utf-8');
-  try {
-    return JSON.parse(conteudo);
-  } catch {
-    return [];
-  }
+  const lista = lerJson(CAMINHO_ARQUIVO, []);
+  return Array.isArray(lista) ? lista : [];
 }
 
 function salvarLembretes(lista) {
-  garantirArquivo();
-  fs.writeFileSync(CAMINHO_ARQUIVO, JSON.stringify(lista, null, 2), 'utf-8');
+  salvarJson(CAMINHO_ARQUIVO, Array.isArray(lista) ? lista : []);
 }
 
 function adicionarLembrete(lembrete) {

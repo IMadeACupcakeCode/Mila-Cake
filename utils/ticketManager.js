@@ -372,6 +372,7 @@ async function criarTicket(interaction, client) {
       content: `${cargosStaff.map((id) => `<@&${id}>`).join(' ')}`,
       embeds: [embedTicket],
       components: [botoes],
+      allowedMentions: { parse: ['roles'] },
       files: [{
         attachment: path.join(__dirname, '..', 'imagens', 'Ticket.gif'),
         name: 'Ticket.gif',
@@ -765,13 +766,18 @@ async function convidarUsuario(message, userId) {
 
   let ticketInfo;
   try {
-    ticketInfo = JSON.parse(ticketChannel.topic);
+    ticketInfo = safeJsonParse(ticketChannel.topic) || {};
   } catch (error) {
     return message.reply('❌ Erro ao ler informações do ticket.');
   }
 
-  if (!ticketInfo.userId && !ticketInfo.contador) {
+  if (!ticketInfo || (!ticketInfo.userId && !ticketInfo.contador)) {
     return message.reply('❌ Este canal não é um ticket válido.');
+  }
+
+  const cfgConvite = obterConfig(message.guildId);
+  if (!isTicketStaff(message.member, cfgConvite) && String(ticketInfo.userId) !== String(message.author.id)) {
+    return message.reply('❌ Apenas **staff** ou o **dono do ticket** podem convidar usuários.');
   }
 
   const user = await message.guild.members.fetch(userId).catch(() => null);
@@ -914,7 +920,7 @@ async function enviarPainelConvidar(message, client) {
 
   let ticketInfo;
   try {
-    ticketInfo = JSON.parse(ticketChannel.topic);
+    ticketInfo = safeJsonParse(ticketChannel.topic) || {};
   } catch {
     return message.reply('❌ Erro ao ler informações do ticket.');
   }
@@ -948,7 +954,7 @@ async function convidarInterativo(interaction, client) {
 
   let ticketInfo;
   try {
-    ticketInfo = JSON.parse(ticketChannel.topic);
+    ticketInfo = safeJsonParse(ticketChannel.topic) || {};
   } catch {
     return interaction.reply({
       content: '❌ Erro ao ler informações do ticket.',
@@ -1170,6 +1176,12 @@ async function processarBuscaNome(interaction) {
 
 // ── Convida usuário selecionado ──
 async function convidarPorSelecao(interaction) {
+  // O customId pode ser reaproveitado: nunca confie apenas no menu ter sido
+  // enviado para staff. Revalida quem está clicando.
+  const cfg = obterConfig(interaction.guildId);
+  if (!isTicketStaff(interaction.member, cfg)) {
+    return interaction.reply({ content: '❌ Apenas **staff** pode convidar usuários para tickets!', ephemeral: true }).catch(() => {});
+  }
   const userId = interaction.values[0];
   const channel = interaction.channel;
 
@@ -1399,7 +1411,7 @@ async function enviarPainelRemover(message, client) {
 
   let ticketInfo;
   try {
-    ticketInfo = JSON.parse(ticketChannel.topic);
+    ticketInfo = safeJsonParse(ticketChannel.topic) || {};
   } catch {
     return message.reply('❌ Erro ao ler informações do ticket.');
   }
@@ -1433,7 +1445,7 @@ async function removerInterativo(interaction, client) {
 
   let ticketInfo;
   try {
-    ticketInfo = JSON.parse(ticketChannel.topic);
+    ticketInfo = safeJsonParse(ticketChannel.topic) || {};
   } catch {
     return interaction.reply({
       content: '❌ Erro ao ler informações do ticket.',
@@ -1498,7 +1510,7 @@ async function processarBuscaNomeRemover(interaction) {
 
   if (members.size === 1) {
     const member = members.first();
-    const ticketInfo = JSON.parse(channel.topic);
+    const ticketInfo = safeJsonParse(channel.topic) || {};
 
     if (member.id === ticketInfo.userId) {
       return interaction.reply({
@@ -1667,11 +1679,15 @@ async function mostrarMembrosDoCargoRemover(interaction) {
 
 // ── Remove usuário selecionado ──
 async function removerPorSelecao(interaction) {
+  const cfg = obterConfig(interaction.guildId);
+  if (!isTicketStaff(interaction.member, cfg)) {
+    return interaction.reply({ content: '❌ Apenas **staff** pode remover usuários de tickets!', ephemeral: true }).catch(() => {});
+  }
   const userId = interaction.values[0];
   const channel = interaction.channel;
 
   try {
-    const ticketInfo = JSON.parse(channel.topic);
+    const ticketInfo = safeJsonParse(channel.topic) || {};
 
     if (userId === ticketInfo.userId) {
       return interaction.update({
@@ -1710,10 +1726,6 @@ async function removerPorSelecao(interaction) {
 async function removerUsuario(message, userId) {
   const ticketChannel = message.channel;
 
-  if (!message.member?.permissions?.has('Administrator')) {
-    return message.reply('❌ Apenas **administradores** podem remover usuários dos tickets!');
-  }
-
   if (ticketChannel.type !== ChannelType.GuildText) {
     return message.reply('❌ Este comando só pode ser usado em canais de texto.');
   }
@@ -1724,13 +1736,21 @@ async function removerUsuario(message, userId) {
 
   let ticketInfo;
   try {
-    ticketInfo = JSON.parse(ticketChannel.topic);
+    ticketInfo = safeJsonParse(ticketChannel.topic) || {};
   } catch {
     return message.reply('❌ Erro ao ler informações do ticket.');
   }
 
-  if (!ticketInfo.userId && !ticketInfo.contador) {
+  if (!ticketInfo || (!ticketInfo.userId && !ticketInfo.contador)) {
     return message.reply('❌ Este canal não é um ticket válido.');
+  }
+
+  // Staff pode remover qualquer um; o dono do ticket pode remover convidados
+  // do próprio ticket (mas nunca a si mesmo, checado abaixo).
+  const cfg = obterConfig(message.guildId);
+  const autorizado = isTicketStaff(message.member, cfg) || String(ticketInfo.userId) === String(message.author.id);
+  if (!autorizado) {
+    return message.reply('❌ Apenas **staff** ou o **dono do ticket** podem remover usuários.');
   }
 
   if (userId === ticketInfo.userId) {
