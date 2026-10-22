@@ -63,6 +63,25 @@ YTDLP_COOKIES_BASE64=<string gerada acima>
 
 Sem cookies o bot continua funcionando; apenas alguns vídeos do YouTube podem exigir login e cair no fallback de SoundCloud/links diretos.
 
+### Cookies do navegador (Brave, Edge, Zen, Chrome, Firefox...)
+
+No Windows não é preciso exportar nada: na primeira execução o bot sonda cada navegador instalado com o próprio `yt-dlp` e escolhe o que realmente entrega cookies utilizáveis **naquele momento**, dando preferência ao que está aberto agora. A leitura é guardada em `data/ytdlp-cookies-navegador.txt` (ignorado pelo Git) e vale por 6 horas, então o navegador pode abrir, fechar ou ser trocado sem derrubar a música.
+
+```bash
+npm run cookies   # mostra qual navegador foi escolhido e por que os outros falharam
+```
+
+Motivos comuns de descarte, todos tratados automaticamente com troca de navegador:
+
+| Navegador | Situação | Resultado |
+| --- | --- | --- |
+| Brave / Chrome / Edge / Vivaldi | aberto, banco de cookies travado | descartado, tenta o próximo |
+| Edge / Chrome recentes | criptografia app-bound recusa a DPAPI | descartado, tenta o próximo |
+| Zen | não é reconhecido pelo yt-dlp | lido como `firefox:<perfil>`, funciona normalmente |
+| Firefox | perfil sem `cookies.sqlite` | ignorado |
+
+Para forçar um navegador específico, use `YTDLP_COOKIES_FROM_BROWSER` (ex.: `zen` ou `firefox:C:\caminho\do\perfil`). A ordem de preferência é definida em `YTDLP_BROWSER_ORDER`.
+
 **Limites reais da "nuvem"** (nenhum código contorna):
 - O Discord exige que o próprio bot receba e transmita o áudio no canal de voz; o processo do bot precisa estar rodando continuamente (em casa ou em um servidor).
 - A Web API do Spotify não entrega áudio — só metadados e previews de 30 s. O bot usa o Spotify para buscar e identificar a faixa e reproduz a versão equivalente do YouTube/SoundCloud.

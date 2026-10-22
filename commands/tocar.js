@@ -8,7 +8,8 @@ const { criarEmbed, THEME } = require('../utils/theme');
 const { obterTokenAplicacao } = require('../utils/spotifyAuth');
 
 const execFileAsync = promisify(execFile);
-const YTDLP_PATH = path.join(__dirname, '..', 'node_modules', '@distube', 'yt-dlp', 'bin', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
+const { caminhoBinario } = require('../utils/ytdlpSetup');
+const { argumentosCookies, garantirCookies } = require('../utils/cookiesNavegador');
 const RESULTADOS_POR_PAGINA = 5;
 const SUNO_HOSTS = new Set(['suno.com', 'www.suno.com', 'app.suno.ai', 'suno.ai', 'www.suno.ai']);
 const spotifyApi = process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET ? new SpotifyWebApi({ clientId: process.env.SPOTIFY_CLIENT_ID, clientSecret: process.env.SPOTIFY_CLIENT_SECRET }) : null;
@@ -55,7 +56,7 @@ async function buscarSpotify(query) {
 }
 
 async function metadadosYouTube(url) {
-  const { stdout } = await execFileAsync(YTDLP_PATH, ['--', url, '--dump-single-json', '--no-warnings', '--no-update', '--skip-download'], { windowsHide: true, maxBuffer: 2 * 1024 * 1024, timeout: 20000 });
+  const { stdout } = await execFileAsync(caminhoBinario(), [...argumentosCookies(), '--', url, '--dump-single-json', '--no-warnings', '--no-update', '--skip-download'], { windowsHide: true, maxBuffer: 2 * 1024 * 1024, timeout: 20000 });
   return extrairJson(stdout);
 }
 
@@ -215,7 +216,8 @@ function extrairJson(stdout) {
 }
 
 async function buscarFonte(prefixo, query) {
-  const { stdout } = await execFileAsync(YTDLP_PATH, [
+  const { stdout } = await execFileAsync(caminhoBinario(), [
+    ...argumentosCookies(),
     `${prefixo}${query}`,
     '--flat-playlist',
     '--dump-single-json',
@@ -294,6 +296,9 @@ async function tocar(client, interaction, voiceChannel, member, query) {
     plugin: null,
   }, { member });
   if (typeof musica !== 'string') musica.stream.url = query.url;
+  // Revalida os cookies de tempos em tempos: pode ser que o navegador aberto
+  // tenha mudado (Brave fechado, Zen aberto) desde a última música.
+  await garantirCookies({ silencioso: true }).catch(() => {});
   return client.distube.play(voiceChannel, musica, {
     member,
     textChannel: interaction.channel,

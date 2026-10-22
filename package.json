@@ -10,6 +10,7 @@
     "deploy:commands": "node utils/slash.js",
     "validate:commands": "node -e \"const s=require('./utils/slash'); const r=s.carregar(); if(r.invalidos.length) process.exitCode=1; console.log('Comandos slash válidos:', r.comandos.size);\"",
     "simulator": "node scripts/simulator-server.js",
+    "cookies": "node scripts/verificar-cookies.js",
     "postinstall": "node scripts/fix-ytdlp-plugin.js"
   },
   "dependencies": {

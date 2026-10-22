@@ -1,79 +1,18 @@
 const { configurarAmbiente, binarioValido, prepararCookies, garantirBinario } = require('./ytdlpSetup');
 // Precisa vir antes do require do plugin, que lê YTDLP_DIR/YTDLP_FILENAME ao carregar.
 configurarAmbiente();
+const { garantirCookies, detectarNavegadorCookies } = require('./cookiesNavegador');
 const { DisTube } = require('distube');
 const { YtDlpPlugin } = require('@distube/yt-dlp');
 const { SpotifyPlugin } = require('@distube/spotify');
 const { criarEmbed, THEME } = require('./theme');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const ffmpegPath = require('ffmpeg-static');
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { execFileSync } = require('child_process');
 
-let processosAbertosCache = null;
-function listarProcessosAbertos() {
-  if (process.platform !== 'win32') return null;
-  try {
-    const saida = execFileSync('tasklist.exe', ['/FO', 'CSV', '/NH'], { encoding: 'utf8', windowsHide: true, timeout: 5000 });
-    return new Set(
-      saida.split(/\r?\n/)
-        .map((linha) => linha.match(/^"([^"]+)"/)?.[1]?.toLowerCase())
-        .filter(Boolean)
-    );
-  } catch {
-    return null;
-  }
-}
-
-function navegadorAberto(tipo) {
-  if (process.platform !== 'win32') return false;
-  const processos = { brave: 'brave.exe', chrome: 'chrome.exe', edge: 'msedge.exe', chromium: 'chromium.exe', vivaldi: 'vivaldi.exe', opera: 'opera.exe', firefox: 'firefox.exe' };
-  // Uma única chamada ao tasklist para todos os navegadores (antes eram até
-  // sete execuções síncronas bloqueando o boot).
-  if (!processosAbertosCache) processosAbertosCache = listarProcessosAbertos();
-  return Boolean(processosAbertosCache?.has(processos[tipo]));
-}
-
-function navegadorTemCookies(tipo, diretorio) {
-  if (tipo === 'firefox') {
-    try { return fs.readdirSync(diretorio, { withFileTypes: true }).some((entrada) => entrada.isDirectory() && fs.existsSync(path.join(diretorio, entrada.name, 'cookies.sqlite'))); } catch { return false; }
-  }
-  const perfis = ['Default', 'Profile 1', 'Profile 2', 'Profile 3', 'Profile 4'];
-  return perfis.some((perfil) => [
-    path.join(diretorio, perfil, 'Network', 'Cookies'),
-    path.join(diretorio, perfil, 'Cookies'),
-  ].some((arquivo) => fs.existsSync(arquivo)));
-}
-
-function detectarNavegadorCookies() {
-  if (process.env.YTDLP_COOKIES_FILE) return 'arquivo';
-  if (process.platform !== 'win32') return null;
-  const local = process.env.LOCALAPPDATA || '';
-  const roaming = process.env.APPDATA || '';
-  const candidatos = [
-    ['brave', path.join(local, 'BraveSoftware', 'Brave-Browser', 'User Data')],
-    ['chrome', path.join(local, 'Google', 'Chrome', 'User Data')],
-    ['edge', path.join(local, 'Microsoft', 'Edge', 'User Data')],
-    ['chromium', path.join(local, 'Chromium', 'User Data')],
-    ['vivaldi', path.join(local, 'Vivaldi', 'User Data')],
-    ['opera', path.join(roaming, 'Opera Software', 'Opera Stable')],
-    ['firefox', path.join(roaming, 'Mozilla', 'Firefox', 'Profiles')],
-  ];
-  const configurado = String(process.env.YTDLP_COOKIES_FROM_BROWSER || '').split(':')[0].toLowerCase();
-  const ordem = configurado ? candidatos.sort(([tipo]) => tipo === configurado ? -1 : 1) : candidatos;
-  const encontrado = ordem.find(([tipo, diretorio]) => fs.existsSync(diretorio) && navegadorTemCookies(tipo, diretorio) && !navegadorAberto(tipo));
-  if (!encontrado) {
-    delete process.env.YTDLP_COOKIES_FROM_BROWSER;
-    const existentes = ordem.filter(([tipo, diretorio]) => fs.existsSync(diretorio) && navegadorTemCookies(tipo, diretorio)).map(([tipo]) => tipo);
-    if (existentes.length) console.warn(`[Música] Cookies encontrados, mas os navegadores estão abertos: ${existentes.join(', ')}. Feche-os antes de iniciar o bot.`);
-    else console.warn('[Música] Nenhum perfil de navegador com cookies foi encontrado para o yt-dlp.');
-    return null;
-  }
-  process.env.YTDLP_COOKIES_FROM_BROWSER = encontrado[0];
-  return encontrado[0];
-}
+// Detecção/validação de cookies vive em utils/cookiesNavegador.js: lá o
+// yt-dlp é sondado de verdade para cada navegador (Brave, Edge, Zen, ...) em
+// vez de adivinhar por pasta existente, e o resultado é guardado num snapshot
+// que continua válido mesmo com o navegador aberto ou fechado depois.
 
 const IDLE_TIMEOUT = 10 * 60 * 1000;
 const DECORACOES_MUSICA = [
@@ -174,9 +113,6 @@ function responderBotao(interaction, content) {
 }
 
 function criarDistube(client) {
-  const origemCookies = detectarNavegadorCookies();
-  if (origemCookies) console.log(`[Música] Cookies do yt-dlp configurados: ${origemCookies}.`);
-  else console.warn('[Música] Reprodução do YouTube pode falhar por bloqueio anti-bot; use uma fonte alternativa.');
   client.distube = new DisTube(client, {
     emitNewSongOnly: true,
     emitAddSongWhenCreatingQueue: false,
@@ -189,7 +125,20 @@ function criarDistube(client) {
           ? { api: { clientId: process.env.SPOTIFY_CLIENT_ID, clientSecret: process.env.SPOTIFY_CLIENT_SECRET } }
           : {}
       ),
-      new YtDlpPlugin({ update: false, ytdlpOptions: { retries: 3, fragmentRetries: 3, extractorRetries: 2, socketTimeout: 15 } }),
+      // YouTube exige um runtime de JavaScript para resolver as assinaturas dos
+      // formatos (EJS). Sem isto o yt-dlp avisa "Signature solving failed" e
+      // sobra só o áudio de menor qualidade — ou nenhum.
+      new YtDlpPlugin({
+        update: false,
+        ytdlpOptions: {
+          retries: 3,
+          fragmentRetries: 3,
+          extractorRetries: 2,
+          socketTimeout: 15,
+          jsRuntimes: process.env.YTDLP_JS_RUNTIME || 'node',
+          remoteComponents: process.env.YTDLP_REMOTE_COMPONENTS || 'ejs:github',
+        },
+      }),
     ],
     customFilters: {},
     ffmpeg: { path: ffmpegPath },
@@ -252,6 +201,13 @@ function criarDistube(client) {
 
   client.distube.on('error', (e, queue) => {
     const mensagem = e?.message || e?.toString?.() || String(e);
+    // Erro típico de cookies (banco travado, DPAPI, sessão não reconhecida):
+    // vale reprocessar a escolha de navegador — pode ser que outro esteja
+    // aberto agora e funcione melhor.
+    const suspeitaDeCookies = /cookies?|dpapi|sign in to confirm|not a bot|login required/i.test(mensagem);
+    if (suspeitaDeCookies) {
+      garantirCookies({ forcar: true, silencioso: true }).catch(() => {});
+    }
     // Sem limpar o intervalo/painel, o timer de 10s continuava rodando para
     // uma fila morta até o processo terminar.
     const intervalo = queue?.id ? client.playerIntervals.get(queue.id) : null;
@@ -271,28 +227,32 @@ function criarDistube(client) {
   });
 }
 
-// Inicializa o player o quanto antes: com o binário presente (caso normal) tudo
-// acontece de forma síncrona, como antes. Só na primeira execução — ou depois
-// de uma instalação limpa — o download automático adia a criação do player por
+// Inicializa o player o quanto antes: a escolha dos cookies é validada com o
+// próprio yt-dlp (rápido, sem rede) e depois o binário é conferido. Com tudo
+// pronto (caso normal) o player nasce na hora; só na primeira execução — ou
+// depois de uma instalação limpa — o download automático adia a criação por
 // alguns segundos, sem exigir nenhum comando manual.
-function inicializarDistube(client) {
+async function inicializarDistube(client) {
   prepararCookies();
+  try {
+    await garantirCookies();
+  } catch (erro) {
+    console.warn(`[Música] Falha ao escolher cookies do navegador: ${erro.message}`);
+  }
   if (binarioValido()) {
     criarDistube(client);
-    return Promise.resolve();
+    return;
   }
-  console.warn('[Música] yt-dlp não encontrado. Baixando automaticamente (só na primeira execução)...');
-  return garantirBinario()
-    .then((dados) => {
-      const detalhe = dados.versao ? ` versão ${dados.versao}` : (dados.reaproveitado ? ' (reaproveitado do npm)' : '');
-      console.log(`[Música] yt-dlp pronto${detalhe}: ${dados.caminho}`);
-      criarDistube(client);
-    })
-    .catch((erro) => {
-      console.error(`[Música] Não foi possível preparar o yt-dlp: ${erro.message}`);
-      console.warn('[Música] YouTube ficará indisponível; Spotify, SoundCloud e links diretos continuam funcionando.');
-      criarDistube(client);
-    });
+  try {
+    console.warn('[Música] yt-dlp não encontrado. Baixando automaticamente (só na primeira execução)...');
+    const dados = await garantirBinario();
+    const detalhe = dados.versao ? ` versão ${dados.versao}` : (dados.reaproveitado ? ' (reaproveitado do npm)' : '');
+    console.log(`[Música] yt-dlp pronto${detalhe}: ${dados.caminho}`);
+  } catch (erro) {
+    console.error(`[Música] Não foi possível preparar o yt-dlp: ${erro.message}`);
+    console.warn('[Música] YouTube ficará indisponível; Spotify, SoundCloud e links diretos continuam funcionando.');
+  }
+  criarDistube(client);
 }
 
 // Exportar um middleware custom pra ouvir cliques dos botoes no index.js ou algum evento
@@ -385,6 +345,7 @@ async function handlePlayerInteraction(interaction, client) {
 module.exports = {
   inicializarDistube,
   detectarNavegadorCookies,
+  garantirCookies,
   handlePlayerInteraction,
   limparTemporizadorOcioso,
 };

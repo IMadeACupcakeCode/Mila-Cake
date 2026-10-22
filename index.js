@@ -924,4 +924,27 @@ process.on('uncaughtException', (erro) => {
   console.error('⚠️ uncaughtException (Mila continua online):', erro?.message || erro);
 });
 
-client.login(DISCORD_TOKEN);
+// Login com diagnóstico explícito. Token inválido (401) não é falha
+// transitória: sem gateway não existe bot, então o processo encerra com a
+// instrução de correção em vez de fingir que está online.
+client.login(DISCORD_TOKEN).catch((erro) => {
+  const mensagem = String(erro?.message || erro);
+  if (/token/i.test(mensagem)) {
+    const partes = DISCORD_TOKEN.split('.');
+    console.error('');
+    console.error('⋆｡°✩ O Discord recusou o DISCORD_TOKEN — 401 Unauthorized.');
+    console.error(`   Formato lido: ${DISCORD_TOKEN.length} caracteres, ${partes.length} partes.`);
+    console.error('   Um token válido tem 3 partes separadas por ponto (ex.: MTQ... .Gh... .abc...).');
+    console.error('');
+    console.error('   Como corrigir:');
+    console.error('   1. Abra https://discord.com/developers/applications → sua aplicação → Bot.');
+    console.error('   2. Clique em "Reset Token" (o token antigo morre na hora, mesmo que pareça igual).');
+    console.error('   3. Copie o token novo inteiro, sem espaços e sem aspas, em DISCORD_TOKEN no .env.');
+    console.error(`   4. Confira se o CLIENT_ID (${process.env.CLIENT_ID || 'ausente'}) é da MESMA aplicação do token.`);
+    console.error('   5. Rode "npm start" de novo.');
+    console.error('');
+    process.exit(1);
+  }
+  console.error(`⋆｡°✩ Falha ao conectar no Discord: ${mensagem}`);
+  process.exit(1);
+});
