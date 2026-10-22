@@ -10,6 +10,7 @@ const { obterTokenAplicacao } = require('../utils/spotifyAuth');
 const execFileAsync = promisify(execFile);
 const { caminhoBinario } = require('../utils/ytdlpSetup');
 const { argumentosCookies, garantirCookies } = require('../utils/cookiesNavegador');
+const { iniciarEspera, pararEspera } = require('../utils/somEspera');
 const RESULTADOS_POR_PAGINA = 5;
 const SUNO_HOSTS = new Set(['suno.com', 'www.suno.com', 'app.suno.ai', 'suno.ai', 'www.suno.ai']);
 const spotifyApi = process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET ? new SpotifyWebApi({ clientId: process.env.SPOTIFY_CLIENT_ID, clientSecret: process.env.SPOTIFY_CLIENT_SECRET }) : null;
@@ -208,6 +209,27 @@ function obterUrlResultado(item) {
   return null;
 }
 
+// Miniatura do resultado. O yt-dlp já devolve `thumbnails` (YouTube e
+// SoundCloud); o Spotify vem com `thumbnail`. Se nada vier, o padrão do
+// YouTube é montado pelo id — nunca falha para vídeo comum.
+function melhorMiniatura(item) {
+  const lista = Array.isArray(item.thumbnails) ? item.thumbnails : [];
+  const validas = lista.filter((t) => typeof t?.url === 'string' && /^https?:\/\//i.test(t.url));
+  if (validas.length) {
+    const maior = validas.reduce((a, b) => {
+      const areaA = (a.width || 0) * (a.height || 0);
+      const areaB = (b.width || 0) * (b.height || 0);
+      return areaB > areaA ? b : a;
+    });
+    return maior.url;
+  }
+  if (typeof item.thumbnail === 'string' && /^https?:\/\//i.test(item.thumbnail)) return item.thumbnail;
+  if (item.id && (item.ie_key === 'Youtube' || /youtube\.com/i.test(String(item.webpage_url || item.url || '')))) {
+    return `https://i.ytimg.com/vi/${item.id}/mqdefault.jpg`;
+  }
+  return null;
+}
+
 function extrairJson(stdout) {
   const inicio = stdout.indexOf('{');
   const fim = stdout.lastIndexOf('}');
@@ -227,7 +249,11 @@ async function buscarFonte(prefixo, query) {
   ], { windowsHide: true, maxBuffer: 2 * 1024 * 1024, timeout: 20000 });
   const info = extrairJson(stdout);
   const entradas = info.entries || (info.webpage_url ? [info] : []);
-  return entradas.filter((item) => obterUrlResultado(item)).slice(0, 5).map((item) => ({ ...item, fonte: prefixo.startsWith('yt') ? 'YouTube' : 'SoundCloud' }));
+  return entradas.filter((item) => obterUrlResultado(item)).slice(0, 5).map((item) => ({
+    ...item,
+    fonte: prefixo.startsWith('yt') ? 'YouTube' : 'SoundCloud',
+    thumbnail: melhorMiniatura(item),
+  }));
 }
 
 function formatarDuracao(segundos) {
@@ -238,15 +264,49 @@ function formatarDuracao(segundos) {
   return ` — ${minutos}:${String(segundosRestantes).padStart(2, '0')}`;
 }
 
-function formatarResultados(estado) {
+function textoBusca(estado) {
+  const totalPaginas = Math.max(1, Math.ceil(estado.resultados.length / RESULTADOS_POR_PAGINA));
+  return `🔎 **${estado.query}** · prioridade Spotify → SoundCloud → YouTube\nPágina **${estado.pagina + 1}/${totalPaginas}** · clique no número do botão para tocar`;
+}
+
+const CORES_FONTE = {
+  Spotify: 0x1DB954,
+  SoundCloud: 0xFF5500,
+  YouTube: 0xFF0033,
+};
+
+const EMOJI_FONTE = {
+  Spotify: '🟢',
+  SoundCloud: '🟠',
+  YouTube: '🔴',
+};
+
+// Um card por resultado, com a capa do vídeo/faixa. É o "preview em imagem"
+// da busca: dá para reconhecer a música sem abrir o link.
+function embedsResultados(estado) {
   const inicio = estado.pagina * RESULTADOS_POR_PAGINA;
-  const itens = estado.resultados.slice(inicio, inicio + RESULTADOS_POR_PAGINA);
-  return ['Spotify', 'SoundCloud', 'YouTube'].map((fonte) => {
-    const linhas = itens.map((item, indice) => ({ item, numero: inicio + indice + 1 })).filter(({ item }) => item.fonte === fonte).map(({ item, numero }) => (
-      `**${numero}.** ${item.title || item.name || 'Sem título'}${formatarDuracao(item.duration)}`
-    ));
-    return linhas.length ? `**${fonte}**\n${linhas.join('\n')}` : null;
-  }).filter(Boolean).join('\n\n');
+  return estado.resultados
+    .slice(inicio, inicio + RESULTADOS_POR_PAGINA)
+    .map((item, indice) => {
+      const numero = inicio + indice + 1;
+      const fonte = item.fonte || 'YouTube';
+      const titulo = String(item.title || item.name || 'Sem título').slice(0, 220);
+      const artista = String(item.artist || item.uploader || item.channel || '').slice(0, 120);
+      const duracao = formatarDuracao(item.duration).replace(/^\s*—\s*/, '');
+      const detalhes = [
+        `${EMOJI_FONTE[fonte] || '🎵'} **${fonte}**${duracao ? ` · \`${duracao}\`` : ''}`,
+        artista ? `🎤 ${artista}` : null,
+      ].filter(Boolean).join('\n');
+
+      return criarEmbed({
+        titulo: `${numero}. ${titulo}`,
+        descricao: `${detalhes}\n-# Toque no botão **${numero}** para escolher`,
+        cor: CORES_FONTE[fonte] || THEME.corPrincipal,
+        thumbnail: item.thumbnail || undefined,
+        rodape: 'Mila Music · resultados',
+        semTimestamp: true,
+      });
+    });
 }
 
 const VARIACOES_CARREGAMENTO = [
@@ -298,12 +358,24 @@ async function tocar(client, interaction, voiceChannel, member, query) {
   if (typeof musica !== 'string') musica.stream.url = query.url;
   // Revalida os cookies de tempos em tempos: pode ser que o navegador aberto
   // tenha mudado (Brave fechado, Zen aberto) desde a última música.
+  // Elevador toca enquanto o yt-dlp resolve a música; o fade out acontece no
+  // gancho de playSong, antes de o DisTube assumir o canal.
   await garantirCookies({ silencioso: true }).catch(() => {});
-  return client.distube.play(voiceChannel, musica, {
-    member,
-    textChannel: interaction.channel,
-    message: interaction.message,
-  });
+  const espera = await iniciarEspera(client, voiceChannel).catch(() => null);
+  try {
+    return await client.distube.play(voiceChannel, musica, {
+      member,
+      textChannel: interaction.channel,
+      message: interaction.message,
+    });
+  } catch (erro) {
+    if (espera) {
+      await pararEspera(voiceChannel.guild.id, { fadeMs: 300 }).catch(() => {});
+      // Quem entrou na call foi o elevador: sem música, não fica sozinho nela.
+      try { client.distube.voices.leave(voiceChannel.guild.id); } catch {}
+    }
+    throw erro;
+  }
 }
 
 module.exports = {
@@ -351,9 +423,9 @@ module.exports = {
       if (!resultados.length) throw new Error('Nenhum resultado encontrado no Spotify, SoundCloud ou YouTube. Cole um link direto do SoundCloud, Suno ou Spotify.');
 
       const estado = { pagina: 0, resultados, query };
-      const totalPaginas = Math.ceil(resultados.length / RESULTADOS_POR_PAGINA);
       const resposta = await interaction.editReply({
-        content: `🔎 Resultados por prioridade (Spotify → SoundCloud → YouTube) para **${query}**\n${formatarResultados(estado)}\n\nClique no número da música que deseja tocar. Página 1/${totalPaginas}.`,
+        content: textoBusca(estado),
+        embeds: embedsResultados(estado),
         components: componentesBusca(estado),
       });
       const coletor = resposta.createMessageComponentCollector({
@@ -373,9 +445,10 @@ module.exports = {
              if (botao.user.id !== interaction.user.id) return botao.reply({ content: '❌ Apenas quem iniciou a busca pode navegar pelos resultados.', ephemeral: true });
              estado.pagina += botao.customId === 'music_next' ? 1 : -1;
             await botao.update({
-               content: `🔎 Resultados por prioridade (Spotify → SoundCloud → YouTube) para **${estado.query}**\n${formatarResultados(estado)}\n\nClique no número da música que deseja tocar. Página ${estado.pagina + 1}/${totalPaginas}.`,
-              components: componentesBusca(estado),
-            });
+               content: textoBusca(estado),
+               embeds: embedsResultados(estado),
+               components: componentesBusca(estado),
+             });
             return;
           }
            const indice = Number(botao.customId.replace('music_pick_', ''));

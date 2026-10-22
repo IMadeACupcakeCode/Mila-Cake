@@ -2,8 +2,10 @@ const { configurarAmbiente, binarioValido, prepararCookies, garantirBinario } = 
 // Precisa vir antes do require do plugin, que lê YTDLP_DIR/YTDLP_FILENAME ao carregar.
 configurarAmbiente();
 const { garantirCookies, detectarNavegadorCookies } = require('./cookiesNavegador');
+const { liberarParaMusica, pararEspera, tocarSaudacaoEntrada } = require('./somEspera');
 const { DisTube } = require('distube');
-const { YtDlpPlugin } = require('@distube/yt-dlp');
+const { criarPluginYtDlp, prefetchSong } = require('./ytdlpPlugin');
+const { ATIVO: CACHE_AUDIO_ATIVO, DIR: CACHE_AUDIO_DIR } = require('./audioCache');
 const { SpotifyPlugin } = require('@distube/spotify');
 const { criarEmbed, THEME } = require('./theme');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -113,6 +115,9 @@ function responderBotao(interaction, content) {
 }
 
 function criarDistube(client) {
+  console.log(
+    `[Música] Cache de áudio local: ${CACHE_AUDIO_ATIVO ? `ATIVO (${CACHE_AUDIO_DIR})` : 'DESATIVADO (AUDIO_CACHE_ATIVO=false)'}`
+  );
   client.distube = new DisTube(client, {
     emitNewSongOnly: true,
     emitAddSongWhenCreatingQueue: false,
@@ -126,19 +131,10 @@ function criarDistube(client) {
           : {}
       ),
       // YouTube exige um runtime de JavaScript para resolver as assinaturas dos
-      // formatos (EJS). Sem isto o yt-dlp avisa "Signature solving failed" e
-      // sobra só o áudio de menor qualidade — ou nenhum.
-      new YtDlpPlugin({
-        update: false,
-        ytdlpOptions: {
-          retries: 3,
-          fragmentRetries: 3,
-          extractorRetries: 2,
-          socketTimeout: 15,
-          jsRuntimes: process.env.YTDLP_JS_RUNTIME || 'node',
-          remoteComponents: process.env.YTDLP_REMOTE_COMPONENTS || 'ejs:github',
-        },
-      }),
+      // formatos (EJS). O plugin padrão não aceita flags extras, por isso o
+      // wrapper em utils/ytdlpPlugin.js injeta --js-runtimes/--remote-components
+      // em todas as chamadas (sem isso: "Requested format is not available").
+      criarPluginYtDlp(),
     ],
     customFilters: {},
     ffmpeg: { path: ffmpegPath },
@@ -150,6 +146,38 @@ function criarDistube(client) {
   client.playerIntervals = new Map();
   client.musicIdleTimers = new Map();
 
+  // Saudação de entrada: sempre que uma conexão NOVA é criada (por /tocar,
+  // /playlist ou qualquer outro caminho), toca um dos dois áudios sorteados
+  // antes de devolver o canal ao fluxo normal. "await" aqui é proposital: a
+  // música só começa depois que a saudação termina.
+  const joinOriginal = client.distube.voices.join.bind(client.distube.voices);
+  client.distube.voices.join = async (channel) => {
+    const guildId = channel?.guild?.id || channel?.guildId;
+    const jaConectado = Boolean(guildId && client.distube.voices.get(guildId)?.connection);
+    const voice = await joinOriginal(channel);
+    if (!jaConectado && voice?.connection) {
+      try {
+        await tocarSaudacaoEntrada(voice);
+      } catch (erro) {
+        console.warn(`[Música] Falha na saudação de entrada: ${erro.message}`);
+      }
+    }
+    return voice;
+  };
+
+  // Som de espera → música: o DisTube chama queues.playSong imediatamente antes
+  // de assumir o canal de voz. É a única janela em que ainda dá para fazer o
+  // fade out do elevador sem cortar o áudio no meio.
+  const playSongOriginal = client.distube.queues.playSong.bind(client.distube.queues);
+  client.distube.queues.playSong = async (queue, ...resto) => {
+    try {
+      await liberarParaMusica(queue.id);
+    } catch (erro) {
+      console.warn(`[Música] Falha ao encerrar o som de espera: ${erro.message}`);
+    }
+    return playSongOriginal(queue, ...resto);
+  };
+
   client.distube.on('debug', (message) => {
     if (/stream|ffmpeg|voice|audio|opus/i.test(String(message))) console.log('[Música]', message);
   });
@@ -157,6 +185,12 @@ function criarDistube(client) {
   client.distube.on('ffmpegDebug', (message) => {
     if (/spawn ffmpeg|ffmpeg version/i.test(String(message))) return;
     console.error('[FFmpeg música]', message);
+  });
+
+  client.distube.on('finishSong', (queue, song) => {
+    // O próximo play (repetir/voltar) resolve a URL de novo: se o arquivo do
+    // cache já tiver sido limpo, ele é baixado outra vez em vez de dar 404.
+    try { if (song?.stream) song.stream.url = null; } catch {}
   });
 
   client.distube.on('playSong', async (queue, song) => {
@@ -180,6 +214,9 @@ function criarDistube(client) {
   });
 
   client.distube.on('addSong', (queue, song) => {
+    // Vai baixando em segundo plano: quando chegar a vez, o áudio já está no
+    // cache e a troca de faixa não espera o yt-dlp.
+    prefetchSong(song);
     queue.textChannel.send({
       embeds: [criarEmbed({
         descricao: `📋 Adicionado à fila: **${song.name}** (\`${song.formattedDuration}\`) - ${song.user}`,
@@ -208,6 +245,8 @@ function criarDistube(client) {
     if (suspeitaDeCookies) {
       garantirCookies({ forcar: true, silencioso: true }).catch(() => {});
     }
+    // A música não chegou a tocar: tira o elevador do ar imediatamente.
+    pararEspera(queue?.id, { fadeMs: 250 }).catch(() => {});
     // Sem limpar o intervalo/painel, o timer de 10s continuava rodando para
     // uma fila morta até o processo terminar.
     const intervalo = queue?.id ? client.playerIntervals.get(queue.id) : null;

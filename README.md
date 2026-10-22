@@ -82,6 +82,49 @@ Motivos comuns de descarte, todos tratados automaticamente com troca de navegado
 
 Para forçar um navegador específico, use `YTDLP_COOKIES_FROM_BROWSER` (ex.: `zen` ou `firefox:C:\caminho\do\perfil`). A ordem de preferência é definida em `YTDLP_BROWSER_ORDER`.
 
+### Sons de voz, som de espera (elevador) e previews da busca
+
+Ao entrar na call, a Mila toca uma **saudação aleatória** ("um chapéu" ou "saudações boininha"). Enquanto o yt-dlp resolve a música, entra a musiquinha de elevador com **fade in**; quando a música está pronta, ela sai em **fade out** e a faixa começa. No `/sair`, toca **"me deixa dormir mita"** antes de desconectar de fato. Os MP3 são baixados uma única vez para `data/sons/` (ignorado pelo Git) e depois funcionam sem internet.
+
+```env
+# Saudação de entrada
+SOM_ENTRADA_ATIVO=true
+SOM_ENTRADA_VOLUME=0.5
+SOM_ENTRADA_FADE_IN_MS=250
+SOM_ENTRADA_MAX_MS=6000      # a música espera no máximo isso pela saudação
+
+# Despedida do /sair
+SOM_DESPEDIDA_ATIVO=true
+SOM_DESPEDIDA_VOLUME=0.55
+SOM_DESPEDIDA_ARQUIVO=       # opcional: usar um arquivo local
+SOM_DESPEDIDA_MAX_MS=20000
+
+# Elevador
+SOM_ESPERA_ATIVO=true
+SOM_ESPERA_URL=https://www.myinstants.com/media/sounds/elevator_2jN6tnc.mp3
+SOM_ESPERA_ARQUIVO=        # opcional: usar um arquivo local em vez de baixar
+SOM_ESPERA_VOLUME=0.3
+SOM_ESPERA_FADE_IN_MS=900
+SOM_ESPERA_FADE_OUT_MS=800
+SOM_ESPERA_MAX_MS=120000   # rede de segurança: o elevador nunca toca para sempre
+```
+
+O áudio das músicas é baixado pelo próprio yt-dlp e servido por um **HTTP local** (`data/cache-audio`). Isso evita o erro `FFMPEG_EXITED`/403: o CDN do YouTube entrega o arquivo para o yt-dlp, mas recusa o mesmo link quando quem baixa é o ffmpeg do DisTube. O cache é limpo sozinho e pode ser ajustado:
+
+```env
+AUDIO_CACHE_ATIVO=true
+AUDIO_CACHE_HORAS=12
+AUDIO_CACHE_MB=1024
+AUDIO_CACHE_CONCORRENCIA=2
+```
+
+> **Como saber se o bot está com o código novo:** no boot ele imprime
+> `[Música] Cache de áudio local: ATIVO (...)` e, ao entrar na call,
+> `[Música] Saudação de entrada: ...`. Se essas linhas não aparecerem, a
+> instância em execução é antiga — pare o bot e inicie de novo (`npm start`).
+
+A busca do `/tocar` mostra cada resultado em um card com **capa do vídeo/faixa**, fonte, artista e duração (até 5 por página). O som de espera só entra quando a fila está vazia — se já existe música tocando, o áudio do canal continua com ela.
+
 **Limites reais da "nuvem"** (nenhum código contorna):
 - O Discord exige que o próprio bot receba e transmita o áudio no canal de voz; o processo do bot precisa estar rodando continuamente (em casa ou em um servidor).
 - A Web API do Spotify não entrega áudio — só metadados e previews de 30 s. O bot usa o Spotify para buscar e identificar a faixa e reproduz a versão equivalente do YouTube/SoundCloud.
@@ -91,6 +134,9 @@ Para forçar um navegador específico, use `YTDLP_COOKIES_FROM_BROWSER` (ex.: `z
 
 ### 🎵 Mila Music
 - `/tocar <nome ou link>` – Toca música no canal de voz  
+- `/join` (ou `/entrar`) – Entra no seu canal de voz e toca a saudação, sem precisar de música  
+- Resultados da busca com **preview em imagem** (capa do YouTube, SoundCloud ou Spotify)  
+- Saudação aleatória ao entrar na call, elevador com fade in/out e despedida no `/sair`  
 - `/pausar`, `/retomar`, `/pular`, `/fila` – Controles básicos  
 - `/playlist criar <nome>` – Cria playlists salvas (em desenvolvimento)  
 - `/dj modo festa` – Ativa efeitos sonoros (aplausos, risadas, "parabéns")  

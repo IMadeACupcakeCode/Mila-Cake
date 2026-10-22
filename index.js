@@ -897,6 +897,8 @@ function bannerShutdown() {
 process.on('SIGINT', async () => {
   console.log(bannerShutdown());
   logger.aviso(`${THEME.nome} desligando — avisando servidores...`);
+  require('./utils/somEspera').pararTodas();
+  require('./utils/audioCache').encerrarServidor();
   await avisarShutdown(client);
   await sairDeTodasAsCalls(client);
   logger.sucesso(`Avisos enviados. Volto logo, meu favorito~ ♡`);
@@ -907,6 +909,8 @@ process.on('SIGINT', async () => {
 process.on('SIGTERM', async () => {
   console.log(bannerShutdown());
   logger.aviso(`${THEME.nome} desligando — avisando servidores...`);
+  require('./utils/somEspera').pararTodas();
+  require('./utils/audioCache').encerrarServidor();
   await avisarShutdown(client);
   await sairDeTodasAsCalls(client);
   logger.sucesso(`Avisos enviados. Volto logo, meu favorito~ ♡`);
