@@ -178,7 +178,16 @@ function inicializarDistube(client) {
     emitNewSongOnly: true,
     emitAddSongWhenCreatingQueue: false,
     emitAddListWhenCreatingQueue: false,
-    plugins: [new SpotifyPlugin(), new YtDlpPlugin({ update: false, ytdlpOptions: { retries: 3, fragmentRetries: 3, extractorRetries: 2, socketTimeout: 15 } })],
+    plugins: [
+      // Credenciais explícitas evitam que o plugin dependa de tokens anônimos
+      // raspados do site do Spotify (instáveis e sujeitos a bloqueio).
+      new SpotifyPlugin(
+        process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET
+          ? { api: { clientId: process.env.SPOTIFY_CLIENT_ID, clientSecret: process.env.SPOTIFY_CLIENT_SECRET } }
+          : {}
+      ),
+      new YtDlpPlugin({ update: false, ytdlpOptions: { retries: 3, fragmentRetries: 3, extractorRetries: 2, socketTimeout: 15 } }),
+    ],
     customFilters: {},
     ffmpeg: { path: ffmpegPath },
   });

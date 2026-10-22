@@ -4,6 +4,7 @@ const http = require('http');
 const path = require('path');
 
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
+const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const PORT = Number(process.env.SPOTIFY_AUTH_PORT || 8888);
 const REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || `http://127.0.0.1:${PORT}/callback`;
 const TOKEN_FILE = path.join(__dirname, '..', '.spotify-token.json');
@@ -90,4 +91,30 @@ async function obterAccessToken() {
   return iniciarAutorizacao();
 }
 
-module.exports = { obterAccessToken, REDIRECT_URI };
+// ── Token de aplicação (Client Credentials) ───────────────────────────────
+// É o fluxo correto para buscar faixas: usa apenas SPOTIFY_CLIENT_ID e
+// SPOTIFY_CLIENT_SECRET, não exige navegador nem autorização interativa.
+// Antes, a busca caía no fluxo de usuário e ficava até 5 minutos esperando
+// alguém abrir uma URL no console — o /play parecia travado.
+let cacheAplicacao = null;
+
+async function obterTokenAplicacao() {
+  if (!CLIENT_ID || !CLIENT_SECRET) return null;
+  if (cacheAplicacao && cacheAplicacao.expires_at > Date.now() + 60_000) return cacheAplicacao.access_token;
+  const basico = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
+  const resposta = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { authorization: `Basic ${basico}`, 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'client_credentials' }),
+    signal: AbortSignal.timeout(15000),
+  });
+  const dados = await resposta.json();
+  if (!resposta.ok) throw new Error(dados.error_description || dados.error || `HTTP ${resposta.status}`);
+  cacheAplicacao = {
+    access_token: dados.access_token,
+    expires_at: Date.now() + (Number(dados.expires_in || 3600) * 1000),
+  };
+  return cacheAplicacao.access_token;
+}
+
+module.exports = { obterAccessToken, obterTokenAplicacao, REDIRECT_URI };

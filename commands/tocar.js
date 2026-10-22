@@ -5,7 +5,7 @@ const SpotifyWebApi = require('spotify-web-api-node');
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { Song } = require('distube');
 const { criarEmbed, THEME } = require('../utils/theme');
-const { obterAccessToken } = require('../utils/spotifyAuth');
+const { obterTokenAplicacao } = require('../utils/spotifyAuth');
 
 const execFileAsync = promisify(execFile);
 const YTDLP_PATH = path.join(__dirname, '..', 'node_modules', '@distube', 'yt-dlp', 'bin', process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp');
@@ -16,7 +16,8 @@ let spotifyTokenPromise;
 
 async function obterSpotifyToken() {
   if (!spotifyApi) return null;
-  if (!spotifyTokenPromise) spotifyTokenPromise = obterAccessToken().then((token) => {
+  if (!spotifyTokenPromise) spotifyTokenPromise = obterTokenAplicacao().then((token) => {
+    if (!token) throw new Error('Spotify sem credenciais configuradas.');
     spotifyApi.setAccessToken(token);
     return token;
   }).catch((erro) => {
