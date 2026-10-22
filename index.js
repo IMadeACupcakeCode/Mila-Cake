@@ -193,13 +193,6 @@ client.once('clientReady', () => {
 
   // Aviso online no canal configurado
   avisarOnline(client);
-
-  // ── Mila Tela (serviço externo g.nemtudo.me) — sem app local nem túnel ──
-  // O comando $tela já usa o endereço fixo https://g.nemtudo.me/w/priv.
-  // Não há monitoramento de endereço local nem túnel para gerenciar.
-  console.log(
-    `${THEME.iconeFooter} Compartilhamento de tela: serviço externo em https://g.nemtudo.me`
-  );
 });
 
 client.on('messageCreate', async (message) => {
@@ -254,40 +247,21 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 // ── Mila Boas-Vindas — chegada em servidor novo ──
-// 1. Manda um recado de apresentação no canal de boas-vindas nativo (ou no
-//    primeiro canal de texto onde a Mila possa falar).
-// 2. Garante permissão de compartilhar tela (Stream) em todos os canais de voz.
+// Manda um recado de apresentação no canal de boas-vindas nativo (ou no
+// primeiro canal de texto onde a Mila possa falar).
 client.on('guildCreate', async (guild) => {
   try {
-    const { enviarBoasVindas, garantirPermissaoTela } = require('./utils/guildWelcome');
+    const { enviarBoasVindas } = require('./utils/guildWelcome');
 
-    // Garante o self-member e os canais no cache antes de mexer em permissões.
-    await guild.members.fetch(client.user.id).catch(() => {});
     await guild.channels.fetch().catch(() => {});
 
     const boas = await enviarBoasVindas(guild, client);
-    const perms = await garantirPermissaoTela(guild);
     console.log(
       `⋆｡°✩ Entrei no servidor ${guild.name} (${guild.id}) — ` +
-        (boas.ok ? `boas-vindas em #${boas.canal}` : `boas-vindas: ${boas.motivo}`) +
-        ` · permissão de tela: ${perms.aplicados}/${perms.total} canais de voz`
+        (boas.ok ? `boas-vindas em #${boas.canal}` : `boas-vindas: ${boas.motivo}`)
     );
   } catch (erro) {
     console.error(`⋆｡°✩ Erro na chegada ao servidor ${guild.id}:`, erro?.message || erro);
-  }
-});
-
-// ── Mila Stream — limpeza na mudança de canal de voz ──
-client.on('voiceStateUpdate', async (antigo, novo) => {
-  try {
-    const { getSessao, pararStream } = require('./utils/milaStream');
-    // Se a Mila saiu do canal de voz (tinha canal, agora não tem), e havia
-    // stream ativo na guild, para (evita "stream órfão").
-    if (novo.id === client.user.id && antigo.channelId && !novo.channelId) {
-      await pararStream(novo.guild.id);
-    }
-  } catch (erro) {
-    console.error('Erro no voiceStateUpdate (Mila Stream):', erro);
   }
 });
 

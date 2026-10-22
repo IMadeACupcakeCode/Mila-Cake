@@ -1,0 +1,8 @@
+# Copie para .dev.vars (que é ignorado pelo Git) para rodar `wrangler dev`.
+# Em produção, cadastre estes valores com `wrangler secret put`.
+DISCORD_CLIENT_ID=SEU_CLIENT_ID
+DISCORD_CLIENT_SECRET=SEU_CLIENT_SECRET
+DISCORD_BOT_TOKEN=SEU_BOT_TOKEN
+BOT_API_SECRET=UM_SEGREDO_LONGO_ALEATORIO
+WS_TICKET_SECRET=OUTRO_SEGREDO_LONGO_ALEATORIO
+ALLOWED_ORIGINS=*

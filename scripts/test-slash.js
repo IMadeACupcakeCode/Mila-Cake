@@ -4,12 +4,15 @@ const slash = require('../utils/slash');
 async function main() {
   const resultado = slash.carregar();
   assert.equal(resultado.invalidos.length, 0, resultado.invalidos.join('\n'));
-  assert.equal(slash.comandos.size, 77);
+  assert.equal(slash.comandos.size, 76);
 
   const payloads = slash.listarJson();
-  assert.equal(new Set(payloads.map((item) => item.name)).size, 77);
+  assert.equal(new Set(payloads.map((item) => item.name)).size, 76);
   assert.ok(payloads.find((item) => item.name === 'join'));
   assert.ok(payloads.find((item) => item.name === 'entrar'));
+  assert.ok(payloads.find((item) => item.name === 'assistir'));
+  assert.ok(!payloads.find((item) => item.name === 'tela'), 'tela deve estar removido');
+  assert.ok(!payloads.find((item) => item.name === 'stream'), 'stream deve estar removido');
   assert.ok(payloads.find((item) => item.name === 'configurar').options.some((item) => item.name === 'anuncio'));
   assert.ok(payloads.find((item) => item.name === 'lembrete').options.some((item) => item.name === 'cancelar'));
   assert.deepEqual(slash.validarData(payloads[0]), []);

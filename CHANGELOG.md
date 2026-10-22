@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-10-22 — MilaTube: Activity de watch party com player oficial
+
+- Adicionado `/assistir <url>` (e `$assistir`) para abrir uma sala do **MilaTube** na call, com fila, participantes, play/pause/seek sincronizados e modo livre opcional.
+- Criado o frontend estático `activity/public/` com estética de cartucho MiSide + YouTube de 2008, player oficial do YouTube, modo demonstração e acessibilidade (teclado, diálogo de ajuda, redução de movimento).
+- Criado o Worker `activity/worker/worker.js` com troca de OAuth, salas por canal, tickets de WebSocket, oEmbed e Durable Object SQLite (`MilaRoom`).
+- Mapeamento relativo `/api` e `/ws` pelo proxy do Discord, sem CORS nem URL externa fixa no navegador.
+- O bot prepara a sala no canal do comando e no canal de voz para cobrir o contexto de lançamento da Activity.
+- Adicionado `activity/DEPLOY.md` com Worker, Pages, URL Mappings, segredos, OAuth e diagnóstico.
+- **Anúncios:** a Activity não bloqueia anúncios e não faz proxy/download de vídeo; o player continua sendo o iframe oficial do YouTube. O limite está documentado na interface e no README.
+- Comandos slash agora são **76**; `npm test` inclui os testes de URL do YouTube.
+- Música, `/join`, saudações e efeitos de voz continuam independentes da Activity.
+
+## 2026-10-22 — Remoção do compartilhamento de tela e do Watch Together
+
+- Removidos os comandos `/tela` e `/stream` (e as entradas `$tela`/`$stream` do prefixo), junto com `utils/milaStream.js` e `utils/streamSources.js`.
+- Removido `docs/RESEARCH.md`, a pesquisa de Watch Together/YouTube Together e Discord Activities.
+- A Mila não pede mais a permissão **Stream** no convite, não tenta aplicá-la nos canais de voz e não anuncia mais compartilhamento de tela/relé de voz nas boas-vindas.
+- Removido o listener `voiceStateUpdate` que existia apenas para encerrar streams órfãos.
+
 ## 2026-10-21 — Cookies de navegador e login do Discord
 
 - Escolha de cookies do yt-dlp passou a ser **validada na prática**: cada navegador é sondado pelo próprio yt-dlp e o bot fica com o primeiro que entrega cookies utilizáveis, dando prioridade ao que está aberto agora.

@@ -45,10 +45,6 @@ async function escolherCanalBoasVindas(guild, client) {
  * Monta o embed de apresentação da Mila para a chegada no servidor.
  */
 async function embedBoasVindas() {
-  // Compartilhamento de tela agora usa o serviço externo golive.nemtudo.me
-  // sem necessidade de app local nem túnel.
-  const linhaTela = '✧ **Compartilhar tela** — use `$tela` para ver o link e o passo a passo da transmissão (serviço externo, sem app local).';
-
   return criarEmbed({
     titulo: `Oie, meu favorito~ ♡  Eu sou a ${NOME_BOT}`,
     descricao: [
@@ -61,8 +57,6 @@ async function embedBoasVindas() {
       '✧ **Explorar tudo** — `$codex` lista todos os meus comandos.',
       '✧ **Pedir ajuda** — `$configurar ver` mostra como estou configurada.',
       '✧ **Tickets** — `$ticket` monta o painel de Mila Tickets 🎫.',
-      '✧ **Voz** — `$stream` me chama pra chamada como relé de voz 🔊.',
-      linhaTela,
       '✧ **Segurança** — `$securitybreach` (staff) vigia o servidor 🛡️.',
       '',
       `${THEME.div.coracao}`,
@@ -90,49 +84,4 @@ async function enviarBoasVindas(guild, client) {
   }
 }
 
-/**
- * Garante que a Mila tenha permissão de compartilhar tela (Stream) em todos
- * os canais de voz do servidor, além de Conectar e Falar (para poder entrar
- * na chamada e usar o relé de voz).
- *
- * Resiliência: aplica cada canal num try/catch próprio — se o Discord negar
- * a edição (o bot sem ManageChannels naquele canal), só aquele canal fica de
- * fora e o resto continua. Nunca derruba o fluxo.
- *
- * @returns {Promise<{aplicados:number, total:number}>}
- */
-async function garantirPermissaoTela(guild) {
-  const client = guild.client;
-  const botId = client?.user?.id;
-  if (!botId) return { aplicados: 0, total: 0 };
-
-  if (guild.channels.cache.size === 0) {
-    await guild.channels.fetch().catch(() => {});
-  }
-
-  const canaisVoz = guild.channels.cache.filter((c) => c.type === ChannelType.GuildVoice);
-
-  const aplicados = await Promise.all(
-    canaisVoz.map(async (canal) => {
-      try {
-        const existente = canal.permissionOverwrites?.cache?.get(botId);
-        if (existente) {
-          await existente.edit({ Stream: true, Connect: true, Speak: true });
-        } else {
-          await canal.permissionOverwrites.create(botId, {
-            Stream: true,
-            Connect: true,
-            Speak: true,
-          });
-        }
-        return true;
-      } catch {
-        return false;
-      }
-    })
-  );
-
-  return { aplicados: aplicados.filter(Boolean).length, total: canaisVoz.size };
-}
-
-module.exports = { enviarBoasVindas, garantirPermissaoTela, escolherCanalBoasVindas, embedBoasVindas };
+module.exports = { enviarBoasVindas, escolherCanalBoasVindas, embedBoasVindas };

@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#160b14">
+  <meta name="color-scheme" content="dark light">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://www.youtube.com https://www.youtube-nocookie.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://cdn.discordapp.com https://media.discordapp.net; frame-src https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://discord.com https://*.discordsays.com wss://*.discordsays.com https://*.workers.dev wss://*.workers.dev http://127.0.0.1:8787 ws://127.0.0.1:8787; font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <meta name="description" content="MilaTube — o cinema retrô da Mila dentro do Discord. Assista junto, no mesmo cartucho.">
+  <title>MilaTube — cinema da Mila</title>
+  <link rel="icon" href="./assets/mila.svg" type="image/svg+xml">
+  <link rel="preload" href="./assets/mila.svg" as="image">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#yt-player">Pular para o player</a>
+
+  <div class="ambient" aria-hidden="true">
+    <span class="ambient__blob ambient__blob--one"></span>
+    <span class="ambient__blob ambient__blob--two"></span>
+    <span class="ambient__scan"></span>
+  </div>
+
+  <!-- ── Boot: o cartucho entrando no console ─────────────────────────── -->
+  <div class="boot" id="boot" role="status" aria-live="polite">
+    <div class="boot__grain" aria-hidden="true"></div>
+    <div class="boot__console">
+      <div class="boot__badge">MILA® PLAY SYSTEM</div>
+      <div class="boot__cart" aria-hidden="true">
+        <div class="boot__cart-label">
+          <span class="boot__cart-kicker">MILA SOFT presents</span>
+          <strong>YOUTUBE</strong>
+          <span class="boot__cart-sub">CARTRIDGE • 2012</span>
+          <span class="boot__cart-barcode">||| || |||| | |||</span>
+        </div>
+        <span class="boot__cart-screw boot__cart-screw--tl"></span>
+        <span class="boot__cart-screw boot__cart-screw--tr"></span>
+        <span class="boot__cart-screw boot__cart-screw--bl"></span>
+        <span class="boot__cart-screw boot__cart-screw--br"></span>
+      </div>
+      <div class="boot__slot" aria-hidden="true"><span></span></div>
+      <p class="boot__title">INSERINDO CARTRIDGE</p>
+      <div class="boot__bar"><span id="boot-progress"></span></div>
+      <p class="boot__status" id="boot-status">Acordando a Mila…</p>
+      <p class="boot__detail" id="boot-detail">NÃO DESLIGUE O CONSOLE</p>
+      <div class="boot__error" id="boot-error" hidden>
+        <p id="boot-error-text">Não foi possível iniciar a Activity.</p>
+        <div class="boot__error-actions">
+          <button class="btn btn--pink" id="boot-retry" type="button">Tentar de novo</button>
+          <button class="btn btn--ghost" id="boot-demo" type="button">Entrar no modo local</button>
+        </div>
+      </div>
+      <p class="boot__fine">© 2012 MILA SOFT • TODOS OS DOCES RESERVADOS</p>
+    </div>
+  </div>
+
+  <!-- ── Aplicação ────────────────────────────────────────────────────── -->
+  <div class="app" id="app" aria-hidden="true">
+    <div class="console" id="console">
+      <header class="console__top">
+        <div class="console__brand">
+          <span class="console__brand-mila">MILA</span>
+          <span class="console__brand-play">PLAY</span>
+        </div>
+        <div class="console__slot" aria-hidden="true">
+          <span class="console__led" id="console-led"></span>
+          <span>CARTRIDGE IN</span>
+        </div>
+        <div class="console__top-actions">
+          <span class="connection-pill" id="connection-pill" data-state="connecting">CONECTANDO</span>
+          <button class="icon-btn" id="btn-help-top" type="button" aria-label="Ajuda do MilaTube">?</button>
+        </div>
+      </header>
+
+      <div class="screen" id="screen">
+        <div class="yt-top">
+          <div class="yt-top__brand">
+            <div class="mila-logo" aria-label="MilaTube">
+              <span class="mila-logo__mila">Mila</span><span class="mila-logo__tube">Tube</span>
+            </div>
+            <span class="mila-logo__tagline">Broadcast Yourself™</span>
+          </div>
+
+          <form class="yt-search" id="search-form" role="search" autocomplete="off">
+            <label class="yt-search__label" for="search-input">Buscar ou colar link do YouTube</label>
+            <div class="yt-search__row">
+              <input class="yt-search__input" id="search-input" name="q" type="text" inputmode="url" spellcheck="false" placeholder="Cole um link do YouTube ou digite uma busca…" aria-describedby="search-hint">
+              <button class="yt-search__button" type="submit">Pesquisar</button>
+            </div>
+            <span class="yt-search__hint" id="search-hint">Links do YouTube carregam no cartucho. Outros termos abrem a busca no YouTube.</span>
+          </form>
+
+          <nav class="yt-top__nav" aria-label="Atalhos do MilaTube">
+            <button class="yt-link" id="btn-invite" type="button">Convidar</button>
+            <button class="yt-link" id="btn-fullscreen-top" type="button">Tela cheia</button>
+            <button class="yt-link" id="btn-help" type="button">Ajuda</button>
+          </nav>
+        </div>
+
+        <div class="yt-nav" aria-label="Navegação retrô">
+          <div class="yt-nav__links">
+            <button class="yt-nav__item is-active" type="button" data-toast="Você já está na página inicial do MilaTube ♡">Vídeos</button>
+            <button class="yt-nav__item" type="button" data-toast="Favoritos? Ainda estamos gravando fitas. ♡">Favoritos</button>
+            <button class="yt-nav__item" type="button" data-toast="Categorias: doces, musicais, madrugadas e caos. ♡">Categorias</button>
+            <button class="yt-nav__item" type="button" data-toast="A comunidade da Mila está bem aqui, na sua call. ♡">Comunidade</button>
+          </div>
+          <div class="yt-nav__right">
+            <span class="watchers" id="viewer-count">0 assistindo</span>
+            <span class="status-pill" id="status-pill" data-state="connecting">SEM SINAL</span>
+          </div>
+        </div>
+
+        <div class="yt-layout">
+          <main class="yt-main">
+            <section class="player-bezel" aria-labelledby="now-playing-label">
+              <div class="player-topline">
+                <span id="now-playing-label">AGORA NO CARTUCHO</span>
+                <span class="player-topline__sync" id="sync-state">aguardando sala</span>
+              </div>
+
+              <div class="player-frame">
+                <div id="yt-player" class="yt-player" aria-label="Player do YouTube"></div>
+
+                <div class="player-empty" id="player-empty">
+                  <div class="player-empty__art" aria-hidden="true">
+                    <span class="player-empty__cart"></span>
+                    <span class="player-empty__shine"></span>
+                  </div>
+                  <p class="player-empty__kicker">SEM CARTUCHO</p>
+                  <h1 class="player-empty__title">O console está ligado.<br>A sessão ainda não começou.</h1>
+                  <p class="player-empty__text">Use <strong>/assistir</strong> no Discord ou cole um link do YouTube no campo acima. O host escolhe o primeiro vídeo.</p>
+                  <button class="btn btn--pink" id="empty-cta" type="button">Colar um link</button>
+                </div>
+
+                <div class="player-hint" id="player-hint" hidden>
+                  <span class="player-hint__dot"></span>
+                  <span id="player-hint-text">Clique no play do YouTube para entrar no ritmo.</span>
+                </div>
+
+                <div class="player-error" id="player-error" hidden>
+                  <p class="player-error__kicker">FITA DANIFICADA</p>
+                  <h2 id="player-error-title">Este vídeo não pode ser incorporado.</h2>
+                  <p id="player-error-text">O criador desativou a reprodução externa ou o link não é válido.</p>
+                  <button class="btn btn--ghost" id="btn-open-youtube" type="button">Abrir no YouTube</button>
+                </div>
+              </div>
+
+              <div class="player-controls" aria-label="Controles da sessão">
+                <div class="player-controls__buttons">
+                  <button class="media-btn" id="btn-play" type="button" aria-label="Reproduzir">▶</button>
+                  <button class="media-btn" id="btn-pause" type="button" aria-label="Pausar">Ⅱ</button>
+                  <button class="media-btn media-btn--sync" id="btn-sync" type="button" aria-label="Sincronizar com a sala" title="Sincronizar com a sala">↻</button>
+                </div>
+                <div class="player-controls__seek">
+                  <span class="time" id="time-current">0:00</span>
+                  <input class="seek" id="seek" type="range" min="0" max="100" step="1" value="0" aria-label="Posição do vídeo">
+                  <span class="time" id="time-total">0:00</span>
+                </div>
+                <div class="player-controls__volume">
+                  <button class="media-btn media-btn--small" id="btn-mute" type="button" aria-label="Silenciar" aria-pressed="false">🔊</button>
+                  <input class="volume" id="volume" type="range" min="0" max="100" step="1" value="80" aria-label="Volume local">
+                </div>
+                <div class="player-controls__mode">
+                  <button class="btn btn--tiny" id="btn-mode" type="button" title="Alternar controle do host">SÓ O HOST</button>
+                  <button class="btn btn--tiny btn--danger" id="btn-eject" type="button" title="Ejetar o cartucho">EJECT</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="video-info" aria-labelledby="video-title">
+              <div class="video-info__head">
+                <div>
+                  <h1 class="video-title" id="video-title">Nenhum cartucho inserido</h1>
+                  <div class="video-byline">
+                    <img class="video-byline__avatar" src="./assets/mila.svg" alt="" width="36" height="36">
+                    <span>Adicionado por <strong id="video-author">Mila</strong></span>
+                    <span class="dot" aria-hidden="true">•</span>
+                    <span id="video-meta">Sessão privada da call</span>
+                  </div>
+                </div>
+                <div class="video-info__actions">
+                  <div class="stars" aria-label="Selo Mila de qualidade">
+                    <span aria-hidden="true">★★★★★</span>
+                    <small>Selo Mila</small>
+                  </div>
+                  <button class="btn btn--tiny btn--ghost" id="btn-share" type="button">Chamar amigos</button>
+                </div>
+              </div>
+
+              <div class="video-description">
+                <p id="video-description">A Mila preparou este cantinho para assistir com calma, comentar no chat e não perder o momento. O player é o YouTube oficial; a moldura é nossa.</p>
+                <p class="ad-note" id="ad-note">
+                  <strong>Anúncios:</strong> quem controla é o YouTube. Esta Activity não bloqueia, não faz proxy e não baixa vídeos. Para uma sessão sem anúncios, use YouTube Premium ou vídeos sem anúncios.
+                </p>
+                <p class="mila-line" id="mila-line"><span aria-hidden="true">♡</span> “Se a fita travar, não é possessão: é o Wi-Fi. Confia.”</p>
+              </div>
+            </section>
+          </main>
+
+          <aside class="yt-sidebar" aria-label="Fila e participantes">
+            <section class="sidebar-block">
+              <div class="sidebar-head">
+                <h2>Fila da sessão</h2>
+                <span class="count" id="queue-count">0</span>
+              </div>
+              <div class="queue-list" id="queue-list" aria-live="polite">
+                <p class="queue-empty">A fila está vazia. O primeiro link vira o cartucho principal.</p>
+              </div>
+              <form class="queue-form" id="queue-form" autocomplete="off">
+                <label class="visually-hidden" for="queue-input">Adicionar vídeo à fila</label>
+                <input class="queue-input" id="queue-input" name="q" type="text" inputmode="url" spellcheck="false" placeholder="Link ou ID para a fila…">
+                <button class="queue-add" type="submit" aria-label="Adicionar à fila">＋</button>
+              </form>
+            </section>
+
+            <section class="sidebar-block">
+              <div class="sidebar-head">
+                <h2>Na sala</h2>
+                <span class="count" id="participant-count">0</span>
+              </div>
+              <div class="participant-list" id="participants"></div>
+              <p class="host-note" id="host-note">Entre na call para a Mila encontrar você.</p>
+            </section>
+
+            <section class="sidebar-block sidebar-block--mila">
+              <div class="mila-card">
+                <img src="./assets/mila.svg" alt="" width="92" height="107" class="mila-card__img">
+                <div>
+                  <p class="mila-card__kicker">MILA EXPLICA</p>
+                  <p class="mila-card__text">O host controla por padrão. Quer todo mundo no controle? O host pode ligar o <strong>modo livre</strong>.</p>
+                  <button class="yt-link yt-link--small" id="btn-ads-help" type="button">Sobre anúncios</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="sidebar-block sidebar-block--fine">
+              <p><strong>Dica:</strong> se o áudio da Mila estiver tocando na call, use <code>/pausar</code> para deixar o cinema em paz.</p>
+              <p class="fine-print">MilaTube não hospeda vídeos. Todo o conteúdo é reproduzido pelo player oficial do YouTube.</p>
+            </section>
+          </aside>
+        </div>
+
+        <footer class="yt-footer">
+          <span>© 2012 MilaTube — um cartucho Mila®</span>
+          <span class="yt-footer__right">
+            <span id="activity-version">MILA OS 1.0</span>
+            <span aria-hidden="true">•</span>
+            <span>feito com bolo e fita cassete</span>
+          </span>
+        </footer>
+      </div>
+
+      <footer class="console__bottom" aria-hidden="true">
+        <div class="console__vents"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="console__bottom-labels">
+          <span>POWER <i class="led led--on"></i></span>
+          <span>SYNC <i class="led led--pulse"></i></span>
+          <span class="console__serial">SN 2012-MILA-0042</span>
+        </div>
+      </footer>
+    </div>
+
+    <p class="outside-note">MILA PLAY SYSTEM • pressione <kbd>?</kbd> para ajuda</p>
+  </div>
+
+  <dialog class="dialog" id="help-dialog" aria-labelledby="help-title">
+    <div class="dialog__head">
+      <div>
+        <p class="dialog__kicker">MANUAL DO CARTUCHO</p>
+        <h2 id="help-title">Como assistir com a Mila</h2>
+      </div>
+      <button class="icon-btn" id="help-close" type="button" aria-label="Fechar ajuda">×</button>
+    </div>
+    <div class="dialog__body">
+      <section>
+        <h3>1. Entre na call</h3>
+        <p>A Activity roda dentro do canal de voz. O host abre com <code>/assistir &lt;link&gt;</code>; todo mundo que estiver na call pode entrar pelo convite da Activity.</p>
+      </section>
+      <section>
+        <h3>2. Controle</h3>
+        <p>Por padrão, só o host dá play, pausa, busca e troca o cartucho. O host pode ativar o <strong>modo livre</strong> no botão <em>Só o host</em>. O botão <em>↻</em> força uma sincronização.</p>
+      </section>
+      <section id="help-ads">
+        <h3>3. Anúncios</h3>
+        <p>O player é o YouTube oficial. Anúncios, tela de consentimento e restrições de incorporação são controlados pelo YouTube. O MilaTube não bloqueia anúncios, não faz proxy de vídeo e não baixa mídia. A forma legítima de reduzir anúncios é usar YouTube Premium ou escolher vídeos sem anúncios.</p>
+      </section>
+      <section>
+        <h3>4. Sincronização</h3>
+        <p>Cada pessoa vê o vídeo no próprio cliente. Pequenas diferenças de buffer são normais; se passar de 1,25 s, o relógio é corrigido. A voz continua no canal do Discord.</p>
+      </section>
+      <section>
+        <h3>5. Privacidade</h3>
+        <p>A sala guarda o ID do vídeo, a posição e quem está conectado. Nada de histórico de vídeos é mostrado a quem não está na sala. O token do Discord fica apenas na memória desta página; o Worker o usa para confirmar seu perfil e não o salva.</p>
+      </section>
+    </div>
+    <div class="dialog__foot">
+      <button class="btn btn--pink" id="help-ok" type="button">Entendido, Mila</button>
+      <a class="yt-link" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" id="help-youtube">Abrir o YouTube</a>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <div class="sr-only" id="sr-status" aria-live="polite"></div>
+
+  <noscript>
+    <div class="noscript">O MilaTube precisa de JavaScript para montar o console. Ative o JavaScript e recarregue.</div>
+  </noscript>
+
+  <script src="./config.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

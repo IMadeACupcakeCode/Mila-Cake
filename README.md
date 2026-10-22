@@ -158,7 +158,7 @@ No boot, o console deve mostrar:
 
 ```
 [Música] Cache de áudio local: ATIVO (...\data\cache-audio)
-Slash commands registrados (77 na guild ...)
+Slash commands registrados (76 na guild ...)
 ```
 
 Ao entrar na call e tocar, aparecem linhas como:
@@ -184,6 +184,42 @@ Ao entrar na call e tocar, aparecem linhas como:
 - O Discord exige que o próprio bot receba e transmita o áudio no canal de voz; o processo do bot precisa estar rodando continuamente (em casa ou em um servidor).
 - A Web API do Spotify não entrega áudio — só metadados e previews de 30 s. O bot usa o Spotify para buscar e identificar a faixa e reproduz a versão equivalente do YouTube/SoundCloud.
 - APIs públicas de terceiros (Piped/Invidious/Cobalt) foram testadas e se mostraram instáveis (instâncias fora do ar ou sem streams de áudio), por isso não são usadas como caminho principal.
+
+### 🎬 MilaTube (Activity de watch party)
+
+O `/assistir <link>` abre uma sala do **MilaTube** dentro do Discord: o vídeo
+continua no player oficial do YouTube, mas a moldura é o cartucho retrô da Mila,
+com fila, participantes, play/pause/seek sincronizados e um “modo livre” opcional.
+
+| Comando | O que acontece |
+| --- | --- |
+| `/assistir <url>` | Valida o link, prepara a sala e abre a Activity na call em que você está |
+| `$assistir <url>` | Cria um convite de Activity no canal (útil fora de uma interação slash) |
+
+A experiência foi feita para uma call: entre no canal de voz antes de usar o
+comando. O host controla a sala por padrão; o botão **Modo livre** permite que
+todos controlem. A fila e o vídeo atual são separados, e o player usa a mesma
+tolerância de sincronização do Watch Together oficial (1,25 s).
+
+> A Activity precisa estar habilitada na **mesma aplicação do bot**. O
+> `/assistir` usa `LAUNCH_ACTIVITY`, que abre a Activity da aplicação que recebeu
+> a interação; um aplicativo separado só para o frontend não é lançado.
+
+```env
+# MilaTube Activity (opcional; sem isso /assistir explica o que falta)
+ACTIVITY_API_URL=https://mila-tube-sync.SEU-SUBDOMINIO.workers.dev
+ACTIVITY_API_SECRET=O_MESMO_VALOR_DE_BOT_API_SECRET
+ACTIVITY_APPLICATION_ID=SEU_APPLICATION_ID
+```
+
+O Worker, o Pages, as URL Mappings `/api`, `/ws` e `/` e os segredos estão
+detalhados em [`activity/DEPLOY.md`](activity/DEPLOY.md). O frontend fica em
+`activity/public/` e não precisa de build.
+
+> **Anúncios:** o MilaTube não bloqueia anúncios. O iframe oficial do YouTube não
+> expõe controle de anúncios, e o Worker não faz proxy nem download de vídeo.
+> Use YouTube Premium ou escolha vídeos sem anúncio; a sala apenas sincroniza a
+> reprodução. O aviso também aparece dentro da Activity.
 
 ---
 
@@ -239,6 +275,7 @@ Ao entrar na call e tocar, aparecem linhas como:
 | Categoria | Comando | Descrição |
 |-----------|---------|-----------|
 | **Música** | `/tocar` | Toca música no canal de voz |
+| | `/assistir` | Abre o MilaTube com um vídeo do YouTube na sua call |
 | | `/join` | Entra no seu canal de voz e toca a saudação, sem precisar de música |
 | | `/entrar` | Alias de `/join` |
 | | `/pausar` | Pausa a música atual |

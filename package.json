@@ -6,7 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "test": "node scripts/test-slash.js && node scripts/test-dice.js && node scripts/test-message-dedup.js",
+    "test": "node scripts/test-slash.js && node scripts/test-youtube.js && node scripts/test-dice.js && node scripts/test-message-dedup.js",
     "deploy:commands": "node utils/slash.js",
     "validate:commands": "node -e \"const s=require('./utils/slash'); const r=s.carregar(); if(r.invalidos.length) process.exitCode=1; console.log('Comandos slash válidos:', r.comandos.size);\"",
     "simulator": "node scripts/simulator-server.js",

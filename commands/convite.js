@@ -18,7 +18,6 @@ const PERMISSOES_CONVITE = [
   'UseExternalStickers',
   'Connect',
   'Speak',
-  'Stream',
   'UseVAD',
   'ManageChannels',
   'ManageRoles',

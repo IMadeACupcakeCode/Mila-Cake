@@ -14,6 +14,10 @@
 .envrc
 .env.keys
 .env.vault
+# Segredos locais do Cloudflare/Wrangler (Worker da Activity)
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 .secrets
 secrets.json
 secrets.*.json

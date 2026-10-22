@@ -1,0 +1,23 @@
+name = "mila-tube-sync"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+# O Worker só usa APIs web (fetch, crypto.subtle, WebSocket). Não precisa de
+# nodejs_compat nem de dependências npm.
+[observability]
+enabled = true
+
+# A Activity roda em <application-id>.discordsays.com. Como o OAuth e o
+# WebSocket usam Authorization/ticket (e não cookies), o wildcard é seguro.
+# Se quiser fechar mais, troque por "https://SEU-APP-ID.discordsays.com".
+[vars]
+ALLOWED_ORIGINS = "*"
+
+[[durable_objects.bindings]]
+name = "MILA_ROOMS"
+class_name = "MilaRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MilaRoom"]

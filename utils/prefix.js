@@ -66,6 +66,7 @@ const SIGNATURES = {
   aviso: [{ name: 'mensagem', rest: true }],
   cartasecreta: [{ name: 'usuario', user: true, required: true }, { name: 'mensagem', rest: true }],
   '8ball': [{ name: 'pergunta', rest: true }],
+  assistir: [{ name: 'url', rest: true }],
   guerra: [{ name: 'usuario', user: true, optional: true }, { name: 'sub', rest: true, optional: true }],
   lentidao: [{ name: 'segundos', int: true }],
   limpar: [{ name: 'quantidade', int: true }],
@@ -80,8 +81,6 @@ const SIGNATURES = {
   antiship: [{ name: 'usuario1', user: true }, { name: 'usuario2', user: true }],
   social: [{ name: 'usuario', user: true, optional: true }],
   status: [],
-  stream: [],
-  tela: [],
   votar: 'especial',
   letra: [{ name: 'busca', rest: true }],
 };
@@ -100,7 +99,8 @@ const USO_PADRAO = {
   aviso: 'Use: `$aviso sua mensagem aqui`',
   cartasecreta: 'Use: `$cartasecreta @usuário sua mensagem`',
   '8ball': 'Use: `$8ball sua pergunta?`',
-  lentidao: 'Use: `$lentidao 5` (segundos, 0–21600)',
+  assistir: 'Use: `$assistir https://youtu.be/ID` (ou `/assistir`)',
+  lentidao: 'Use: `$lentidao 5` (segundos, 0-21600)',
   limpar: 'Use: `$limpar 10` (2–100 mensagens)',
   ship: 'Use: `$ship @usuario1 @usuario2`',
   antiship: 'Use: `$antiship @usuario1 @usuario2`',
@@ -293,8 +293,8 @@ function criarInteracao(message, client, valores) {
       return replyMessage;
     },
     // Shim de createMessageComponentCollector: delega para a reply real.
-    // Necessário para comandos interativos por prefixo (ex.: $stream) que usam
-    // collector dentro do execute — igual fazem os comandos slash.
+    // Necessário para comandos interativos por prefixo que usam collector
+    // dentro do execute — igual fazem os comandos slash.
     createMessageComponentCollector(opts) {
       if (!replyMessage) throw new Error('createMessageComponentCollector sem reply');
       return replyMessage.createMessageComponentCollector(opts);
