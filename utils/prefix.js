@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const { isStaff } = require('./perms');
 const codex = require('../commands/codex');
 const { mostrarDigitando } = require('./milaDecoracao');
+const arcade = require('./arcade');
 const { avaliar: avaliarDados, formatar: formatarDados } = require('./dice');
 const logger = require('./logger');
 const { reivindicarComando } = require('./db');
@@ -456,29 +457,83 @@ async function handlePrefix(message, client) {
       return responder(
         message,
         criarEmbed({
-          titulo: 'Notação inválida',
-          descricao: 'Use dados com `+`, `-`, `x` ou `*`, ex: `$dado 1d20+2` ou `$dado 1d20-5+4x6 detalhar`.',
+          titulo: '🎲 Notação inválida',
+          descricao:
+            'Use dados com `+`, `-`, `x` ou `*`, ex: `$dado 1d20+2` ou `$dado 1d20-5+4x6 detalhar`.',
           cor: THEME.corErro,
         }),
         true
       );
     }
-    const linha = formatarDados(resultado, detalhar);
-    // ⋆｡°✩ Animação de dados: typing → rolagem → resultado
-    mostrarDigitando(message.channel, 700).catch(() => {});
-    return responder(
-      message,
-      criarEmbed({
-        titulo: 'A lua decidiu os dados',
+
+    const embedRolando = (frame) => {
+      const faces = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+      return criarEmbed({
+        titulo: '🎲 Rolando os dados...',
         descricao:
           `${THEME.div.bolinhas}\n\n` +
-          `${THEME.iconeFooter} Rolando a expressão...\n\n` +
-          `${linha}\n\n` +
-          `${THEME.div.coracao}`,
+          `**${faces[(frame * 2) % 6]}  ${faces[(frame * 2 + 3) % 6]}  ${faces[(frame * 2) % 6]}**\n\n` +
+          `> \`${notacao}\`\n\n` +
+          `${['Os dados estão no ar...', 'Quicando na mesa...', 'A lua está decidindo...'][frame % 3]}\n\n` +
+          `${THEME.div.estrelado}`,
         cor: THEME.corDado,
-        rodape: `${THEME.nome} rolou dados para ${message.author.username}`,
-      })
+        rodape: 'Mila Dice · resultados honestos, prometo',
+      });
+    };
+
+    const embedResultado = (r, completo) => criarEmbed({
+      titulo: '🎲 Resultado dos dados',
+      descricao:
+        `${THEME.div.bolinhas}\n\n` +
+        `# ${r.total}\n\n` +
+        `${formatarDados(r, completo)}\n\n` +
+        `${THEME.div.estrelado}`,
+      cor: THEME.corDado,
+      rodape: completo ? 'Mila Dice · cálculo completo' : 'Mila Dice · use o botão para ver o cálculo',
+    });
+
+    let completo = detalhar;
+    let atual = resultado;
+    const criarRow = (mostrarCalculo) => new ActionRowBuilder().addComponents(
+      botao('Rolar de novo', 'dado_prefix_reroll', ButtonStyle.Primary, '🎲'),
+      botao(mostrarCalculo ? 'Esconder cálculo' : 'Ver cálculo', 'dado_prefix_detalhar', ButtonStyle.Secondary, '🧮')
     );
+
+    const msg = await responder(message, embedRolando(0));
+    if (!msg || !msg.edit) return;
+    await arcade.sleep(450);
+    try { await msg.edit({ embeds: [embedRolando(1)], components: [] }); } catch {}
+    await arcade.sleep(450);
+    try { await msg.edit({ embeds: [embedRolando(2)], components: [] }); } catch {}
+    await arcade.sleep(400);
+    try { await msg.edit({ embeds: [embedResultado(atual, completo)], components: [criarRow(completo)] }); } catch { return; }
+
+    while (true) {
+      const i = await msg.awaitMessageComponent({ time: 60_000 }).catch(() => null);
+      if (!i) {
+        try { await msg.edit({ components: [] }); } catch {}
+        return;
+      }
+      if (i.user.id !== message.author.id) {
+        await i.reply({ content: `🎲 Esses dados são do **${message.author.username}**. Use \`$dado\` para rolar os seus.`, ephemeral: true }).catch(() => {});
+        continue;
+      }
+      if (i.customId === 'dado_prefix_detalhar') {
+        completo = !completo;
+        await i.update({ embeds: [embedResultado(atual, completo)], components: [criarRow(completo)] }).catch(() => {});
+        continue;
+      }
+      if (i.customId === 'dado_prefix_reroll') {
+        await i.update({ embeds: [embedRolando(0)], components: [] }).catch(() => {});
+        await arcade.sleep(400);
+        try { await msg.edit({ embeds: [embedRolando(1)], components: [] }); } catch {}
+        await arcade.sleep(400);
+        try { await msg.edit({ embeds: [embedRolando(2)], components: [] }); } catch {}
+        await arcade.sleep(350);
+        atual = rolarDados(notacao) || atual;
+        try { await msg.edit({ embeds: [embedResultado(atual, completo)], components: [criarRow(completo)] }); } catch {}
+      }
+    }
   }
 
   // ── $roleta / $sortear ──
@@ -488,30 +543,88 @@ async function handlePrefix(message, client) {
       return responder(
         message,
         criarEmbed({
-          titulo: 'Opções insuficientes',
+          titulo: '🎡 Opções insuficientes',
           descricao: 'Preciso de **pelo menos duas opções** separadas por vírgula. Ex: `$roleta pizza, sushi, hambúrguer`',
           cor: THEME.corErro,
         }),
         true
       );
     }
+
     const escolhida = opcoes[Math.floor(Math.random() * opcoes.length)];
-    const lista = opcoes.map((o) => (o === escolhida ? `**✧ ${o} ✧**` : `˖ ${o}`)).join('\n');
-    // ⋆｡°✩ Animação de roleta: typing → resultado
-    mostrarDigitando(message.channel, 900).catch(() => {});
-    return responder(
-      message,
-      criarEmbed({
-        titulo: 'A roleta girou sob a lua',
-        descricao:
-          `${THEME.div.bolinhas}\n\n` +
-          `${lista}\n\n` +
-          `${THEME.div.coracao}\n\n` +
-          `**✦ Escolhida: \`${escolhida}\`**`,
-        cor: THEME.corRoleta,
-        rodape: `${THEME.nome} girou a roleta para ${message.author.username}`,
-      })
+    const indiceFinal = opcoes.indexOf(escolhida);
+    const embedGirando = (indice) => criarEmbed({
+      titulo: '🎡 A roleta está girando...',
+      descricao:
+        `${THEME.div.bolinhas}\n\n` +
+        `${arcade.setaRoleta(opcoes, indice)}\n\n` +
+        `${THEME.div.linha}\n\n` +
+        `> O destino está escolhendo...\n\n` +
+        `${THEME.div.estrelado}`,
+      cor: THEME.corRoleta,
+      rodape: 'Mila Roleta · sem viés, só caos organizado',
+    });
+    const embedFinal = () => criarEmbed({
+      titulo: '🎡 A roleta parou!',
+      descricao:
+        `${THEME.div.bolinhas}\n\n` +
+        `${arcade.setaRoleta(opcoes, indiceFinal)}\n\n` +
+        `${THEME.div.linha}\n\n` +
+        `**✦ Escolhida: \`${escolhida}\`**\n\n` +
+        `${THEME.div.estrelado}`,
+      cor: THEME.corRoleta,
+      rodape: `Mila Roleta · ${opcoes.length} opções giraram`,
+    });
+    const row = new ActionRowBuilder().addComponents(
+      botao('Girar de novo', 'roleta_prefix_reroll', ButtonStyle.Primary, '🔄')
     );
+
+    const msg = await responder(message, embedGirando(0));
+    if (!msg || !msg.edit) return;
+    await arcade.sleep(350);
+    try { await msg.edit({ embeds: [embedGirando(1 % opcoes.length)], components: [] }); } catch {}
+    await arcade.sleep(350);
+    try { await msg.edit({ embeds: [embedGirando(2 % opcoes.length)], components: [] }); } catch {}
+    await arcade.sleep(350);
+    try { await msg.edit({ embeds: [embedGirando(indiceFinal)], components: [] }); } catch {}
+    await arcade.sleep(400);
+    try { await msg.edit({ embeds: [embedFinal()], components: [row] }); } catch { return; }
+
+    while (true) {
+      const i = await msg.awaitMessageComponent({ time: 60_000 }).catch(() => null);
+      if (!i) {
+        try { await msg.edit({ components: [] }); } catch {}
+        return;
+      }
+      if (i.user.id !== message.author.id) {
+        await i.reply({ content: `🎡 Essa roleta é do **${message.author.username}**. Use \`$roleta\` para girar a sua.`, ephemeral: true }).catch(() => {});
+        continue;
+      }
+      if (i.customId === 'roleta_prefix_reroll') {
+        const novoIndice = Math.floor(Math.random() * opcoes.length);
+        await i.update({ embeds: [embedGirando(0)], components: [] }).catch(() => {});
+        await arcade.sleep(350);
+        try { await msg.edit({ embeds: [embedGirando(1 % opcoes.length)], components: [] }); } catch {}
+        await arcade.sleep(350);
+        try { await msg.edit({ embeds: [embedGirando(2 % opcoes.length)], components: [] }); } catch {}
+        await arcade.sleep(350);
+        try { await msg.edit({ embeds: [embedGirando(novoIndice)], components: [] }); } catch {}
+        await arcade.sleep(400);
+        const novaEscolhida = opcoes[novoIndice];
+        const novaFinal = criarEmbed({
+          titulo: '🎡 A roleta parou!',
+          descricao:
+            `${THEME.div.bolinhas}\n\n` +
+            `${arcade.setaRoleta(opcoes, novoIndice)}\n\n` +
+            `${THEME.div.linha}\n\n` +
+            `**✦ Escolhida: \`${novaEscolhida}\`**\n\n` +
+            `${THEME.div.estrelado}`,
+          cor: THEME.corRoleta,
+          rodape: `Mila Roleta · ${opcoes.length} opções giraram`,
+        });
+        try { await msg.edit({ embeds: [novaFinal], components: [row] }); } catch {}
+      }
+    }
   }
 
   // ── $lembrete ──

@@ -318,6 +318,26 @@ detalhados em [`activity/DEPLOY.md`](activity/DEPLOY.md). O frontend fica em
 | | `/convite` | Gera link de convite para adicionar o bot |
 | | `/config` | Painel de configuração de canais e permissões |
 
+### 🎮 Mila Arcade — jogos interativos
+
+Os jogos abaixo usam botões, animações por edição de mensagem, barras de progresso e
+placares persistentes em `data/arcade.json` (quando aplicável). Funcionam tanto por
+slash (`/`) quanto por prefixo (`$`).
+
+| Comando | O que faz |
+|---------|-----------|
+| `/guerra` | Guerra de Cartas 1v1: 20 cartas + 4 crossovers, facções, HP, pontos, botões, treino e placar. |
+| `/moeda` | Cara ou coroa com aposta, animação de giro, sequência e placar. |
+| `/dado` | Rolagem animada com expressões (`1d20+2`), cálculo detalhado e reroll. |
+| `/8ball` | Bola mágica com consulta animada, resposta colorida e nova consulta. |
+| `/roleta` | Roleta animada com destaque da opção sorteada e novo giro. |
+| `/ship` | Compatibilidade com animação, barra de corações e veredito. |
+| `/roleta_russa` | Roleta russa interativa: puxe o gatilho, pare a tempo, sobreviva e entre no placar. |
+| `/votar` | Enquete com barras em tempo real, botão de encerrar e resultado animado. |
+| `/perfil` | Perfil com barra de XP, nível, Açúcares e título. |
+| `/ranking` | Top 10 com barras comparativas por XP ou Açúcares. |
+| `/status` | Latência, conexão, uptime e memória com indicadores visuais. |
+
 ---
 
 ## 🧁 Toque Final: Originalidade
@@ -341,7 +361,7 @@ Inicia uma "festa" no canal de texto:
 
 - O banco de dados SQLite é salvo em `data/mila.db`. Não exclua ou modifique manualmente enquanto o bot estiver em execução.  
 - Para atualizar o bot, repuxe as mudanças, rode `npm install` se houver novos pacotes e **reinicie o processo**. Os comandos slash são registrados automaticamente no boot; se precisar forçar, use `npm run deploy:commands`.  
-- Antes de subir uma alteração, rode `npm test` (testa o registro dos slash commands, os dados e a deduplicação de mensagens).  
+- Antes de subir uma alteração, rode `npm test` (slash commands, dados, deduplicação, YouTube e motor da Guerra de Cartas). Para testar só o jogo, use `npm run test:guerra`.  
 - Os arquivos de configuração por servidor ficam em `data/servidores.json` (com backups automáticos).  
 - São ignorados pelo Git e **não devem ser apagados sem backup**: `.env` (contém o token e segredos), `data/mila.db` (economia, níveis e coleções) e `data/servidores.json` (configuração dos servidores).  
 - Podem ser apagados com o bot **parado** e são recriados sozinhos: `data/sons/` (baixa de novo), `data/cache-audio/` (baixa de novo) e `data/ytdlp-cookies-navegador.txt` (detecta de novo). Apagar um arquivo que está sendo tocado derruba a reprodução.

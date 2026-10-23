@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-10-23 — Guerra de Cartas + Mila Arcade
+
+### ⚔️ Guerra de Cartas
+
+- Reescrito o `$guerra` / `/guerra` como um duelo 1v1 completo: botões para desafiar, aceitar, recusar e cancelar; tabuleiro persistente; cartas clicáveis; ataque, defesa, Caixa Crossover, Especial e desistência.
+- Catálogo de **20 cartas base + 4 crossovers** misturando cultura pop dos EUA e do Brasil, com artes baixadas do Imgflip e otimizadas localmente em `static/guerra/cards/`. O bot não depende de hotlink em runtime.
+- Quatro facções em ciclo — 🇺🇸 Blockbuster → 🌐 Viral → 🇧🇷 Brasil → 🕹️ Cult → Blockbuster — com bônus de sinergia (+10%), vantagem (+25%) e crítico (12% para +50%).
+- Balanceamento final: **100 HP**, **4⚡ iniciais**, **máximo 8⚡**, **+1⚡ passivo por turno ativo** e **Defender +2⚡**. O primeiro turno é sorteado e anunciado na abertura.
+- Fluxo de treino contra a Mila, revanche, placar persistente em `data/guerra.json` (vitórias, derrotas, sequência, melhor sequência, cartas jogadas, dano e winrate) e manual atualizado. Treinos não alteram o placar competitivo.
+- Adicionado `npm run test:guerra` com 11 testes de catálogo, assets, baralho, dano, defesa, caixa e simulação de 300 partidas (média ~15 rodadas, 100% de KOs).
+
+### 🎮 Mila Arcade
+
+- Novo `utils/arcade.js` com animações por edição de mensagem, barras de progresso, cores por percentual e helpers compartilhados.
+- Novo `utils/arcadeStore.js` para placares persistentes em `data/arcade.json`.
+- `moeda`: aposta Cara/Coroa com botões, giro animado, sequência, placar e reroll.
+- `dado` (slash e prefixo): rolagem animada, resultado em destaque, botão de cálculo e reroll.
+- `8ball`: consulta animada, resposta colorida por tom e nova consulta.
+- `roleta` (slash e prefixo): giro animado com destaque da opção e novo giro.
+- `ship`: cálculo animado, barra de corações, barra percentual e veredito.
+- `roleta_russa`: jogo interativo de 6 câmaras com puxar/parar, animação, estatísticas e placar.
+- `votar`: barras em tempo real, percentuais, botão de encerrar pelo autor e contagem final animada.
+- `perfil`, `ranking` e `status`: barras visuais, indicadores de progresso/latência e correção de chaves de tema ausentes.
+
 ## 2026-10-22 — MilaTube: publicação do Aero e player externo no Discord
 
 - Publicado o frontend do Windows 7 na branch de produção **`main-cake`** do Cloudflare Pages. O deploy anterior em `main` era apenas Preview; por isso o Discord continuava mostrando a interface antiga.

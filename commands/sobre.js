@@ -18,7 +18,7 @@ module.exports = {
         `✧ **Diversão** — Moeda, 8ball, Ship, Dados\n` +
         `✧ **Social** — Abraços, Cartas Secretas, Perfis\n` +
         `✧ **Tickets** — Mila Tickets 🎫\n` +
-        `✧ **Jogos** — Forca, Guerra de Cartas\n` +
+        `✧ **Jogos** — Forca, Guerra de Cartas (1v1, facções e placar)\n` +
         `✧ **Utilidades** — Lembretes, Enquetes\n\n` +
         `${THEME.div.coracao}\n\n` +
         'Use `$codex` pra ver todos os meus comandos!\n' +

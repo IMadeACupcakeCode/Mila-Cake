@@ -1,5 +1,6 @@
-const { criarEmbed, THEME } = require('../utils/theme');
+const { THEME } = require('../utils/theme');
 const db = require('../utils/db');
+const arcade = require('../utils/arcade');
 
 module.exports = {
   data: {
@@ -9,45 +10,85 @@ module.exports = {
       {
         name: 'categoria',
         description: 'Ranking de XP (Nível) ou Economia (Açúcares)',
-        type: 3, // STRING
+        type: 3,
         required: false,
         choices: [
           { name: '🏆 Nível (XP)', value: 'xp' },
-          { name: '🍬 Dinheiro (Açúcares)', value: 'money' }
-        ]
-      }
-    ]
+          { name: '🍬 Dinheiro (Açúcares)', value: 'money' },
+        ],
+      },
+    ],
   },
-  async execute(interaction, client) {
-    const defaultMode = interaction.options?.getString('categoria') || 'xp';
-    const isMoney = defaultMode === 'money';
-
-    // Pega o top 10
+  async execute(interaction) {
+    const modo = interaction.options?.getString('categoria') || 'xp';
+    const isMoney = modo === 'money';
     const top = isMoney ? db.getTopAcucares(10) : db.getTopLevel(10);
 
-    if (top.length === 0) {
-      return interaction.reply({ content: '💨 Ninguém jogou ou enviou mensagens no ranking ainda...', ephemeral: true });
+    if (!top.length) {
+      return interaction.reply({
+        embeds: [
+          arcade.embedArcade({
+            titulo: '🏆 Ranking vazio',
+            descricao:
+              `${THEME.div.bolinhas}\n\n` +
+              'Ninguém pontuou ainda. Converse, jogue e resgate o diário para inaugurar o placar.\n\n' +
+              `${THEME.div.coracao}`,
+            cor: THEME.corSecundario,
+          }),
+        ],
+      });
     }
 
-    let medalhas = ['🥇', '🥈', '🥉'];
-    let texto = top.map((entry, index) => {
-      // Tenta resolver o usuario para pegar o username (com fallback local se possivel, se nao usar tag)
-      // Como o DB compartilha entre a guild/servidores, exibimos apenas o mention
-      let tag = index < 3 ? medalhas[index] : `**#${index + 1}**`;
+    const medalhas = ['🥇', '🥈', '🥉'];
+    const maxValor = isMoney
+      ? Math.max(...top.map((e) => Number(e.acucares) || 0), 1)
+      : Math.max(...top.map((e) => Number(e.xp) || 0), 1);
 
+    const linhas = top.map((entry, index) => {
+      const tag = medalhas[index] || `**#${index + 1}**`;
       if (isMoney) {
-        return `${tag} <@${entry.id}> — **${entry.acucares.toLocaleString('pt-br')}** Açúcares`;
-      } else {
-        return `${tag} <@${entry.id}> — **Nível ${entry.level}** (${entry.xp} XP)`;
+        const valor = Number(entry.acucares) || 0;
+        const barra = arcade.barra(valor, maxValor, 10, '🟨', '⬛');
+        return `${tag} <@${entry.id}> — **${valor.toLocaleString('pt-BR')}** 🍬\n${barra}`;
       }
-    }).join('\n');
+      const valor = Number(entry.xp) || 0;
+      const barra = arcade.barra(valor, maxValor, 10, '🟩', '⬛');
+      return `${tag} <@${entry.id}> — **Nível ${entry.level}** · \`${valor}\` XP\n${barra}`;
+    });
 
-    const embed = criarEmbed({
-      titulo: isMoney ? '🏆 Os Mais Ricos (Açúcares)' : '🏆 Maiores Níveis da Mila',
-      descricao: `${THEME.div.estrelado}\n\n${texto}\n\n${THEME.div.bolinhas}`,
-      cor: THEME.corRoleta || THEME.corPrincipal,
+    const lider = top[0];
+    const embed = arcade.embedArcade({
+      titulo: isMoney ? '🏆 Os Mais Ricos em Açúcares' : '🏆 Maiores Níveis da Mila',
+      descricao:
+        `${THEME.div.bolinhas}\n\n` +
+        `${linhas.join('\n')}\n\n` +
+        `${THEME.div.linha}\n\n` +
+        `👑 **Líder:** <@${lider.id}> · ` +
+        (isMoney
+          ? `\`${(Number(lider.acucares) || 0).toLocaleString('pt-BR')}\` 🍬`
+          : `Nível \`${lider.level}\` · \`${lider.xp}\` XP`) +
+        `\n\n${THEME.div.estrelado}`,
+      cor: isMoney ? 0xF59E0B : THEME.corRoleta,
+      campos: [
+        {
+          name: '📊 Categoria',
+          value: isMoney ? '🍬 Açúcares' : '🏆 Nível / XP',
+          inline: true,
+        },
+        {
+          name: '👥 Participantes',
+          value: `\`${top.length}\``,
+          inline: true,
+        },
+        {
+          name: '📈 Base do ranking',
+          value: isMoney ? `\`${maxValor.toLocaleString('pt-BR')}\` 🍬` : `\`${maxValor}\` XP`,
+          inline: true,
+        },
+      ],
+      rodape: 'Mila Leaderboard · top 10 do servidor',
     });
 
     await interaction.reply({ embeds: [embed] });
-  }
+  },
 };
