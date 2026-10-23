@@ -188,8 +188,18 @@ Ao entrar na call e tocar, aparecem linhas como:
 ### 🎬 MilaTube (Activity de watch party)
 
 O `/assistir <link>` abre uma sala do **MilaTube** dentro do Discord: o vídeo
-continua no player oficial do YouTube, mas a moldura é o cartucho retrô da Mila,
-com fila, participantes, play/pause/seek sincronizados e um “modo livre” opcional.
+continua no player oficial do YouTube, mas a moldura é uma janela do **Windows 7**
+(Aero), com barra de título, navegação, fila, participantes, play/pause/seek
+sincronizados e um “modo livre” opcional.
+
+> **YouTube dentro do Discord:** a CSP do proxy de Activities bloqueia iframes e
+> scripts do YouTube. Por isso, dentro do Discord o MilaTube usa um **player
+> externo**: a fila, o play/pause, o seek, o relógio e o avanço automático ficam
+> na janela, e o vídeo abre no YouTube pelo botão **Abrir no YouTube** (ou pelo
+> **Sincronizar**, que reabre no tempo atual). Fora do Discord, o player
+> embutido continua funcionando. É o máximo que uma Activity de terceiros pode
+> fazer sem proxy de vídeo; o Watch Together oficial é first-party e usa o
+> player da própria Discord.
 
 | Comando | O que acontece |
 | --- | --- |
@@ -198,8 +208,9 @@ com fila, participantes, play/pause/seek sincronizados e um “modo livre” opc
 
 A experiência foi feita para uma call: entre no canal de voz antes de usar o
 comando. O host controla a sala por padrão; o botão **Modo livre** permite que
-todos controlem. A fila e o vídeo atual são separados, e o player usa a mesma
-tolerância de sincronização do Watch Together oficial (1,25 s).
+todos controlem. A fila e o vídeo atual são separados, e a sala usa a mesma
+tolerância de sincronização do Watch Together oficial (1,25 s). No player
+externo, pequenas diferenças são corrigidas com o botão **Sincronizar**.
 
 > A Activity precisa estar habilitada na **mesma aplicação do bot**. O
 > `/assistir` usa `LAUNCH_ACTIVITY`, que abre a Activity da aplicação que recebeu
@@ -216,10 +227,10 @@ O Worker, o Pages, as URL Mappings `/api`, `/ws` e `/` e os segredos estão
 detalhados em [`activity/DEPLOY.md`](activity/DEPLOY.md). O frontend fica em
 `activity/public/` e não precisa de build.
 
-> **Anúncios:** o MilaTube não bloqueia anúncios. O iframe oficial do YouTube não
-> expõe controle de anúncios, e o Worker não faz proxy nem download de vídeo.
-> Use YouTube Premium ou escolha vídeos sem anúncio; a sala apenas sincroniza a
-> reprodução. O aviso também aparece dentro da Activity.
+> **Anúncios:** o MilaTube não bloqueia anúncios. O player oficial do YouTube
+> não expõe controle de anúncios, e o Worker não faz proxy nem download de
+> vídeo. Use YouTube Premium ou escolha vídeos sem anúncio; a sala apenas
+> sincroniza a reprodução. O aviso também aparece dentro da Activity.
 
 ---
 

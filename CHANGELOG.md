@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-10-22 — MilaTube: publicação do Aero e player externo no Discord
+
+- Publicado o frontend do Windows 7 na branch de produção **`main-cake`** do Cloudflare Pages. O deploy anterior em `main` era apenas Preview; por isso o Discord continuava mostrando a interface antiga.
+- Confirmado que `https://mila-tube.pages.dev/` e `https://1495499255497097297.discordsays.com/` agora servem o HTML novo (tema `#0a2540`, com o painel do player externo).
+- Diagnóstico do YouTube: a CSP injetada pelo proxy de Activities permite apenas `'self'` para scripts e frames; `youtube.com`/`youtube-nocookie.com` são bloqueados. Não é a CSP do `index.html` e não há como afrouxar a CSP do Discord.
+- Dentro do Discord, a Activity agora usa um **player externo**: painel explicativo no lugar do erro da API, botão **Abrir no YouTube** (via `openExternalLink`) e **Sincronizar** para reabrir no tempo atual. Fila, play/pause, seek, relógio e avanço automático continuam na sala.
+- O player embutido do YouTube continua ativo no modo demo/local e em qualquer ambiente que permita o iframe.
+- Adicionado `?player=external` para testar o player externo localmente sem abrir o Discord.
+- Atualizados `activity/DEPLOY.md`, `README.md` e `config.js` com o limite de CSP, a branch `main-cake` e o modo de teste.
+
+## 2026-10-22 — MilaTube: janela do Windows 7 (Aero)
+
+- A Activity inteira passou a se apresentar como uma janela do **Windows 7**: barra de título Aero, barra de endereço com breadcrumb, barra de comandos, painel de navegação, painel de detalhes, barra de status e área de trabalho com barra de tarefas e relógio.
+- O logotipo **MilaTube** foi mantido exatamente como estava; mudou apenas o que está ao redor dele.
+- Player emoldurado como um painel do Explorer, com proporção 16:9 — corrige a faixa preta que sobrava abaixo do iframe — e controles nativos do sistema (botões, sliders e barras de rolagem).
+- Tela de inicialização virou uma abertura de sistema (“Mila OS”), com os quatro orbes e mensagens de boot; o diálogo de ajuda e os avisos seguem o visual de janelas e balões do Windows 7.
+- Textos de interface trocaram “cartucho” por “vídeo” e “sala” onde fazia sentido.
+- Corrigido `id="boot-fine"` (a linha de status do boot não atualizava), o ícone de mudo (o emoji não é mais sobrescrito; o estado virou a classe `is-muted`) e adicionado relógio real na barra de tarefas.
+- Layout conferido em 1440×900, 1000×800 e 500×700, sem erros de página e sem rolagem horizontal.
+
 ## 2026-10-22 — MilaTube: Activity de watch party com player oficial
 
 - Adicionado `/assistir <url>` (e `$assistir`) para abrir uma sala do **MilaTube** na call, com fila, participantes, play/pause/seek sincronizados e modo livre opcional.

@@ -127,14 +127,41 @@ O frontend é estático e não tem etapa de build.
 3. Publique a pasta `activity/public` como um projeto Pages:
    - **Dashboard**: Workers & Pages → Create → Pages → Upload assets, enviando
      o conteúdo de `activity/public`.
-   - **Wrangler** (opcional):
+   - **Wrangler** (opcional, a partir de `activity/worker/`):
      ```bash
-     wrangler pages deploy activity/public --project-name mila-tube
+     npx wrangler pages deploy ../public --project-name mila-tube --branch main-cake
      ```
+
+> **Atenção à branch de produção:** o projeto `mila-tube` foi criado com a
+> branch de produção **`main-cake`**. Um deploy com `--branch main` entra como
+> **Preview**, não atualiza `https://mila-tube.pages.dev/` e o Discord continua
+> mostrando a versão antiga. Use sempre `--branch main-cake` para publicar em
+> produção. O comando acima já faz isso.
 
 O endereço do Pages será algo como
 `https://mila-tube.pages.dev`. Ele não é o endereço que o usuário abre no
 Discord: quem abre é sempre `https://SEU-APP-ID.discordsays.com/`.
+
+### YouTube dentro da Activity (limite do Discord)
+
+O proxy do Discord injeta uma CSP na Activity que **não permite** scripts,
+iframes nem conexões com `youtube.com`/`youtube-nocookie.com`. Por isso o
+`iframe_api` do YouTube falha dentro do Discord com “A API do YouTube não
+carregou”, mesmo que a CSP do `index.html` permita o YouTube fora dali.
+
+A solução do MilaTube é detectar o iframe do Discord (`frame_id`/`instance_id`)
+e usar o **player externo**: a janela continua sincronizando fila, play, pause,
+seek, relógio e avanço automático, mas o vídeo em si abre no YouTube pelo botão
+**Abrir no YouTube** (via `openExternalLink` do SDK). O botão **Sincronizar**
+reabre o YouTube no tempo atual da sala. Fora do Discord (modo demo), o player
+embutido do YouTube continua funcionando normalmente.
+
+Para testar o player externo sem abrir o Discord, use
+`http://127.0.0.1:8787/?player=external` (com o servidor estático ligado em
+`activity/public`).
+
+Não faça proxy de vídeo nem extração de mídia do YouTube: isso viola os termos
+do YouTube e não é necessário para o funcionamento da sala.
 
 Se usar um domínio próprio no Pages ou no Worker, acrescente a origem em
 `connect-src` no CSP de `activity/public/index.html` e ajuste `API_BASE` ou as
@@ -290,6 +317,8 @@ Dentro do Discord:
 | Activity abre, mas sem vídeo | Sala criada no canal errado | Confirme as três URL Mappings e use `/assistir` de novo na call |
 | WebSocket fecha/reconecta | `/ws` não mapeado ou CSP bloqueando | Confira a mapping `/ws` e `connect-src` |
 | “O criador não permite incorporar” | Restrição do próprio vídeo | Escolha outro vídeo; não é falha da Mila |
+| “A API do YouTube não carregou” dentro do Discord | CSP do proxy de Activities bloqueia `youtube.com` | Normal no Discord; o app usa o player externo. Fora do Discord, confira rede/CSP local |
+| Player externo abre no tempo errado | O vídeo do YouTube foi pausado/adiantado manualmente | Use **Sincronizar** para reabrir no tempo da sala |
 | Anúncio aparece | Comportamento do YouTube | Use Premium ou outro vídeo; a Activity não bloqueia anúncios |
 | Activity não abre para amigos | App ainda não distribuído | Distribua a aplicação ou adicione as pessoas ao time de desenvolvimento |
 

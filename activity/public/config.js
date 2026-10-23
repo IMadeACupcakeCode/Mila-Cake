@@ -32,5 +32,5 @@ window.MILA_CONFIG = {
   MAX_QUEUE: 30,
 
   // Texto exibido na interface. Não é uma promessa de bloqueio de anúncios.
-  ADS_NOTE: 'Os anúncios são inseridos pelo player oficial do YouTube e continuam sob controle do YouTube. Esta Activity não os bloqueia, não faz proxy de vídeo e não baixa mídia.'
+  ADS_NOTE: 'Os anúncios são inseridos pelo player oficial do YouTube e continuam sob controle do YouTube. Esta Activity não os bloqueia, não faz proxy de vídeo e não baixa mídia. No Discord, o vídeo abre no navegador/app do YouTube porque a CSP da Activity bloqueia iframes externos.'
 };

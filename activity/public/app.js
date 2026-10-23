@@ -21,6 +21,7 @@ const DEFAULT_CONFIG = {
 const CFG = Object.assign({}, DEFAULT_CONFIG, window.MILA_CONFIG || {});
 const params = new URLSearchParams(window.location.search);
 const inDiscordFrame = params.has('frame_id') || params.has('instance_id');
+const forceExternalPlayer = params.get('player') === 'external';
 const VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/;
 const YOUTUBE_HOSTS = new Set(['youtube.com', 'youtu.be', 'youtube-nocookie.com']);
 
@@ -32,6 +33,7 @@ const state = {
   guildId: null,
   channelName: null,
   demo: !inDiscordFrame,
+  externalPlayer: inDiscordFrame || forceExternalPlayer,
   room: null,
   participants: [],
   ws: null,
@@ -43,6 +45,7 @@ const state = {
   lastPong: 0,
   lastRoomAt: 0,
   lastSeekSent: 0,
+  lastEndedSent: 0,
   localActionAt: 0,
   clockOffset: 0,
   player: null,
@@ -165,6 +168,64 @@ function thumbnailUrl(videoId) {
   return `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/mqdefault.jpg`;
 }
 
+function externalWatchUrl(room = state.room) {
+  if (!room || !isVideoId(room.videoId)) return null;
+  const position = Math.max(0, Math.floor(expectedPosition(room)));
+  const start = position > 0 ? `&t=${position}s` : '';
+  return `https://www.youtube.com/watch?v=${encodeURIComponent(room.videoId)}${start}`;
+}
+
+function renderExternalPlayer() {
+  const panel = el('external-player');
+  if (!panel) return;
+
+  const active = Boolean(state.externalPlayer);
+  panel.hidden = !active;
+  const mount = el('yt-player');
+  if (mount) mount.hidden = active;
+  if (!active) return;
+
+  const room = state.room;
+  const hasVideo = Boolean(room && isVideoId(room.videoId));
+  const position = hasVideo ? expectedPosition(room) : 0;
+  const title = hasVideo ? (room.title || 'Vídeo do YouTube') : 'Nenhum vídeo aberto';
+  const status = !room
+    ? 'Use /assistir no Discord para abrir a sala.'
+    : !hasVideo
+      ? 'A sala está pronta para o primeiro link.'
+      : room.playing
+        ? `Tocando na sala · ${formatTime(position)}`
+        : `Pausado na sala · ${formatTime(position)}`;
+
+  setText('external-title', title);
+  setText('external-status', status);
+  setText('external-sync-note', hasVideo
+    ? (room.playing
+      ? 'Se o YouTube atrasar, use Sincronizar para voltar ao ponto da sala.'
+      : 'A sala está pausada; pause o vídeo no YouTube também.')
+    : 'A sala continua sincronizando play, pausa, seek e fila. O vídeo em si roda no player oficial do YouTube.');
+
+  const open = el('btn-external-open');
+  if (open) {
+    open.disabled = !hasVideo;
+    open.title = hasVideo ? `Abrir no YouTube em ${formatTime(position)}` : 'Nenhum vídeo na sala';
+  }
+  const copy = el('btn-external-copy');
+  if (copy) copy.disabled = !hasVideo;
+
+  panel.classList.toggle('is-playing', Boolean(hasVideo && room.playing));
+}
+
+async function openExternalPlayerAtRoom(message) {
+  const url = externalWatchUrl();
+  if (!url) {
+    showToast('Nenhum vídeo na sala para abrir.', 'error');
+    return;
+  }
+  await openExternal(url);
+  showToast(message || 'Abrindo o YouTube no tempo da sala.', 'info');
+}
+
 function formatTime(seconds) {
   const total = Math.max(0, Math.floor(Number(seconds) || 0));
   const h = Math.floor(total / 3600);
@@ -224,6 +285,19 @@ function announce(message) {
   if (node) node.textContent = message;
 }
 
+function startTaskbarClock() {
+  const timeNode = el('taskbar-clock');
+  const dateNode = el('taskbar-date');
+  if (!timeNode && !dateNode) return;
+  const render = () => {
+    const now = new Date();
+    if (timeNode) timeNode.textContent = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    if (dateNode) dateNode.textContent = now.toLocaleDateString('pt-BR');
+  };
+  render();
+  setInterval(render, 15000);
+}
+
 function setBoot(progress, status, detail) {
   const bar = el('boot-progress');
   if (bar) bar.style.width = `${clampNumber(progress, 0, 100)}%`;
@@ -240,8 +314,8 @@ function showBootError(error) {
   const box = el('boot-error');
   if (box) box.hidden = false;
   setText('boot-error-text', String(error && error.message ? error.message : error || 'Erro desconhecido').slice(0, 240));
-  setBoot(100, 'Falha ao ler o cartucho', 'VERIFIQUE A CONFIGURAÇÃO DA ACTIVITY');
-  setText('boot-fine', 'O console continua ligado. Você pode tentar de novo ou entrar no modo local.');
+  setBoot(100, 'Falha ao iniciar o MilaTube', 'VERIFIQUE A CONFIGURAÇÃO DA ACTIVITY');
+  setText('boot-fine', 'A janela continua aberta. Você pode tentar de novo ou entrar no modo local.');
   const app = el('app');
   if (app) app.setAttribute('aria-hidden', 'true');
   console.error('[MilaTube] Falha no boot:', error);
@@ -304,17 +378,17 @@ async function bootSequence() {
   const fast = prefersReducedMotion();
   const wait = (ms) => sleep(fast ? Math.min(ms, 38) : ms);
 
-  setBoot(6, 'Acordando a Mila…', 'INSERINDO CARTRIDGE');
+  setBoot(6, 'Iniciando os serviços da Mila…', 'MILA OS 7 · BUILD 7601');
   await wait(260);
-  setBoot(20, 'Lendo setores do cartucho…', 'NÃO DESLIGUE O CONSOLE');
+  setBoot(20, 'Carregando a área de trabalho…', 'NÃO DESLIGUE O COMPUTADOR');
   await wait(380);
-  setBoot(42, 'Montando o CRT…', 'CALIBRANDO CORES DE 2008');
+  setBoot(42, 'Preparando a janela do MilaTube…', 'CALIBRANDO A AERO');
   await wait(420);
-  setBoot(58, 'Procurando uma sala…', 'CONECTANDO AO MILA PLAY SYSTEM');
+  setBoot(58, 'Procurando uma sala…', 'CONECTANDO AO MILATUBE');
   await initBackend();
   setBoot(82, 'Sincronizando relógios…', 'TOLERÂNCIA: 1,25s');
   await wait(300);
-  setBoot(96, 'Quase lá…', 'A MILA ESTÁ AJUSTANDO A FITA');
+  setBoot(96, 'Quase lá…', 'A MILA ESTÁ AJUSTANDO O VOLUME');
   await wait(280);
   setBoot(100, 'Pronto.', 'BEM-VINDA DE VOLTA');
   await wait(fast ? 40 : 460);
@@ -622,7 +696,7 @@ const CONTROL_TYPES = new Set(['play', 'pause', 'seek', 'load', 'queueAdd', 'que
 
 function sendControl(type, data = {}) {
   if (!state.room) {
-    showToast('Nenhuma sala ativa. Use /assistir para abrir um cartucho.', 'error');
+    showToast('Nenhuma sala ativa. Use /assistir para abrir uma sala.', 'error');
     return false;
   }
 
@@ -760,7 +834,7 @@ function loadVideo(videoId, title, duration) {
     return;
   }
   if (!canControl()) {
-    showToast('Só o host escolhe o cartucho. Peça a ele para ativar o modo livre.', 'error');
+    showToast('Só o host escolhe o vídeo. Peça a ele para ativar o modo livre.', 'error');
     return;
   }
   state.localActionAt = Date.now();
@@ -776,7 +850,7 @@ function loadVideo(videoId, title, duration) {
       title: String((meta && meta.title) || title || 'Vídeo do YouTube').slice(0, 120),
       duration: clampNumber((meta && meta.duration) || duration, 0, 86400)
     });
-    if (ok) showToast('Cartucho enviado para a sala.', 'success');
+    if (ok) showToast('Vídeo enviado para a sala.', 'success');
   };
 
   if (title) {
@@ -843,7 +917,7 @@ function removeFromQueue(videoId) {
 
 function nextVideo() {
   if (!canControl()) {
-    showToast('Só o host decide o próximo cartucho.', 'error');
+    showToast('Só o host decide o próximo vídeo.', 'error');
     return;
   }
   sendControl('next');
@@ -851,10 +925,10 @@ function nextVideo() {
 
 function ejectVideo() {
   if (!canControl()) {
-    showToast('Só o host pode ejetar o cartucho.', 'error');
+    showToast('Só o host pode ejetar o vídeo.', 'error');
     return;
   }
-  if (sendControl('eject')) showToast('Cartucho ejetado. A fila continua ali.', 'info');
+  if (sendControl('eject')) showToast('Vídeo ejetado. A fila continua aí.', 'info');
 }
 
 function toggleHostMode() {
@@ -933,7 +1007,7 @@ function applyRoomState(force = false) {
         startSeconds: clampNumber(room.position, 0, room.duration || 86400)
       });
     } catch (error) {
-      showPlayerError('O player não aceitou este cartucho.', String(error && error.message ? error.message : ''));
+      showPlayerError('O player não aceitou este vídeo.', String(error && error.message ? error.message : ''));
     }
     setTimeout(() => {
       if (!state.room || state.room.videoId !== room.videoId || !state.player) return;
@@ -1005,6 +1079,16 @@ function ensurePlayerMount() {
 }
 
 function ensurePlayer(videoId) {
+  if (state.externalPlayer) {
+    // O proxy/CSP do Discord bloqueia script e iframe do YouTube. Em vez de
+    // esperar 16 s por um erro, usamos o player externo da própria YouTube.
+    state.player = null;
+    state.playerReady = false;
+    state.videoId = isVideoId(videoId) ? videoId : null;
+    renderExternalPlayer();
+    updateProgress();
+    return Promise.resolve(null);
+  }
   if (state.player) return Promise.resolve(state.player);
   if (state.playerInitPromise) return state.playerInitPromise;
   if (!isVideoId(videoId)) return Promise.resolve(null);
@@ -1178,7 +1262,7 @@ function handlePlayerStateChange(event) {
   if (event.data === yt.PlayerState.ENDED) {
     if (state.applyingRemote) return;
     if (canControl()) sendControl('ended');
-    else showHint('O vídeo terminou. O host escolhe o próximo cartucho.');
+    else showHint('O vídeo terminou. O host escolhe o próximo.');
   }
 }
 
@@ -1191,8 +1275,8 @@ function handlePlayerError(event) {
     101: 'O criador não permite incorporar este vídeo.',
     150: 'O criador não permite incorporar este vídeo.'
   };
-  const text = messages[code] || 'O YouTube recusou este cartucho.';
-  showPlayerError('Esta fita não roda aqui', text);
+  const text = messages[code] || 'O YouTube recusou este vídeo.';
+  showPlayerError('Este vídeo não roda aqui', text);
   showToast(text, 'error');
 }
 
@@ -1241,6 +1325,7 @@ function startTick() {
 
 function tick() {
   if (!state.room) {
+    renderExternalPlayer();
     updateProgress();
     return;
   }
@@ -1301,6 +1386,17 @@ function tick() {
     return;
   }
 
+  // No player externo não existe evento "ended" do iframe. O relógio da sala
+  // serve de gatilho para avançar a fila quando o vídeo chega ao fim.
+  if (state.externalPlayer && state.room.videoId && state.room.playing &&
+      Number(state.room.duration) > 0 && isHost() &&
+      expectedPosition(state.room) >= Number(state.room.duration) - 0.75 &&
+      Date.now() - state.lastEndedSent > 8000) {
+    state.lastEndedSent = Date.now();
+    sendControl('ended');
+  }
+
+  renderExternalPlayer();
   updateProgress();
 }
 
@@ -1332,17 +1428,17 @@ function renderAll() {
   const empty = el('player-empty');
   if (empty) empty.classList.toggle('is-hidden', hasVideo);
 
-  setText('video-title', hasVideo ? (room.title || 'Vídeo do YouTube') : 'Nenhum cartucho inserido');
+  setText('video-title', hasVideo ? (room.title || 'Vídeo do YouTube') : 'Nenhum vídeo na sessão');
   setText('video-author', hasVideo ? hostName() : 'Mila');
-  setText('video-meta', hasVideo ? `Sessão sincronizada • ${count} ${count === 1 ? 'pessoa' : 'pessoas'} na sala` : 'Aguardando um cartucho');
+  setText('video-meta', hasVideo ? `Sessão sincronizada • ${count} ${count === 1 ? 'pessoa' : 'pessoas'} na sala` : 'Aguardando um vídeo');
   setText('video-description', hasVideo
-    ? `“${room.title || 'Vídeo do YouTube'}” está no cartucho. A Mila mantém play, pausa e posição alinhados entre os clientes; o áudio e o vídeo continuam no player oficial do YouTube.`
+    ? `“${room.title || 'Vídeo do YouTube'}” está na sessão. A Mila mantém play, pausa e posição alinhados entre os clientes; o vídeo continua no player oficial do YouTube${state.externalPlayer ? ', aberto no navegador/app por causa da CSP do Discord' : ''}.`
     : 'A Mila preparou este cantinho para assistir com calma, comentar no chat e não perder o momento. O player é o YouTube oficial; a moldura é nossa.');
   setText('viewer-count', `${count} ${count === 1 ? 'pessoa assistindo' : 'pessoas assistindo'}`);
   setText('queue-count', String(room && Array.isArray(room.queue) ? room.queue.length : 0));
   setText('participant-count', String(count));
-  setText('now-playing-label', 'AGORA NO CARTUCHO');
-  setText('sync-state', state.demo ? 'modo local' : (state.ws && state.ws.readyState === WebSocket.OPEN ? 'sincronizado' : 'aguardando sala'));
+  setText('now-playing-label', state.externalPlayer ? 'AGORA NO YOUTUBE' : 'AGORA NO PLAYER');
+  setText('sync-state', state.demo ? 'modo local' : state.externalPlayer ? 'player externo' : (state.ws && state.ws.readyState === WebSocket.OPEN ? 'sincronizado' : 'aguardando sala'));
 
   const adNote = el('ad-note');
   if (adNote && CFG.ADS_NOTE) adNote.title = CFG.ADS_NOTE;
@@ -1356,7 +1452,7 @@ function renderAll() {
   }
 
   const controlDisabled = !canControl();
-  const playerBusy = hasVideo && !state.demo && !state.playerReady;
+  const playerBusy = hasVideo && !state.demo && !state.externalPlayer && !state.playerReady;
   ['btn-play', 'btn-pause'].forEach((id) => {
     const button = el(id);
     if (button) button.disabled = controlDisabled || playerBusy;
@@ -1366,18 +1462,30 @@ function renderAll() {
   const seek = el('seek');
   if (seek) seek.disabled = controlDisabled || !hasVideo || playerBusy;
 
+  const volume = el('volume');
+  if (volume) {
+    volume.disabled = state.externalPlayer;
+    volume.title = state.externalPlayer ? 'O volume é controlado no player do YouTube' : '';
+  }
+  const mute = el('btn-mute');
+  if (mute) {
+    mute.disabled = state.externalPlayer;
+    mute.title = state.externalPlayer ? 'O volume é controlado no player do YouTube' : (state.muted ? 'Ativar som' : 'Silenciar');
+  }
+
   const hostNote = el('host-note');
   if (hostNote) {
-    if (!room) hostNote.textContent = 'Use /assistir no Discord para abrir um cartucho nesta call.';
+    if (!room) hostNote.textContent = 'Use /assistir no Discord para abrir uma sala nesta call.';
     else if (state.demo) hostNote.textContent = 'Modo local: você é o host. Nada aqui está conectado a uma sala real.';
     else if (isHost()) hostNote.textContent = 'Você é o host. Pode passar o controle clicando em outra pessoa.';
-    else if (room.hostMode === 'shared') hostNote.textContent = 'Modo livre: todo mundo pode dar play, pausar e escolher cartuchos.';
+    else if (room.hostMode === 'shared') hostNote.textContent = 'Modo livre: todo mundo pode dar play, pausar e escolher vídeos.';
     else hostNote.textContent = `Host: ${hostName()}. Peça a ele para ativar o modo livre se quiser ajudar.`;
   }
 
   renderQueue();
   renderParticipants();
   renderStatus();
+  renderExternalPlayer();
   updateProgress();
 }
 
@@ -1391,7 +1499,7 @@ function renderQueue() {
   if (!queue.length) {
     const empty = document.createElement('p');
     empty.className = 'queue-empty';
-    empty.textContent = 'A fila está vazia. O primeiro link vira o cartucho principal.';
+    empty.textContent = 'A fila está vazia. O primeiro link vira o vídeo principal.';
     list.appendChild(empty);
     return;
   }
@@ -1404,10 +1512,10 @@ function renderQueue() {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'queue-item';
-    button.title = canControl() ? `Assistir: ${item.title || item.videoId}` : 'Apenas o host escolhe o cartucho';
+    button.title = canControl() ? `Assistir: ${item.title || item.videoId}` : 'Apenas o host escolhe o vídeo';
     button.addEventListener('click', () => {
       if (!canControl()) {
-        showToast('Só o host escolhe o cartucho.', 'error');
+        showToast('Só o host escolhe o vídeo.', 'error');
         return;
       }
       loadVideo(item.videoId, item.title, item.duration);
@@ -1529,10 +1637,10 @@ function renderStatus() {
   }
   if (status) {
     status.dataset.state = kind;
-    status.textContent = !room ? 'SEM CARTUCHO'
+    status.textContent = !room ? 'SEM VÍDEO'
       : state.demo ? 'MODO LOCAL'
         : !online ? 'RECONECTANDO'
-          : room.hostMode === 'shared' ? 'MODO LIVRE' : 'HOST CONTROL';
+          : room.hostMode === 'shared' ? 'MODO LIVRE' : 'SÓ O HOST';
   }
   if (led) {
     led.classList.toggle('is-on', Boolean(online && room));
@@ -1550,6 +1658,8 @@ function hostName() {
 // ── UI estática ────────────────────────────────────────────────────────────
 
 function wireUI() {
+  startTaskbarClock();
+
   const searchForm = el('search-form');
   if (searchForm) {
     searchForm.addEventListener('submit', (event) => {
@@ -1613,8 +1723,28 @@ function wireUI() {
 
   const sync = el('btn-sync');
   if (sync) sync.addEventListener('click', () => {
+    if (state.externalPlayer) {
+      openExternalPlayerAtRoom('Reabrindo o YouTube no tempo atual da sala.');
+      return;
+    }
     applyRoomState(true);
     showToast('Relógio sincronizado com a sala.', 'success');
+  });
+
+  const externalOpen = el('btn-external-open');
+  if (externalOpen) externalOpen.addEventListener('click', () => {
+    openExternalPlayerAtRoom('Abrindo o YouTube no tempo atual da sala.');
+  });
+
+  const externalCopy = el('btn-external-copy');
+  if (externalCopy) externalCopy.addEventListener('click', async () => {
+    const url = externalWatchUrl();
+    if (!url) {
+      showToast('Nenhum vídeo na sala para copiar.', 'error');
+      return;
+    }
+    const ok = await copyText(url);
+    showToast(ok ? 'Link copiado no tempo atual da sala.' : 'Não consegui copiar o link.', ok ? 'success' : 'error');
   });
 
   const seek = el('seek');
@@ -1728,7 +1858,12 @@ function wireUI() {
   const openYoutube = el('btn-open-youtube');
   if (openYoutube) openYoutube.addEventListener('click', () => {
     const id = openYoutube.dataset.videoId || (state.room && state.room.videoId);
-    if (id && isVideoId(id)) openExternal(`https://www.youtube.com/watch?v=${id}`);
+    if (!id || !isVideoId(id)) return;
+    if (state.externalPlayer) {
+      openExternalPlayerAtRoom('Abrindo o YouTube no tempo atual da sala.');
+      return;
+    }
+    openExternal(`https://www.youtube.com/watch?v=${id}`);
   });
 
   document.querySelectorAll('[data-toast]').forEach((button) => {
@@ -1770,9 +1905,10 @@ function toggleMute() {
   }
   const button = el('btn-mute');
   if (button) {
-    button.textContent = state.muted ? '🔇' : '🔊';
+    button.classList.toggle('is-muted', state.muted);
     button.setAttribute('aria-pressed', state.muted ? 'true' : 'false');
     button.setAttribute('aria-label', state.muted ? 'Ativar som' : 'Silenciar');
+    button.title = state.muted ? 'Ativar som' : 'Silenciar';
   }
 }
 
