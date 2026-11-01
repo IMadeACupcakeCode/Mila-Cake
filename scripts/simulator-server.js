@@ -1,6 +1,11 @@
 const http = require('http');
+const path = require('path');
 const { URL } = require('url');
 const slash = require('../utils/slash');
+
+if (require.main === module) {
+  require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+}
 
 const PORT = Number(process.env.MILA_SIMULATOR_PORT || 4173);
 const HOST = '127.0.0.1';

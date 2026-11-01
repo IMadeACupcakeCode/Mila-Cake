@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="facebook">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#3b5998" id="theme-color">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' http://localhost:8400 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.discordapp.com https://media.discordapp.net https://raw.githubusercontent.com blob:; connect-src 'self' http://localhost:8400; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <meta name="description" content="Conheça a Mila, consulte o manual de comandos, veja o ranking e explore sua comunidade.">
+  <title>Mila | Facebook</title>
+  <link rel="icon" href="./assets/mila-icone.png" type="image/png">
+  <link rel="stylesheet" href="./styles.css?v=3">
+</head>
+<body>
+  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+  <header class="topo">
+    <div class="topo-marca">
+      <img class="logo" src="./assets/mila-icone.png" alt="Ícone da Mila" width="48" height="48">
+      <div>
+        <strong id="marca-nome">Mila</strong>
+        <span class="topo-sub" id="marca-sub">Área de trabalho</span>
+      </div>
+    </div>
+    <nav class="abas" aria-label="Navegação principal">
+      <a class="aba ativa" href="/" data-pagina="comandos" aria-current="page">Manual</a>
+      <a class="aba" href="/ranking" data-pagina="ranking">Destaques</a>
+      <a class="aba" href="/loja" data-pagina="loja">Loja</a>
+      <a class="aba" href="/perfil" data-pagina="carteira">Perfil</a>
+      <a class="aba" href="/pokemon" data-pagina="pokemon">Pokémon</a>
+      <a class="aba" href="/criadora" data-pagina="criadora">Criadora</a>
+      <a class="aba" href="/referencias" data-pagina="referencias">Sobre</a>
+    </nav>
+    <div class="topo-status">
+      <span class="led" id="status-led"></span>
+      <span id="status-texto">conectando...</span>
+    </div>
+  </header>
+
+  <section class="tela-indisponivel" id="tela-indisponivel" role="alert" aria-labelledby="falha-titulo" hidden>
+    <div class="falha-painel">
+      <div class="falha-imagem" role="img" aria-label="Retrato da Mila distorcido por interferência digital">
+        <img src="./assets/mila-economia.png" alt="">
+        <span class="falha-imagem-legenda" aria-hidden="true">SINAL PERDIDO // MILA</span>
+      </div>
+      <div class="falha-conteudo">
+        <p class="falha-codigo">CONEXÃO INTERROMPIDA <span>ERR_0x4D49</span></p>
+        <h1 id="falha-titulo">Mila indisponível</h1>
+        <p class="falha-descricao">O sinal da Mila foi interrompido. A página está tentando encontrá-la novamente.</p>
+        <div class="falha-status"><span aria-hidden="true"></span> AGUARDANDO RESPOSTA DO SERVIDOR</div>
+        <button class="falha-reconectar" id="tentar-reconectar" type="button">Verificar conexão</button>
+        <p class="falha-rodape">Se a conexão voltar, esta tela desaparecerá sozinha.</p>
+      </div>
+    </div>
+    <span class="falha-ruido" aria-hidden="true"></span>
+  </section>
+
+  <main class="area-trabalho" id="conteudo">
+    <!-- ── Manual ── -->
+    <section class="pagina" id="pagina-comandos">
+      <div class="janela">
+        <div class="barra-janela"><span class="janela-titulo">📖 Manual de comandos</span></div>
+        <div class="janela-corpo">
+          <div class="pagina-cabecalho">
+            <p class="selo">CENTRAL DE AJUDA</p>
+            <h1>Como posso ajudar?</h1>
+            <p>Encontre um comando, confira exemplos e abra o Discord para executá-lo.</p>
+          </div>
+          <div class="filtros-comandos">
+            <label class="sr-only" for="busca-comandos">Pesquisar comandos</label>
+            <input id="busca-comandos" type="search" placeholder="Buscar por nome, categoria ou função…">
+            <label class="sr-only" for="filtro-categoria">Filtrar categoria</label>
+            <select id="filtro-categoria"><option value="">Carregando categorias…</option></select>
+            <span id="contagem-comandos" aria-live="polite"></span>
+          </div>
+          <p class="ajuda">Os exemplos com <code>$</code> usam o prefixo padrão, que pode mudar por servidor. No Discord, digite <code>/</code> e siga as opções exibidas para executar comandos slash. Para a lista interativa, use <code>/codex</code> ou <code>$codex</code>.</p>
+          <p class="erro" id="aviso-comandos" role="status" hidden></p>
+          <div class="grade-comandos" id="lista-comandos" aria-live="polite"><p class="carregando">Carregando comandos…</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Ranking ── -->
+    <section class="pagina" id="pagina-ranking">
+      <div class="janela">
+        <div class="barra-janela">
+          <span class="janela-titulo" id="titulo-ranking">🏆 Ranking da doceria</span>
+          <span class="janela-controles" aria-hidden="true">▣ ▢ ✕</span>
+        </div>
+        <div class="janela-corpo">
+          <div class="linha-controles">
+            <div class="segmentado" role="group" aria-label="Categoria do ranking">
+              <button class="seg ativo" data-ranking="money">🍬 Açúcares</button>
+              <button class="seg" data-ranking="xp">🏆 Nível</button>
+            </div>
+            <span class="ajuda" id="ranking-info">top 10 do servidor</span>
+          </div>
+          <ol class="ranking" id="lista-ranking">
+            <li class="carregando">Carregando ranking...</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Loja ── -->
+    <section class="pagina" id="pagina-loja">
+      <div class="janela">
+        <div class="barra-janela">
+          <span class="janela-titulo" id="titulo-loja">🛍️ Loja da Mila</span>
+          <span class="janela-controles" aria-hidden="true">▣ ▢ ✕</span>
+        </div>
+        <div class="janela-corpo">
+          <p class="ajuda">Preços iguais aos do <code>/loja</code>. Compre dentro do Discord para aplicar o efeito na conta.</p>
+          <div id="lista-loja" class="loja">
+            <p class="carregando">Abrindo as prateleiras...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Carteira ── -->
+    <section class="pagina" id="pagina-carteira">
+      <div class="janela">
+        <div class="barra-janela">
+          <span class="janela-titulo" id="titulo-perfil">💰 Carteira</span>
+          <span class="janela-controles" aria-hidden="true">▣ ▢ ✕</span>
+        </div>
+        <div class="janela-corpo">
+          <form class="busca" id="form-perfil" aria-describedby="ajuda-username">
+            <label for="campo-username">Username global do Discord</label>
+            <div class="busca-linha">
+              <input id="campo-username" name="username" placeholder="Ex.: acupcakecatsocial" autocomplete="off" minlength="2" maxlength="32" required>
+              <button class="botao primario" type="submit">Consultar</button>
+            </div>
+            <p class="ajuda" id="ajuda-username">Digite o username, com ou sem @. A busca ignora maiúsculas e minúsculas e não usa apelidos do servidor. A conta precisa estar no cache de pessoas conhecidas pela Mila; nenhum login é necessário.</p>
+          </form>
+
+          <div id="perfil-resultado" class="perfil oculto">
+            <div class="perfil-topo">
+              <img id="perfil-avatar" src="./assets/mila-icone.png" alt="Avatar do usuário" width="72" height="72">
+              <div>
+                <h2 id="perfil-nome">—</h2>
+                <p id="perfil-titulo">—</p>
+              </div>
+              <span class="perfil-saldo" id="perfil-saldo">—</span>
+            </div>
+            <div class="perfil-grade">
+              <div><small>Nível</small><strong id="perfil-nivel">—</strong></div>
+              <div><small>XP</small><strong id="perfil-xp">—</strong></div>
+              <div><small>Sequência</small><strong id="perfil-streak">—</strong></div>
+              <div><small>Posição</small><strong id="perfil-posicao">—</strong></div>
+              <div><small>Diários</small><strong id="perfil-diarios">—</strong></div>
+              <div><small>Trabalhos</small><strong id="perfil-trabalhos">—</strong></div>
+            </div>
+            <h3>🏆 Conquistas</h3>
+            <div class="conquistas" id="perfil-conquistas"></div>
+            <h3>🧾 Extrato</h3>
+            <ul class="extrato" id="perfil-extrato"></ul>
+          </div>
+          <p class="erro oculto" id="perfil-erro" role="alert"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Mila Pokémon ── -->
+    <section class="pagina" id="pagina-pokemon">
+      <div class="janela">
+        <div class="barra-janela"><span class="janela-titulo">✨ Mila Pokémon</span></div>
+        <div class="janela-corpo">
+          <div class="pagina-cabecalho">
+            <p class="selo">SUA AVENTURA COMEÇA AQUI</p>
+            <h1>Um mundo de Pokémon</h1>
+            <p>Consulte a Pokédex, acompanhe treinadores e explore a loja. Para capturar, comprar ou resgatar itens, use os comandos no Discord.</p>
+          </div>
+          <div class="pokemon-tabs" role="tablist" aria-label="Seções de Pokémon">
+            <button class="pokemon-tab ativo" type="button" role="tab" id="pokemon-tab-manual" aria-controls="pokemon-painel-manual" aria-selected="true" data-pokemon-view="manual">Guia</button>
+            <button class="pokemon-tab" type="button" role="tab" id="pokemon-tab-pokedex" aria-controls="pokemon-painel-pokedex" aria-selected="false" data-pokemon-view="pokedex">Pokédex</button>
+            <button class="pokemon-tab" type="button" role="tab" id="pokemon-tab-ranking" aria-controls="pokemon-painel-ranking" aria-selected="false" data-pokemon-view="ranking">Rankings</button>
+            <button class="pokemon-tab" type="button" role="tab" id="pokemon-tab-loja" aria-controls="pokemon-painel-loja" aria-selected="false" data-pokemon-view="loja">Loja</button>
+            <button class="pokemon-tab" type="button" role="tab" id="pokemon-tab-treinador" aria-controls="pokemon-painel-treinador" aria-selected="false" data-pokemon-view="treinador">Treinadores</button>
+          </div>
+
+          <section class="pokemon-painel ativo" id="pokemon-painel-manual" role="tabpanel" aria-labelledby="pokemon-tab-manual" data-pokemon-panel="manual">
+            <div class="pokemon-guia">
+              <article class="cartao">
+                <h2>🌿 Encontros e capturas</h2>
+                <p>A equipe ativa os encontros com <code>/pokemon configurar</code>. Quando um Pokémon aparecer, tente o nome no mesmo canal ou use <code>/pokemon capturar</code>. Palpites errados não encerram o encontro; ele dura até 10 minutos.</p>
+              </article>
+              <article class="cartao">
+                <h2>🎒 Itens e evolução</h2>
+                <p>Use <code>/pokemon loja</code> para comprar bolas, incenso e cosméticos; <code>/pokemon inventario</code> para conferir a mochila; e <code>/pokemon equipar</code> para escolher seu equipamento.</p>
+              </article>
+              <article class="cartao">
+                <h2>⭐ Favoritos e avisos</h2>
+                <p>Marque espécies com <code>/pokemon favorito</code>. Os avisos começam desligados: ative as opções em <code>/pokemon avisos</code> para receber alertas de favoritos e permitir menções.</p>
+              </article>
+              <article class="cartao">
+                <h2>🧭 Missões e rankings</h2>
+                <p>Complete objetivos em <code>/pokemon missoes</code>, resgate as recompensas no Discord e compare sua coleção no ranking global ou no servidor.</p>
+              </article>
+            </div>
+            <p class="ajuda pokemon-nota">O site é um painel de consulta. Capturas, compras, favoritos, configurações e resgates continuam protegidos pelos comandos do Discord.</p>
+          </section>
+
+          <section class="pokemon-painel" id="pokemon-painel-pokedex" role="tabpanel" aria-labelledby="pokemon-tab-pokedex" data-pokemon-panel="pokedex" hidden>
+            <form class="busca" id="form-pokedex">
+              <label for="campo-pokedex">Nome ou número na Pokédex</label>
+              <div class="busca-linha">
+                <input id="campo-pokedex" name="pokemon" placeholder="Ex.: Pikachu ou 25" maxlength="50" autocomplete="off" required>
+                <button class="botao primario" type="submit">Pesquisar</button>
+              </div>
+            </form>
+            <p class="erro oculto" id="pokedex-erro" role="alert"></p>
+            <div id="pokedex-resultado" aria-live="polite"></div>
+          </section>
+
+          <section class="pokemon-painel" id="pokemon-painel-ranking" role="tabpanel" aria-labelledby="pokemon-tab-ranking" data-pokemon-panel="ranking" hidden>
+            <div class="linha-controles">
+              <div class="segmentado" role="group" aria-label="Escopo do ranking Pokémon">
+                <button class="seg ativo" type="button" data-pokemon-ranking="global">🌎 Global</button>
+                <button class="seg" type="button" data-pokemon-ranking="servidor">🏠 Servidor</button>
+              </div>
+              <label class="sr-only" for="pokemon-servidor-ranking">Servidor do ranking</label>
+              <select id="pokemon-servidor-ranking" class="pokemon-select" aria-label="Servidor do ranking" disabled></select>
+            </div>
+            <p class="ajuda" id="pokemon-ranking-info">Treinadores com mais capturas em todos os servidores da Mila.</p>
+            <ol class="ranking pokemon-ranking" id="pokemon-ranking-lista" aria-live="polite">
+              <li class="carregando">Carregando ranking Pokémon...</li>
+            </ol>
+          </section>
+
+          <section class="pokemon-painel" id="pokemon-painel-loja" role="tabpanel" aria-labelledby="pokemon-tab-loja" data-pokemon-panel="loja" hidden>
+            <p class="ajuda pokemon-nota">Veja o catálogo e os preços atuais. Para comprar, abra <code>/pokemon loja</code> no Discord; os itens são entregues à sua conta de jogo.</p>
+            <div id="pokemon-loja-lista" class="loja"><p class="carregando">Abrindo a loja Pokémon...</p></div>
+          </section>
+
+          <section class="pokemon-painel" id="pokemon-painel-treinador" role="tabpanel" aria-labelledby="pokemon-tab-treinador" data-pokemon-panel="treinador" hidden>
+            <form class="busca" id="form-pokemon-perfil" aria-describedby="pokemon-ajuda-username">
+              <label for="campo-pokemon-username">Username global do Discord</label>
+              <div class="busca-linha">
+                <input id="campo-pokemon-username" name="username" placeholder="Ex.: acupcakecatsocial" autocomplete="off" minlength="2" maxlength="32" required>
+                <button class="botao primario" type="submit">Ver treinador</button>
+              </div>
+              <p class="ajuda" id="pokemon-ajuda-username">Use o username, não o apelido do servidor nem o ID. A pessoa precisa estar no cache da Mila.</p>
+            </form>
+            <div class="pokemon-servidor-controle">
+              <label for="pokemon-servidor-perfil">Dados deste servidor</label>
+              <select id="pokemon-servidor-perfil" class="pokemon-select" disabled></select>
+              <span class="ajuda">A coleção global aparece sempre; escolha um servidor para ver estatísticas e favoritos locais.</span>
+            </div>
+            <p class="erro oculto" id="pokemon-perfil-erro" role="alert"></p>
+            <div id="pokemon-perfil-resultado" aria-live="polite"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Criadora ── -->
+    <section class="pagina" id="pagina-criadora">
+      <div class="janela">
+        <div class="barra-janela"><span class="janela-titulo">👑 Criadora</span></div>
+        <div class="janela-corpo">
+          <div class="pagina-cabecalho">
+            <p class="selo">FEITA POR UMA PESSOA, PARA COMUNIDADES</p>
+            <h1>Por trás da Mila</h1>
+            <p>A Mila é um projeto independente criado por <strong>ACupcakeCat</strong>, conhecida no Discord como <strong>acupcakecatsocial</strong>.</p>
+          </div>
+          <div class="perfil-criadora">
+            <div class="criadora-avatar" aria-hidden="true">🧁</div>
+            <div>
+              <h2>ACupcakeCat</h2>
+              <p>Desenvolvimento de sistemas · HTML, CSS, JavaScript, TypeScript, Svelte, Python e C++.</p>
+              <div class="acoes-criadora">
+                <a class="botao primario" href="https://github.com/IMadeACupcakeCode" target="_blank" rel="noopener noreferrer">Abrir GitHub ↗</a>
+                <a class="botao" href="https://github.com/IMadeACupcakeCode/Mila-Cake" target="_blank" rel="noopener noreferrer">Repositório da Mila ↗</a>
+              </div>
+            </div>
+          </div>
+          <h2 class="subtitulo-secao">Projetos públicos</h2>
+          <div class="grade-cartoes">
+            <a class="cartao projeto-github" href="https://github.com/IMadeACupcakeCode/Mila-Cake" target="_blank" rel="noopener noreferrer">
+              <h3>🍰 Mila-Cake</h3>
+              <p>O código-fonte público da Mila Cake Bot e dos seus sistemas para Discord.</p>
+              <span>Ver projeto no GitHub ↗</span>
+            </a>
+            <a class="cartao projeto-github" href="https://github.com/IMadeACupcakeCode/Dellusion-Falta-Lua" target="_blank" rel="noopener noreferrer">
+              <h3>🌙 Dellusion-Falta-Lua</h3>
+              <p>Outro projeto público de bot para comunidades Discord.</p>
+              <span>Ver projeto no GitHub ↗</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Referências ── -->
+    <section class="pagina" id="pagina-referencias">
+      <div class="janela">
+        <div class="barra-janela"><span class="janela-titulo">🔎 Sobre e referências</span></div>
+        <div class="janela-corpo">
+          <div class="pagina-cabecalho">
+            <p class="selo">SOBRE A MILA</p>
+            <h1>Uma bot de comunidade</h1>
+            <p>A Mila reúne utilidades, jogos, música, moderação e economia em um só bot para Discord. Os visuais deste site homenageiam interfaces web clássicas; não são serviços oficiais dessas plataformas.</p>
+          </div>
+          <h2 class="subtitulo-secao">Referências de bots</h2>
+          <div class="grade-cartoes">
+            <a class="cartao referencia-card" href="https://github.com/LorittaBot/Loritta" target="_blank" rel="noopener noreferrer">
+              <h3>🌸 Loritta</h3>
+              <p>Projeto open source de bot Discord; referência para utilidades, personalização e comunidade.</p>
+              <span>GitHub da Loritta ↗</span>
+            </a>
+            <a class="cartao referencia-card" href="https://github.com/poketwo/poketwo" target="_blank" rel="noopener noreferrer">
+              <h3>🟣 Pokétwo</h3>
+              <p>Referência de colecionismo e progressão Pokémon em servidores Discord.</p>
+              <span>Repositório Pokétwo ↗</span>
+            </a>
+            <a class="cartao referencia-card" href="https://discord.js.org/" target="_blank" rel="noopener noreferrer">
+              <h3>🧩 discord.js</h3>
+              <p>Biblioteca JavaScript usada para integrar bots e aplicações com a API do Discord.</p>
+              <span>Documentação oficial ↗</span>
+            </a>
+            <a class="cartao referencia-card" href="https://discord.com/developers/docs/intro" target="_blank" rel="noopener noreferrer">
+              <h3>📘 Discord Developer Docs</h3>
+              <p>Documentação oficial para aplicações, permissões, interações e comandos slash.</p>
+              <span>Abrir documentação ↗</span>
+            </a>
+          </div>
+          <h2 class="subtitulo-secao">Referências visuais</h2>
+          <div class="lista-referencias">
+            <p><strong>4shared:</strong> página arquivada de 2013 com login, chamada para compartilhamento e links para armazenamento e aplicativos. <a href="https://web.archive.org/web/20130102024140/http://www.4shared.com/" target="_blank" rel="noopener noreferrer">Ver captura arquivada ↗</a></p>
+            <p><strong>MediaFire:</strong> captura de 2013 com foco em acesso aos arquivos, colaboração, compartilhamento simples e aplicações móveis. <a href="https://web.archive.org/web/20130101115313/http://www.mediafire.com/" target="_blank" rel="noopener noreferrer">Ver captura arquivada ↗</a></p>
+            <p><strong>Friv:</strong> captura arquivada de 2011 com uma grade compacta de jogos sobre fundo roxo. Aqui, os cartões levam às páginas reais da Mila, não a jogos inexistentes. <a href="https://web.archive.org/web/20110101034137/http://www.friv.com/" target="_blank" rel="noopener noreferrer">Ver captura arquivada ↗</a></p>
+            <p><strong>Facebook e Google+:</strong> visuais inspirados nos layouts clássicos dessas redes; não são réplicas oficiais nem mantêm integração com as plataformas.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <span>Mila · economia de <strong>açúcares</strong> 🍬</span>
+    <span id="rodape-contexto">Mila · conectando</span>
+  </footer>
+
+  <!-- Botão secreto -->
+  <button class="botao-secreto" id="botao-secreto" aria-label="Abrir segredo de aparência" title="Me descobriu, chapa?">·</button>
+
+  <!-- Popup de troca de visual -->
+  <div class="popup-visual oculto" id="popup-visual" role="dialog" aria-modal="true" aria-labelledby="popup-titulo" aria-describedby="popup-sub" aria-hidden="true">
+    <div class="popup-fundo" id="popup-fundo"></div>
+    <div class="popup-caixa" tabindex="-1">
+      <h2 class="popup-titulo" id="popup-titulo">Me Descobriu, Chapa! Quer mudar para qual visual?</h2>
+      <p class="popup-sub" id="popup-sub">Escolha uma plataforma ou deixe o acaso decidir.</p>
+      <div class="popup-grade" id="popup-grade"></div>
+      <div class="popup-acoes">
+        <button class="botao" id="popup-aleatorio">🎲 Aleatório</button>
+        <button class="botao" id="popup-fechar">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js?v=3"></script>
+</body>
+</html>

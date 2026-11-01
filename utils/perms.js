@@ -1,3 +1,5 @@
+const { ehCriador } = require('./criador');
+
 // ── Cargos do servidor Mila Cake ──────────────────────────────────────
 // Admin: pode usar comandos de moderação
 const STAFF_CARGO_IDS = [
@@ -21,6 +23,8 @@ const MEMBRO_CARGO_ID = '1236738710943305764';
  */
 function isStaff(member) {
   if (!member) return false;
+  // O criador da Mila tem acesso total em qualquer servidor.
+  if (isCriador(member)) return true;
   // Permissões padrão de admin
   const temPermissao = member.permissions?.has('Administrator') || member.permissions?.has('ManageGuild');
   if (temPermissao) return true;
@@ -34,8 +38,17 @@ function isStaff(member) {
  */
 function isFounder(member) {
   if (!member) return false;
+  if (isCriador(member)) return true;
   const cargos = member.roles?.cache || [];
   return cargos.some((r) => FOUNDER_IDS.includes(r.id));
+}
+
+/**
+ * Verifica se o usuário é o criador da Mila (acupcakecatsocial).
+ * Reconhecido por @ em todos os servidores ou pelo ID salvo.
+ */
+function isCriador(alvo) {
+  return ehCriador(alvo);
 }
 
 /**
@@ -57,4 +70,13 @@ function isMembro(member) {
   return cargos.some((r) => r.id === MEMBRO_CARGO_ID);
 }
 
-module.exports = { isStaff, isFounder, isAdmin, isMembro, STAFF_CARGO_IDS, FOUNDER_IDS, MEMBRO_CARGO_ID };
+module.exports = {
+  isStaff,
+  isFounder,
+  isAdmin,
+  isMembro,
+  isCriador,
+  STAFF_CARGO_IDS,
+  FOUNDER_IDS,
+  MEMBRO_CARGO_ID,
+};

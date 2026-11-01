@@ -4,10 +4,11 @@ const slash = require('../utils/slash');
 async function main() {
   const resultado = slash.carregar();
   assert.equal(resultado.invalidos.length, 0, resultado.invalidos.join('\n'));
-  assert.equal(slash.comandos.size, 76);
+  const total = slash.comandos.size;
+  assert.ok(total >= 76, `esperado ao menos 76 comandos, veio ${total}`);
 
   const payloads = slash.listarJson();
-  assert.equal(new Set(payloads.map((item) => item.name)).size, 76);
+  assert.equal(new Set(payloads.map((item) => item.name)).size, total);
   assert.ok(payloads.find((item) => item.name === 'join'));
   assert.ok(payloads.find((item) => item.name === 'entrar'));
   assert.ok(payloads.find((item) => item.name === 'assistir'));

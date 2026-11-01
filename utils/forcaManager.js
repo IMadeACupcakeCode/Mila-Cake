@@ -291,7 +291,7 @@ async function iniciarJogo(interaction, config) {
 
   // Envia indicador de turno para multiplayer
   let turnMsgId = null;
-  if (game.modo === 'competitivo' || game.modo === 'amigos_coop') {
+  if (game.modo === 'competitivo' || game.modo === 'cooperativo' || game.modo === 'amigos_coop') {
     const turnEmbed = criarEmbedTurno(game);
     const turnMsg = await interaction.channel.send({ embeds: [turnEmbed] });
     turnMsgId = turnMsg.id;
@@ -315,7 +315,7 @@ async function processarLetra(interaction, letra) {
   const game = sessao.game;
 
   // Verifica vez
-  if ((game.modo === 'competitivo' || game.modo === 'amigos_coop') && interaction.user.id !== game.vez.id) {
+  if ((game.modo === 'competitivo' || game.modo === 'cooperativo' || game.modo === 'amigos_coop') && interaction.user.id !== game.vez.id) {
     return interaction.reply({ content: `⏳ Não é sua vez! Aguarde **${game.vez.tag}**.`, ephemeral: true });
   }
 
@@ -346,7 +346,7 @@ async function processarLetra(interaction, letra) {
   }
 
   // Avança vez em multiplayer
-  if ((game.modo === 'competitivo' || game.modo === 'amigos_coop') && !game.terminou) {
+  if ((game.modo === 'competitivo' || game.modo === 'cooperativo' || game.modo === 'amigos_coop') && !game.terminou) {
     game.indiceVez = (game.indiceVez + 1) % game.jogadores.length;
     game.vez = game.jogadores[game.indiceVez];
   }
@@ -372,7 +372,7 @@ async function abrirModalLetra(interaction) {
     return interaction.reply({ content: '❌ Jogo não ativo ou já terminou.', ephemeral: true });
 
   const game = sessao.game;
-  if ((game.modo === 'competitivo' || game.modo === 'amigos_coop') && interaction.user.id !== game.vez.id) {
+  if ((game.modo === 'competitivo' || game.modo === 'cooperativo' || game.modo === 'amigos_coop') && interaction.user.id !== game.vez.id) {
     return interaction.reply({ content: `⏳ Aguarde **${game.vez.tag}** jogar.`, ephemeral: true });
   }
 
@@ -415,7 +415,7 @@ async function abrirModalPalpite(interaction) {
 
   const game = sessao.game;
 
-  if ((game.modo === 'competitivo' || game.modo === 'amigos_coop') && interaction.user.id !== game.vez.id) {
+  if ((game.modo === 'competitivo' || game.modo === 'cooperativo' || game.modo === 'amigos_coop') && interaction.user.id !== game.vez.id) {
     return interaction.reply({ content: `⏳ Aguarde **${game.vez.tag}** jogar.`, ephemeral: true });
   }
 
@@ -468,7 +468,7 @@ async function processarPalpite(interaction) {
     if (game.erros >= game.maxErros) { game.terminou = true; game.venceu = false; }
   }
 
-  if ((game.modo === 'competitivo' || game.modo === 'amigos_coop') && !game.terminou) {
+  if ((game.modo === 'competitivo' || game.modo === 'cooperativo' || game.modo === 'amigos_coop') && !game.terminou) {
     game.indiceVez = (game.indiceVez + 1) % game.jogadores.length;
     game.vez = game.jogadores[game.indiceVez];
   }
@@ -519,7 +519,7 @@ async function atualizarJogo(interaction, sessao) {
   const embed = criarEmbedJogo(game);
 
   // Atualiza indicador de turno para multiplayer
-  if ((game.modo === 'competitivo' || game.modo === 'amigos_coop') && sessao.turnMsgId) {
+  if ((game.modo === 'competitivo' || game.modo === 'cooperativo' || game.modo === 'amigos_coop') && sessao.turnMsgId) {
     const turnEmbed = criarEmbedTurno(game);
     try {
       const turnMsg = await interaction.channel.messages.fetch(sessao.turnMsgId);
@@ -887,6 +887,67 @@ async function revelarPalavra(interaction) {
 }
 
 // ══════════════════════════════════════════════════════════════
+async function handleReaction(reaction, user) {
+  if (!reaction || !user || user.bot) return false;
+  if (reaction.partial) {
+    try { await reaction.fetch(); } catch { return false; }
+  }
+  const message = reaction.message;
+  if (!message) return false;
+  const sessao = JOGOS.get(message.id);
+  if (!sessao || !sessao.dono || !sessao.convidados) return false;
+
+  const emoji = reaction.emoji.name;
+  if (emoji !== '✅' && emoji !== '❌') return false;
+
+  const todos = [sessao.dono, ...sessao.convidados];
+  if (!todos.some(u => u.id === user.id)) return false;
+
+  if (emoji === '❌') {
+    if (sessao.processando) return true;
+    sessao.processando = true;
+    JOGOS.delete(message.id);
+    try { await message.edit({ content: `❌ **${user.tag}** recusou o convite. Partida cancelada.`, components: [], embeds: [] }); } catch {}
+    return true;
+  }
+
+  // accept
+  if (!sessao.aceitos) sessao.aceitos = [];
+  if (sessao.aceitos.includes(user.id)) return true;
+  sessao.aceitos.push(user.id);
+
+  const total = sessao.convidados.length + 1;
+  if (sessao.aceitos.length >= total) {
+    if (sessao.processando) return true;
+    sessao.processando = true;
+    JOGOS.delete(message.id);
+    try {
+      await message.edit({ content: '✅ **Todos aceitaram!** 🎪 Preparando o jogo...', components: [], embeds: [] });
+    } catch {}
+    const canal = message.channel;
+    const criando = await canal.send('🎪 **Armando o jogo...**').catch(() => null);
+    const interactionLike = {
+      user: sessao.dono,
+      channel: canal,
+      channelId: canal.id,
+      editReply: (o) => criando ? criando.edit(o) : Promise.resolve(),
+    };
+    await iniciarJogo(interactionLike, {
+      dificuldade: sessao.dificuldade,
+      modo: sessao.modo,
+      jogadores: [sessao.dono, ...sessao.convidados].map(u => ({ id: u.id, tag: u.tag, pontos: 0 })),
+    });
+    return true;
+  } else {
+    await canalSafeSend(message.channel, `✅ **${user.tag}** aceitou! (${sessao.aceitos.length}/${total})`);
+    return true;
+  }
+}
+
+async function canalSafeSend(channel, content) {
+  try { await channel.send({ content, ephemeral: true }); } catch { try { await channel.send(content); } catch {} }
+}
+
 // EXPORT
 // ══════════════════════════════════════════════════════════════
 
@@ -915,6 +976,7 @@ module.exports = {
   desistir,
   revelarPalavra,
   criarConvite,
+  handleReaction,
   obterRanking,
   obterJogador,
 };

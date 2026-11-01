@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Ícone da Mila">
+  <defs>
+    <linearGradient id="aero" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#eaf7ff"/>
+      <stop offset="0.22" stop-color="#8fcdf5"/>
+      <stop offset="0.62" stop-color="#2e75b6"/>
+      <stop offset="1" stop-color="#0b3f74"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#3b2d4f"/>
+      <stop offset="0.55" stop-color="#241a33"/>
+      <stop offset="1" stop-color="#140e1f"/>
+    </linearGradient>
+    <linearGradient id="dress" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dbe7f5"/>
+    </linearGradient>
+    <radialGradient id="iris" cx="0.4" cy="0.35" r="0.8">
+      <stop offset="0" stop-color="#ff7b8a"/>
+      <stop offset="0.5" stop-color="#e0263e"/>
+      <stop offset="1" stop-color="#7c0d1e"/>
+    </radialGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff5b6e"/>
+      <stop offset="1" stop-color="#b1122a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- janela Aero -->
+  <rect x="8" y="8" width="496" height="496" rx="104" fill="url(#aero)" stroke="#d6f0ff" stroke-width="4"/>
+  <rect x="22" y="22" width="468" height="214" rx="82" fill="url(#gloss)"/>
+  <circle cx="392" cy="108" r="150" fill="#ffffff" opacity="0.10"/>
+  <circle cx="120" cy="420" r="120" fill="#0a2f57" opacity="0.18"/>
+
+  <!-- cabelo de trás -->
+  <path d="M118 320 C92 158 168 86 256 86 C344 86 420 158 394 320 C388 372 366 398 340 408 L172 408 C146 398 124 372 118 320 Z" fill="url(#hair)"/>
+  <path d="M126 300 C120 210 158 146 206 120" fill="none" stroke="#5a4775" stroke-width="10" stroke-linecap="round" opacity="0.55"/>
+
+  <!-- pescoço e ombros -->
+  <path d="M232 372 h48 v40 h-48 z" fill="#f2c9bd"/>
+  <path d="M146 488 C158 416 204 386 256 386 C308 386 354 416 366 488 Z" fill="url(#dress)" stroke="#b9cee2" stroke-width="3"/>
+  <path d="M206 396 C226 420 286 420 306 396 L296 386 L216 386 Z" fill="#eef4fb"/>
+
+  <!-- laço vermelho -->
+  <path d="M256 402 L212 380 L216 420 Z" fill="url(#ribbon)"/>
+  <path d="M256 402 L300 380 L296 420 Z" fill="url(#ribbon)"/>
+  <circle cx="256" cy="402" r="11" fill="#d81e37" stroke="#8d0c1e" stroke-width="2"/>
+
+  <!-- orelhas -->
+  <ellipse cx="150" cy="272" rx="18" ry="28" fill="#ffdfd3"/>
+  <ellipse cx="362" cy="272" rx="18" ry="28" fill="#ffdfd3"/>
+
+  <!-- rosto -->
+  <ellipse cx="256" cy="258" rx="106" ry="114" fill="#ffe8dd"/>
+  <ellipse cx="256" cy="286" rx="92" ry="80" fill="#fff2ea" opacity="0.65"/>
+
+  <!-- franja -->
+  <path d="M146 224 C154 138 200 100 256 100 C312 100 358 138 366 224
+           C344 202 324 214 304 190 C288 210 272 204 256 220
+           C240 204 224 210 208 190 C188 214 168 202 146 224 Z" fill="url(#hair)"/>
+  <path d="M160 214 C168 156 204 126 246 118" fill="none" stroke="#5a4775" stroke-width="9" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- mechas laterais -->
+  <path d="M148 224 C132 268 134 330 150 384 C166 350 168 292 166 246 Z" fill="url(#hair)"/>
+  <path d="M364 224 C380 268 378 330 362 384 C346 350 344 292 346 246 Z" fill="url(#hair)"/>
+
+  <!-- sobrancelhas -->
+  <path d="M182 236 C196 226 216 226 230 234" fill="none" stroke="#3a2440" stroke-width="7" stroke-linecap="round"/>
+  <path d="M282 234 C296 226 316 226 330 236" fill="none" stroke="#3a2440" stroke-width="7" stroke-linecap="round"/>
+
+  <!-- olhos -->
+  <ellipse cx="210" cy="276" rx="30" ry="36" fill="#ffffff" stroke="#3a2440" stroke-width="5"/>
+  <ellipse cx="302" cy="276" rx="30" ry="36" fill="#ffffff" stroke="#3a2440" stroke-width="5"/>
+  <ellipse cx="212" cy="280" rx="20" ry="27" fill="url(#iris)"/>
+  <ellipse cx="304" cy="280" rx="20" ry="27" fill="url(#iris)"/>
+  <ellipse cx="212" cy="284" rx="9" ry="14" fill="#2b0710"/>
+  <ellipse cx="304" cy="284" rx="9" ry="14" fill="#2b0710"/>
+  <circle cx="204" cy="266" r="8" fill="#ffffff"/>
+  <circle cx="296" cy="266" r="8" fill="#ffffff"/>
+  <circle cx="220" cy="294" r="4" fill="#ffd9de" opacity="0.9"/>
+  <circle cx="312" cy="294" r="4" fill="#ffd9de" opacity="0.9"/>
+
+  <!-- bochechas e boca -->
+  <ellipse cx="172" cy="318" rx="20" ry="11" fill="#ff9db0" opacity="0.45"/>
+  <ellipse cx="340" cy="318" rx="20" ry="11" fill="#ff9db0" opacity="0.45"/>
+  <path d="M244 334 C250 344 262 344 268 334" fill="none" stroke="#a64a5c" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- selo cupcake -->
+  <circle cx="430" cy="430" r="62" fill="#ffffff" stroke="#8fcdf5" stroke-width="5"/>
+  <circle cx="430" cy="430" r="52" fill="#fdf3ea"/>
+  <path d="M402 430 h56 l-6 30 a8 8 0 0 1 -8 7 h-28 a8 8 0 0 1 -8 -7 Z" fill="#e8a15c" stroke="#b9722f" stroke-width="3"/>
+  <path d="M400 428 C404 402 456 402 460 428 Z" fill="#ffd1e0" stroke="#ffffff" stroke-width="3"/>
+  <circle cx="430" cy="400" r="9" fill="#e0263e"/>
+  <path d="M430 392 C432 382 438 378 444 376" fill="none" stroke="#3f8f3f" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- brilhos -->
+  <path d="M92 120 l7 20 20 7 -20 7 -7 20 -7 -20 -20 -7 20 -7 Z" fill="#ffffff" opacity="0.9"/>
+  <path d="M420 150 l5 14 14 5 -14 5 -5 14 -5 -14 -14 -5 14 -5 Z" fill="#ffffff" opacity="0.75"/>
+</svg>

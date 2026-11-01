@@ -247,12 +247,74 @@ detalhados em [`activity/DEPLOY.md`](activity/DEPLOY.md). O frontend fica em
 
 ### 💰 Mila Economy (Confeitaria Virtual)
 - Moeda: **Açúcares** (🍬)  
-- `/diario` – Resgata recompensa diária (com bônus por streak)  
-- `/trabalhar` – Mini-jogos para ganhar açúcares (ex: "decorar bolo", "vender doces")  
-- `/loja` – Compra itens como "Bolo Personalizado", "Confeiteiro VIP", "Emotes exclusivos"  
+- `/economia` – Painel principal com botões (diário, trabalho, loja, carteira)  
+- `/diario` – Recompensa diária com **streak** (até 7 dias de bônus + prêmio raro)  
+- `/trabalhar` – Turno de 20s: digite a receita no canal e receba a gorjeta (crítico = +50%)  
+- `/loja` – Catálogo privado por categorias: selecione o item, adicione ao carrinho, confira quantidades e total, então finalize; `/carrinho` abre o mesmo fluxo  
+- `/carteira` – Saldo, nível, posições no ranking, histórico e estatísticas  
+- `/extrato` – Últimas movimentações da conta (diário, trabalho, compras, doações)  
+- `/colecao` – Mochila com cartas e itens coletados  
+- `/conquistas` – 11 conquistas da economia (do primeiro diário ao título de criador)  
+- `/coletar` – Roleta de cartas por 100 🍬  
 - `/doar @usuario <quantidade>` – Presenteia outros membros  
-- `/ranking` – Mostra os maiores "confeiteiros" do servidor  
-- Eventos sazonais como "Festival de Chocolate" ou "Semana do Cupcake" com recompensas limitadas
+- `/ranking` – Maiores confeiteiros do servidor (açúcares ou nível)  
+- `/perfil` – Perfil completo com nível, XP, sequência e conquistas  
+
+#### 🪟 Temas visuais (2009–2012)
+Toda a economia é desenhada como uma "janela" de programa antigo. A equipe troca o
+visual do servidor com `/tema` (ou pelos botões do painel):
+
+| id | Tema |
+| --- | --- |
+| `win7` | Windows 7 Aero |
+| `hangouts` | Google Hangouts |
+| `gplus` | Google+ 2012 |
+| `skype` | Skype 2012 |
+| `facebook` | Facebook 2012 |
+| `ddtank` | DDTank |
+
+O tema fica salvo por servidor em `data/servidores.json` (`temaEconomia`), então
+todos os comandos da economia, os botões e o site usam o mesmo visual.
+
+#### 🌐 Site da Mila (Mila OS)
+O site roda no **mesmo processo do bot** e consulta as mesmas regras da economia
+(`utils/economyService.js`) e do jogo Pokémon (`utils/pokemon.js`), então os dados
+não divergem dos comandos do Discord.
+
+O site sobe **junto com o bot**: basta `npm start` e abrir
+`http://localhost:3000`. Nenhuma variável é obrigatória.
+
+```env
+MILA_SITE_URL=http://localhost:3000   # link exibido no bot
+WEB_ATIVO=true      # padrão: true — use false para desligar
+WEB_PORT=3000
+WEB_HOST=0.0.0.0
+WEB_PUBLIC_URL=     # opcional, usado em links
+```
+
+Para rodar **só o site** (sem Discord): `npm run web`.
+
+O link do site aparece em `/economia`, `/perfil` e `/sobre`, e também é
+gravado na descrição pública do bot no Discord (aba "Sobre" da aplicação)
+toda vez que a Mila fica online.
+
+- `http://localhost:3000` – site com Manual, ranking, loja, perfis, painel Pokémon, criadora e referências
+- O visual inicial é aleatório entre Facebook, Google+, 4shared, MediaFire e Friv; o seletor fica no botão discreto no canto da página
+- API JSON: `/api/status`, `/api/temas`, `/api/comandos`, `/api/loja`, `/api/ranking`,
+  `/api/perfil?username=...`, `/api/servidor/:id`, `/api/conquistas`,
+  `/api/pokemon/servidores`, `/api/pokemon/loja`, `/api/pokemon/info`,
+  `/api/pokemon/ranking` e `/api/pokemon/perfil`
+- Ícone e mascote da Mila (MiSide) em `assets/mila-icone.png` e
+  `assets/mila-economia.png` (também copiados para `web/public/assets/`)  
+
+O painel Pokémon mostra a Pokédex, rankings, catálogo, perfil, coleção,
+inventário, favoritos e missões sem alterar contas. Para fazer capturas,
+compras, resgates ou mudanças de configuração, use os comandos do Discord.
+As buscas de perfil usam o username global e só encontram pessoas já
+conhecidas/cacheadas pelo bot; apelidos de servidor e IDs não são solicitados.
+
+> O criador `acupcakecatsocial` é reconhecido em **todos** os servidores, aparece
+> com 👑 no ranking e tem saldo infinito exibido como `+999999`.
 
 ### 🎮 Mila Games (Mini-games e Colecionismo)
 - `/coletar` – Gira uma "roleta de doces" para coletar personagens (ex: "Cupcake", "Donut", "Brownie")  
@@ -261,6 +323,25 @@ detalhados em [`activity/DEPLOY.md`](activity/DEPLOY.md). O frontend fica em
 - `/trocar @usuario <personagem>` – Troca personagens com amigos  
 - `/evento` – Participa de eventos limitados (ex: "Caça ao Ovo de Páscoa")  
 - Personagens com histórias próprias, arte original e evoluções (ex: "Cupcake → Cupcake Supremo")
+
+### 🌿 Mila Pokémon (encontros, captura e coleção)
+- Encontros aparecem em mensagens elegíveis, com sprites animados quando disponíveis e arte estática como alternativa. A PokéAPI é consultada com timeout e espécies ficam em cache local.
+- A equipe ativa o sistema com `/pokemon configurar ativo:true` e pode silenciar, ajustar chance/intervalo e restringir os encontros com `/pokemon canal`. Há no máximo um encontro ativo por servidor; mensagens elegíveis respeitam a chance e o intervalo configurados.
+- `/pokemon manual` abre o guia completo do jogo: regras de encontro e captura, raridades, itens, favoritos e comandos.
+- Capture digitando o nome no canal do encontro ou usando `/pokemon capturar`; confira sua coleção com `/pokemon colecao` e consulte espécies com `/pokemon info`.
+- `/pokemon perfil [usuario]` mostra coleção global e do servidor, brilhantes, posições nos rankings, captura recente, equipamento, inventário e favoritos. O perfil é público e pode mostrar você ou outra pessoa do servidor.
+- `/pokemon ranking` mostra as capturas deste servidor; escolha `Global` para ver o placar combinado de todos os servidores da Mila. Capturas feitas após esta atualização são atribuídas ao servidor correto; capturas anteriores seguem contando no perfil e no global.
+- `/pokemon favorito` salva espécies por servidor. Em `/pokemon avisos`, cada pessoa escolhe separadamente se aceita pings e alertas de favoritos; ambos os pings são opcionais e começam desligados.
+- `/pokemon loja` abre um catálogo privado no estilo da loja principal: categorias, seletor de itens, carrinho, total e confirmação antes do débito. O catálogo traz 34 bolas, incluindo as variantes clássicas, estratégicas, Apricorn e de Hisui, além de incenso e molduras; os preços e bônus são próprios deste minijogo.
+- `/pokemon missoes` acompanha objetivos permanentes e uma missão diária (renova à meia-noite UTC) e permite resgatar Great, Friend, Ultra, Quick e Master Balls. As recompensas só são entregues uma vez por missão/período.
+- `/pokemon comprar`, `/pokemon inventario`, `/pokemon usar` e `/pokemon equipar` continuam disponíveis para ações diretas; a Master Ball garante a captura e os itens são comprados com Açúcares.
+- `/pokemon duelo usuario tamanho` cria uma partida PvP em um servidor: escolha 1 Pokémon ou equipes de 2 a 6; cada treinador seleciona apenas capturas da própria coleção. Os turnos têm golpes com PP e precisão, prioridades, tipos, atributos, status, trocas e HP atualizado com sprites animados. O nível é normalizado para 50; habilidades, itens de batalha, clima, EVs/naturezas e outras regras competitivas avançadas não estão simulados.
+- `/pokemon ginasio desafio` inicia um combate PvE com equipe de 2 a 6 contra o líder. Para receber a insígnia, vença e inclua na sua equipe pelo menos um Pokémon da lista específica mostrada no desafio; `/pokemon insignias [usuario]` e `/pokemon perfil` consultam as conquistas. Resultados e insígnias ficam no SQLite; convites e partidas em andamento são temporários e terminam se o processo reiniciar.
+- Os atalhos de prefixo incluem `$pokemon duelo @pessoa 1`, `$pokemon duelo @pessoa 3`, `$pokemon ginasio trilha 3` e `$pokemon insignias [@pessoa]`.
+- Arceus não aparece em encontros: o perfil `acupcakecatsocial` recebe uma única entrada global, registrada com Master Ball, visível na coleção e no perfil em todos os servidores da Mila.
+- Comandos também funcionam por prefixo: `$pokemon manual`, `$pokemon perfil @pessoa`, `$pokemon ranking` e `$pokemon ranking global`. Para canais, `$pokemon canal` lista a configuração; `$pokemon canal adicionar` usa o canal atual; `$pokemon canal #pokemon` ou `$pokemon canal pokemon` seleciona um canal pelo nome; `remover` aceita o mesmo formato. Exemplo: `$pokemon configurar ativo on chance 5 intervalo 15`.
+- Para encontrar o slash, digite `/pokemon` no campo de mensagem e escolha o comando (a lista aberta apenas com `/` pode estar rolada para outra letra). O registro foi verificado no escopo global e no servidor configurado. Se não aparecer após filtrar, confirme se está no servidor configurado e se o bot foi convidado com o escopo `applications.commands`; para republicar, confirme `CLIENT_ID` e `DISCORD_TOKEN` no `.env` e rode `npm run deploy:pokemon`. Esse comando publica/atualiza **somente** `/pokemon`, sem substituir os demais comandos slash.
+- Valide o sistema offline com `npm run test:pokemon` (inclui o teste isolado `npm run test:pokemon-battle`).
 
 ### 📈 Mila Level (Sistema de XP)
 - XP por mensagens, voz e participação em eventos  

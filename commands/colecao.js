@@ -1,38 +1,40 @@
-const { criarEmbed, THEME } = require('../utils/theme');
 const db = require('../utils/db');
+const UI = require('../utils/economyUI');
+const theme = require('../utils/economyTheme');
 
 module.exports = {
   data: {
     name: 'colecao',
-    description: 'Vê as cartas e itens colecionáveis na sua mochila',
+    description: '🎒 Veja as cartas e itens guardados na sua mochila',
     options: [
       {
         name: 'usuario',
-        description: 'Qual mochila?',
-        type: 6, // USER
-        required: false
-      }
-    ]
+        description: 'Ver a mochila de outra pessoa',
+        type: 6,
+        required: false,
+      },
+    ],
   },
-  async execute(interaction) {
+  async execute(interaction, client) {
     const alvo = interaction.options?.getUser('usuario') || interaction.user;
-    if (alvo.bot) return interaction.reply({ content: '❌ Máquinas não brincam com coleções...', ephemeral: true });
-
-    // Consulta os itens a partir do join no banco
-    const items = db.getInventario(alvo.id);
-
-    if (items.length === 0) {
-      return interaction.reply({ content: `🎒 A mochila de **${alvo.username}** está tão vazia que tem até teia de aranha por lá...\nRecomendo usar o \`/coletar\` para começar a jornada!`, ephemeral: true });
+    if (alvo.bot) {
+      return interaction.reply({ content: '❌ Máquinas não brincam com coleções...', ephemeral: true });
     }
 
-    const textoFormatado = items.map(inv => `**${inv.quantidade}x** — ${inv.item_id}`).join('\n');
+    const tema = theme.temaDe(interaction);
+    const itens = db.getInventario(alvo.id);
+    const total = db.contarInventario(alvo.id);
+    const distintos = db.contarItensDistintos(alvo.id);
 
-    const embed = criarEmbed({
-      titulo: `🎒 Coleção de ${alvo.username}`,
-      descricao: `Olha quanta coisa temos guardada por aqui!\n\n${THEME.div.bolinhas}\n\n${textoFormatado}`,
-      cor: THEME.corBubblegum
+    const embed = UI.embedColecao({
+      tema,
+      client,
+      membro: alvo,
+      itens,
+      total,
+      distintos,
     });
 
-    await interaction.reply({ embeds: [embed] });
-  }
+    await interaction.reply(UI.comMascote(embed));
+  },
 };

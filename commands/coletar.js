@@ -1,65 +1,83 @@
-const { criarEmbed, THEME } = require('../utils/theme');
 const db = require('../utils/db');
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const loja = require('../utils/economyLoja');
+const service = require('../utils/economyService');
+const UI = require('../utils/economyUI');
+const theme = require('../utils/economyTheme');
+const criador = require('../utils/criador');
 
-const PRECO_ROLETA = 100;
-// Lista de Cards com chances ponderadas de sair (1 = Raro, 10 = Especial, 50 = Incomum, 100 = Comum)
-const CARDS = [
-  { id: 'card_cupcake', name: '🧁 Cupcake Comum', rarity: 'Comum', weight: 100, visual: 'https://i.imgur.com/uR1QzQn.png' },
-  { id: 'card_donut', name: '🍩 Donut Glaceado', rarity: 'Comum', weight: 100, visual: 'https://i.imgur.com/C7WlOQJ.png' },
-  { id: 'card_trufado', name: '🍫 Bolo Trufado', rarity: 'Incomum', weight: 50, visual: 'https://i.imgur.com/Y3v1L75.png' },
-  { id: 'card_macaron', name: '🍡 Macaron Mágico', rarity: 'Especial', weight: 10, visual: 'https://i.imgur.com/uA3xNqX.png' },
-  { id: 'card_mila', name: '✨ Mila Supremo', rarity: 'Raro', weight: 1, visual: 'https://i.imgur.com/M6L2yH9.png' }
-];
+const PRECO = 100;
 
-function pickRandomCard() {
-  const totalWeight = CARDS.reduce((sum, c) => sum + c.weight, 0);
-  let r = Math.random() * totalWeight;
-  for (let card of CARDS) {
-    if (r < card.weight) return card;
-    r -= card.weight;
-  }
-  return CARDS[0]; // Fallback
-}
+const CORES_RARIDADE = {
+  Comum: 0x95A5A6,
+  Incomum: 0x3498DB,
+  Especial: 0x9B59B6,
+  Raro: 0xF1C40F,
+};
 
 module.exports = {
   data: {
     name: 'coletar',
-    description: `Gira a roleta de doces puxando uma carta aleatória (custa ${PRECO_ROLETA} 🍬)`,
+    description: `🎰 Gire a roleta da confeitaria e tente uma carta rara (custa ${PRECO} 🍬)`,
   },
-  async execute(interaction) {
+  async execute(interaction, client) {
+    const tema = theme.temaDe(interaction);
     const usuario = db.getUsuario(interaction.user.id);
+    const ehCriador = criador.ehCriador(interaction.user);
+    const saldo = ehCriador ? criador.PONTOS_INFINITOS : Number(usuario.acucares) || 0;
 
-    if (usuario.acucares < PRECO_ROLETA) {
-      return interaction.reply({ content: `❌ Você não tem a ficha da máquina! Custa **${PRECO_ROLETA} 🍬**, mas você só tem **${usuario.acucares} 🍬**. Tente voltar amanhã pra usar o /diario!`, ephemeral: true });
+    if (!ehCriador && saldo < PRECO) {
+      return interaction.reply({
+        embeds: [
+          theme.janelaAviso(
+            tema,
+            'Roleta sem ficha',
+            `A ficha custa \`${PRECO}\` ${theme.MOEDA}, mas você tem \`${theme.formatarNumero(saldo)}\`.\n\n` +
+              `Use \`/diario\` ou \`/trabalhar\` para juntar mais açúcares.`,
+            { rodape: 'Mila Roleta' }
+          ),
+        ],
+        ephemeral: true,
+      });
     }
 
-    // Processa a grana do giro
-    db.addAcucares(interaction.user.id, -PRECO_ROLETA);
-    const drop = pickRandomCard();
-    db.addInventario(interaction.user.id, drop.name, 1); // Salva no SQLite o drop pelo Nome
+    if (!ehCriador) {
+      db.addAcucares(interaction.user.id, -PRECO);
+      db.incrementarEstatistica(interaction.user.id, 'gasto', PRECO);
+      db.registrarTransacao(interaction.user.id, 'coleta', -PRECO, 'Girada na roleta');
+    }
+    db.incrementarEstatistica(interaction.user.id, 'coleta', 1);
 
-    let colorInfo = THEME.corDado;
-    if (drop.rarity === 'Incomum') colorInfo = THEME.corInfo;
-    if (drop.rarity === 'Especial') colorInfo = THEME.corSucesso;
-    if (drop.rarity === 'Raro') colorInfo = THEME.corPrincipal;
+    const carta = loja.sortearCarta(false);
+    db.addInventario(interaction.user.id, carta.nome, 1);
+    const conquistas = service.concederConquistas(interaction.user.id);
 
-    const embed = criarEmbed({
-      titulo: '🎰 Roleta de Colecionáveis girou...',
-      descricao: `**O que será que veio?**\nVocê gastou ${PRECO_ROLETA} 🍬 na máquina e ouviu um *plim*!\n\n${THEME.div.estrelado}\n\n🎉 Parabéns! Você tirou o personagem: **${drop.name}**\n**Raridade:** \`${drop.rarity}\``,
-      cor: colorInfo,
-      // Se tivéssemos imagens hosteds, dropariamos no .image ou URL original
+    const cor = CORES_RARIDADE[carta.raridade] || tema.cor;
+    const saldoFinal = ehCriador ? criador.PONTOS_INFINITOS : db.getUsuario(interaction.user.id).acucares;
+
+    const descricao =
+      `${theme.linhaUsuario(tema, interaction.user, 'roleta girada')}\n\n` +
+      `${theme.separador(tema)}\n\n` +
+      `**${carta.nome}**\n\n` +
+      `${tema.marcador} Raridade: \`${carta.raridade}\`\n` +
+      `${tema.marcador} Custo: \`${PRECO}\` ${theme.MOEDA}\n` +
+      `${tema.marcador} Saldo: \`${UI.saldoTexto(saldoFinal, ehCriador)}\` ${theme.MOEDA}\n\n` +
+      `${theme.separador(tema)}\n\n` +
+      `*A carta foi guardada na sua mochila. Veja com \`/colecao\`.*` +
+      (conquistas.length
+        ? `\n\n🏆 **Conquistas:** ${conquistas.map((c) => `${c.emoji} ${c.nome}`).join(' · ')}`
+        : '');
+
+    const embed = theme.janela({
+      tema,
+      titulo: 'Roleta da Confeitaria',
+      descricao,
+      cor,
+      thumbnail: interaction.user.displayAvatarURL?.({ size: 128 }),
+      autorNome: `${tema.icone} Mila · Roleta`,
+      autorIcone: client?.user?.displayAvatarURL?.({ size: 128 }),
+      rodape: `${tema.rodape} · boa sorte`,
     });
 
-    // Option pra abrir/ver a mochila imediatamente
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-          .setCustomId('btn_dummy_rolou')
-          .setLabel('Guardado na Mochila!')
-          .setStyle(ButtonStyle.Secondary)
-          .setDisabled(true)
-    );
-
-    await interaction.reply({ embeds: [embed], components: [row] });
-  }
+    await interaction.reply(UI.comMascote(embed));
+  },
 };

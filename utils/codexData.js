@@ -6,6 +6,9 @@ const CATEGORIAS = {
   util: { nome: '🛠️ Utilidades', cor: 0x00CED1, emoji: '🛠️' },
   organizacao: { nome: '📚 Organização', cor: 0x8B5CF6, emoji: '📚' },
   admin: { nome: '🛡️ Admin', cor: 0xFF0044, emoji: '🛡️' },
+  economia: { nome: '🍬 Economia', cor: 0xE5A528, emoji: '🍬' },
+  musica: { nome: '🎵 Música', cor: 0x5865F2, emoji: '🎵' },
+  pokemon: { nome: '🔴 Pokémon', cor: 0xE3350D, emoji: '🔴' },
 };
 
 const COMANDOS = [
@@ -192,14 +195,6 @@ const COMANDOS = [
     descricao: 'Mila Shield — painel de segurança em tempo real.',
     uso: '$securitybreach',
     exemplo: 'Filtra membros, busca, histórico.',
-  },
-  {
-    nome: 'avisar',
-    categoria: 'admin',
-    emoji: '⚠️',
-    descricao: 'Aplica uma advertência formal a um membro.',
-    uso: '$avisar @user motivo',
-    exemplo: 'Registra e notifica o usuário.',
   },
   {
     nome: 'omnitrix',

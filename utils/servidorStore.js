@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { normalizarTema, TEMA_PADRAO } = require('./economyThemeData');
 
 const CAMINHO_ARQUIVO = path.join(__dirname, '..', 'data', 'servidores.json');
 const CAMINHO_BACKUP = path.join(__dirname, '..', 'data', 'servidores.backup.json');
@@ -27,6 +28,8 @@ function configPadrao() {
     canalOnOff: null,
     canalTicketFixo: null,
     tts: { idioma: 'pt-BR', perfil: 'padrao', voz: '', dizerNome: false },
+    // Tema visual da Economia (win7 | hangouts | gplus | skype | facebook | ddtank)
+    temaEconomia: TEMA_PADRAO,
   };
 }
 
@@ -103,6 +106,7 @@ function normalizarConfig(cfg) {
   resultado.cargosStaff = Array.isArray(cfg.cargosStaff) ? cfg.cargosStaff : [];
   resultado.anuncios = { ...padrao.anuncios, ...(cfg.anuncios || {}) };
   resultado.tts = { ...padrao.tts, ...(cfg.tts || {}) };
+  resultado.temaEconomia = normalizarTema(cfg.temaEconomia);
   return resultado;
 }
 

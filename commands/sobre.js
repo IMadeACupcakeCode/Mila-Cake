@@ -1,6 +1,8 @@
 const { criarEmbed, THEME } = require('../utils/theme');
 const { COMANDO_SOBRE, CONTEXTO_SERVIDOR } = require('../utils/configuracao');
 const { mostrarDigitando } = require('../utils/milaDecoracao');
+const criador = require('../utils/criador');
+const site = require('../utils/milaSite');
 
 module.exports = {
   data: { name: COMANDO_SOBRE.nome, description: COMANDO_SOBRE.descricao },
@@ -20,6 +22,11 @@ module.exports = {
         `✧ **Tickets** — Mila Tickets 🎫\n` +
         `✧ **Jogos** — Forca, Guerra de Cartas (1v1, facções e placar)\n` +
         `✧ **Utilidades** — Lembretes, Enquetes\n\n` +
+        `${THEME.div.linha}\n\n` +
+        `${site.linha()}\n` +
+        `*Economia, temas e ranking também no navegador~*\n\n` +
+        `👑 **Criador:** @${criador.NOME_CRIADOR}\n` +
+        `*Ele tem açúcares infinitos (+999999) e é reconhecido em todos os servidores~* ♡\n\n` +
         `${THEME.div.coracao}\n\n` +
         'Use `$codex` pra ver todos os meus comandos!\n' +
         'Tô sempre aqui por você~ 💕\n\n' +

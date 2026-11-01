@@ -4,9 +4,11 @@ const { Client, GatewayIntentBits, ActivityType, Partials } = require('discord.j
 const { THEME } = require('./utils/theme');
 const { reagendarTodosLembretes } = require('./utils/agendador');
 const { handlePrefix } = require('./utils/prefix');
+const pokemon = require('./utils/pokemon');
 const { handleReaction } = require('./utils/guerraManager');
 const logger = require('./utils/logger');
 const db = require('./utils/db');
+const criador = require('./utils/criador');
 const { registrar, tratar } = require('./utils/slash');
 const { isStaff } = require('./utils/perms');
 
@@ -182,6 +184,17 @@ client.once('clientReady', () => {
     status: 'online',
   });
 
+  // Descrição pública da aplicação no Discord (com o site da Mila).
+  (async () => {
+    try {
+      const milaSite = require('./utils/milaSite');
+      const descricao = await milaSite.atualizarDescricaoAplicacao(client);
+      if (descricao) console.log(`🌐 Site na descrição do bot: ${milaSite.url()}`);
+    } catch (erro) {
+      console.warn('Não consegui atualizar a descrição do bot:', erro?.message || erro);
+    }
+  })();
+
   reagendarTodosLembretes(client);
 
   // Embed fixo de ticket — aparece online, some offline
@@ -189,10 +202,30 @@ client.once('clientReady', () => {
 
   // Registro dos comandos slash (guild-scoped quando GUILD_ID existe).
   // Falhas de registro não impedem o bot de continuar online via prefixo.
-  registrar().catch((erro) => console.error('Erro inesperado no registro slash:', erro));
+  registrar(client).catch((erro) => console.error('Erro inesperado no registro slash:', erro));
 
   // Aviso online no canal configurado
   avisarOnline(client);
+
+  // Reconhece o criador em todos os servidores onde a Mila está.
+  criador.associarClient(client);
+  criador.resolverNoCliente(client).then(() => {
+    const resultado = pokemon.garantirArceusDoCriador();
+    if (resultado.ok) console.log(`🌟 Arceus exclusivo sincronizado para o criador (${resultado.userId}).`);
+    else if (resultado.motivo === 'criador_nao_resolvido') {
+      console.warn(`Não consegui resolver o criador (@${criador.NOME_CRIADOR}); Arceus será sincronizado quando ele usar um comando.`);
+    }
+  }).catch((erro) => {
+    console.warn(`Não consegui resolver o criador (@${criador.NOME_CRIADOR}):`, erro?.message || erro);
+  });
+
+  // Site da Mila (Economia + temas). Só sobe com WEB_ATIVO=true.
+  try {
+    const { iniciarServidorWeb } = require('./web/server');
+    iniciarServidorWeb(client);
+  } catch (erro) {
+    console.error('Não consegui iniciar o site da Mila:', erro?.message || erro);
+  }
 });
 
 client.on('messageCreate', async (message) => {
@@ -200,6 +233,13 @@ client.on('messageCreate', async (message) => {
     console.log(`↩️ Mensagem ${message.id} ignorada: já processada por outra instância (PID ${process.pid}).`);
     return;
   }
+
+  pokemon.processarMensagem(message).catch((erro) => {
+    console.error('[Pokémon] Erro ao processar mensagem:', erro?.message || erro);
+  });
+
+  // Reconhece o criador já na primeira mensagem (aprende o ID pelo @).
+  criador.marcar(message.author);
 
   // Processa sistema de economia/XP primeiro para nao depender de ser ou n comando
   if (!message.author.bot && message.guild) {
@@ -209,8 +249,9 @@ client.on('messageCreate', async (message) => {
       const bonus = progresso.level * 50;
       // Envia parabéns pela subida de nível e paga uma gorgetinha
       db.addAcucares(message.author.id, bonus);
+      const selo = criador.selo(message.author);
       try {
-        message.channel.send(`🎉 Parabéns ${message.author.toString()}, você alcançou o **Nível ${progresso.level}**! (Bônus: ${bonus} 🍬)`).catch(() => {});
+        message.channel.send(`🎉 Parabéns ${message.author.toString()}, você alcançou o **Nível ${progresso.level}**! (Bônus: ${criador.formatarGanho(message.author, bonus)} 🍬)${selo ? ` ${selo}` : ''}`).catch(() => {});
       } catch {}
     }
   }
@@ -223,6 +264,14 @@ client.on('messageReactionAdd', async (reaction, user) => {
     await handleReaction(reaction, user);
   } catch (error) {
     console.error('Erro ao processar reação de guerra:', error);
+  }
+  try {
+    const forca = require('./utils/forcaManager');
+    if (typeof forca.handleReaction === 'function') {
+      await forca.handleReaction(reaction, user);
+    }
+  } catch (error) {
+    console.error('Erro ao processar reação da forca:', error);
   }
 });
 
@@ -240,9 +289,36 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
+  if ((interaction.isButton() || interaction.isStringSelectMenu()) && interaction.customId?.startsWith('pb:')) {
+    try {
+      await require('./commands/pokemon').tratarComponente(interaction);
+    } catch (erro) {
+      console.error('[Pokémon] Erro ao processar componente de batalha:', erro);
+      const payload = {
+        content: 'Não consegui processar essa ação da batalha. Tente novamente ou abra o seletor outra vez.',
+        embeds: [],
+        components: [],
+        allowedMentions: { parse: [] },
+      };
+      try {
+        if (interaction.deferred || interaction.replied) await interaction.followUp({ ...payload, ephemeral: true });
+        else await interaction.reply({ ...payload, ephemeral: true });
+      } catch (erroResposta) {
+        console.error('[Pokémon] Não foi possível informar o erro do componente:', erroResposta);
+      }
+    }
+    return;
+  }
+
   if (interaction.isButton() || interaction.isStringSelectMenu()) {
     const codex = require('./commands/codex');
     if (await codex.tratarComponente(interaction)) return;
+  }
+
+  // Botões do painel de Economia (eco:diario, eco:trabalhar, eco:loja, eco:tema:...)
+  if (interaction.isButton() && interaction.customId?.startsWith('eco:')) {
+    const { tratarComponenteEconomia } = require('./utils/economyManager');
+    if (await tratarComponenteEconomia(interaction, client)) return;
   }
 });
 
@@ -260,8 +336,24 @@ client.on('guildCreate', async (guild) => {
       `⋆｡°✩ Entrei no servidor ${guild.name} (${guild.id}) — ` +
         (boas.ok ? `boas-vindas em #${boas.canal}` : `boas-vindas: ${boas.motivo}`)
     );
+
+    // O criador também é reconhecido em servidores novos.
+    await criador.resolverGuild(guild);
   } catch (erro) {
     console.error(`⋆｡°✩ Erro na chegada ao servidor ${guild.id}:`, erro?.message || erro);
+  }
+});
+
+// ── Criador entra em um servidor ──
+// Reconhece na hora, mesmo que ele ainda não tenha falado nada.
+client.on('guildMemberAdd', (member) => {
+  const criadorId = criador.marcar(member);
+  if (!criadorId) return;
+  try {
+    const resultado = pokemon.garantirArceusDoCriador(member);
+    if (resultado.ok) console.log(`🌟 Arceus exclusivo sincronizado após a chegada do criador (${resultado.userId}).`);
+  } catch (erro) {
+    console.error('Não consegui sincronizar o Arceus exclusivo do criador:', erro?.message || erro);
   }
 });
 
@@ -648,10 +740,27 @@ client.on('interactionCreate', async (interaction) => {
       // Remove da mensagem
       forca.JOGOS.delete(interaction.message?.id);
 
-      // Inicia o jogo imediatamente para QUALQUER modo (solo)
-      // Para jogar com amigos, usar $forca vs @user
+      if (modo === 'maquina') {
+        await interaction.deferUpdate();
+        await forca.iniciarJogo(interaction, { dificuldade, modo });
+        return;
+      }
+
+      // Multiplayer: pede para escolher os oponentes (1 ou mais)
       await interaction.deferUpdate();
-      await forca.iniciarJogo(interaction, { dificuldade, modo });
+      const { UserSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+      const sel = new UserSelectMenuBuilder()
+        .setCustomId('forca_select_oponentes')
+        .setPlaceholder('Selecione 1 ou mais jogadores para disputar')
+        .setMinValues(1)
+        .setMaxValues(10);
+      const selRow = new ActionRowBuilder().addComponents(sel);
+      const selMsg = await interaction.channel.send({
+        content: 'Modo ' + (modo === 'cooperativo' ? 'Cooperativo' : 'Competitivo') + ' selecionado (dificuldade: ' + dificuldade + '). Selecione os jogadores para disputar:',
+        components: [selRow],
+      });
+      forca.JOGOS.set(selMsg.id, { modo, dificuldade, dono: { id: interaction.user.id, tag: interaction.user.tag }, selecionando: true });
+      forca.JOGOS.set(interaction.user.id, { modo, dificuldade });
       return;
     }
 
@@ -673,6 +782,31 @@ client.on('interactionCreate', async (interaction) => {
       dados.dificuldade = dif;
       forca.JOGOS.set(interaction.message?.id || chave, dados);
       return interaction.deferUpdate();
+    }
+
+    // Selecao de oponentes (UserSelectMenu) para multiplayer
+    if (interaction.isUserSelectMenu() && interaction.customId === 'forca_select_oponentes') {
+      const sessao = forca.JOGOS.get(interaction.message?.id) || forca.JOGOS.get(interaction.user.id) || {};
+      const modo = sessao.modo;
+      const dificuldade = sessao.dificuldade;
+      if (!modo || !dificuldade) {
+        return interaction.reply({ content: 'Selecione modo e dificuldade primeiro.', ephemeral: true });
+      }
+      const selecionados = interaction.values || [];
+      const membros = [];
+      for (const uid of selecionados) {
+        try {
+          const m = await interaction.guild.members.fetch(uid);
+          if (m && !m.user.bot) membros.push(m);
+        } catch {}
+      }
+      if (membros.length === 0) {
+        return interaction.reply({ content: 'Selecione ao menos um jogador válido.', ephemeral: true });
+      }
+      await interaction.deferUpdate().catch(() => {});
+      try { await interaction.message.delete(); } catch {}
+      await forca.criarConvite(interaction, dificuldade, modo, membros);
+      return;
     }
 
     // ── Botão Tentar Letra ──
@@ -843,6 +977,7 @@ if (intents.includes(GatewayIntentBits.GuildMembers) && intents.includes(Gateway
             if (m.presence) presenceMap.set(m.id, m.presence.status || 'offline');
           }
         }
+        // (removido: referência inválida a "message" no boot)
       }
       console.log(`${THEME.iconeFooter} Cache de membros/presença populado.`);
     } catch (err) {

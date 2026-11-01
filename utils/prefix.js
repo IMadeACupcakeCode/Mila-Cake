@@ -8,7 +8,8 @@ const { adicionarLembrete, carregarLembretes, removerLembrete, filtrarLembretes 
 const { agendarLembrete } = require('./agendador');
 const { parseTempo, formatarDuracao, formatarDataAbsoluta } = require('./tempo');
 const crypto = require('crypto');
-const { isStaff } = require('./perms');
+const { isStaff, isCriador } = require('./perms');
+const { marcar } = require('./criador');
 const codex = require('../commands/codex');
 const { mostrarDigitando } = require('./milaDecoracao');
 const arcade = require('./arcade');
@@ -81,6 +82,16 @@ const SIGNATURES = {
   ship: [{ name: 'usuario1', user: true }, { name: 'usuario2', user: true }],
   antiship: [{ name: 'usuario1', user: true }, { name: 'usuario2', user: true }],
   social: [{ name: 'usuario', user: true, optional: true }],
+  retiraracucares: [{ name: 'usuario', user: true, required: true }, { name: 'quantidade', int: true, required: true }],
+  roletacor: [{ name: 'oponente', user: true, required: true }, { name: 'aposta', int: true, required: true }],
+  parouimpar: [{ name: 'oponente', user: true, required: true }, { name: 'aposta', int: true, required: true }],
+  coinflipduelo: [{ name: 'oponente', user: true, required: true }, { name: 'aposta', int: true, required: true }],
+  maiorcarta: [{ name: 'oponente', user: true, required: true }, { name: 'aposta', int: true, required: true }],
+  dadoduelo: [{ name: 'oponente', user: true, required: true }, { name: 'aposta', int: true, required: true }],
+  jokenpo: [{ name: 'oponente', user: true, required: true }, { name: 'aposta', int: true, required: true }],
+  blackjack: [{ name: 'aposta', int: true, required: true }],
+  doar: [{ name: 'usuario', user: true, required: true }, { name: 'quantidade', int: true, required: true }],
+  presentear: [{ name: 'usuario', user: true, required: true }, { name: 'item', token: true, optional: true }, { name: 'quantidade', int: true, optional: true }],
   status: [],
   votar: 'especial',
   letra: [{ name: 'busca', rest: true }],
@@ -149,6 +160,8 @@ function responder(mensagem, embed, ephemeral) {
  */
 function autorizarComando(mod, message) {
   const meta = mod?.meta || {};
+  // O criador da Mila tem passe livre em qualquer servidor.
+  if (isCriador(message.author) || isCriador(message.member)) return null;
   if (meta.guildOnly && !message.guildId) return '❌ Este comando só pode ser usado dentro de um servidor.';
   if (meta.staff && !isStaff(message.member)) return '❌ Você não tem permissão para usar este comando.';
   if (meta.permissions?.length) {
@@ -379,6 +392,10 @@ async function handlePrefix(message, client) {
   // Ignore messages from ourselves to prevent loops
   if (message.author.id === client.user?.id) return;
 
+  // Aprende/confirma o ID do criador a cada comando por prefixo.
+  marcar(message.author);
+  marcar(message.member);
+
   const agora = Date.now();
   const ultimaExecucao = mensagensPrefixoProcessadas.get(message.id);
   if (ultimaExecucao && agora - ultimaExecucao < TEMPO_DEDUPLICACAO) return;
@@ -408,8 +425,16 @@ async function handlePrefix(message, client) {
   const fingerprint = `${message.guild?.id || 'dm'}:${message.author.id}:${message.channelId}:${message.id}`;
   if (!reivindicarComando(fingerprint)) return;
 
-  // Configurar é livre em qualquer canal (para reconfigurar)
-  if (comando !== 'configurar') {
+  // Configurar e os comandos da Economia são livres em qualquer canal: assim
+  // `$trabalhar`, `$doar`, `$economia` etc. funcionam por prefixo do mesmo
+  // jeito que funcionam por `/`, sem depender da lista de canais permitidos.
+  const comandosEconomiaLivres = new Set([
+    'economia', 'trabalhar', 'diario', 'coletar', 'loja', 'carteira', 'perfil',
+    'ranking', 'extrato', 'tema', 'conquistas', 'colecao', 'doar', 'presentear',
+    'blackjack', 'aposta', 'jokenpo', 'parouimpar', 'maiorcarta', 'dadoduelo',
+    'roletacor', 'coinflip', 'cassino', 'pokemon',
+  ]);
+  if (comando !== 'configurar' && !comandosEconomiaLivres.has(comando)) {
     if (guildId) {
       const checagem = verificarCanal(guildId, message.channelId, cfg);
       if (!checagem.ok) {
@@ -1102,8 +1127,17 @@ async function handlePrefix(message, client) {
 
       const { JOGOS, DIFICULDADES } = require('./forcaManager');
       const config = JOGOS.get(message.author.id);
-      const dificuldade = config?.dificuldade || 'normal';
-      const modo = config?.modo || 'competitivo';
+      let dificuldade = config?.dificuldade || 'normal';
+      let modo = config?.modo || 'competitivo';
+      for (const a of args.slice(2)) {
+        const low = String(a).toLowerCase();
+        if (['coop', 'cooperativo', 'co-op', 'cooperative'].includes(low)) modo = 'cooperativo';
+        else if (['comp', 'competitivo', 'competitive'].includes(low)) modo = 'competitivo';
+        else {
+          const { DIFICULDADES } = require('./forcaManager');
+          if (DIFICULDADES.some(d => d.id === low)) dificuldade = low;
+        }
+      }
       const nomes = convidados.map(m => m.user.tag).join(', ');
       const difNome = DIFICULDADES.find(d => d.id === dificuldade)?.nome || 'Normal';
 
@@ -1154,6 +1188,9 @@ async function handlePrefix(message, client) {
         modo,
         aceitos: [],
       });
+
+      // Suporte a reacoes (alem dos botoes)
+      try { await conviteMsg.react('✅'); await conviteMsg.react('❌'); } catch {}
 
       setTimeout(() => {
         const s = JOGOS.get(conviteMsg.id);
@@ -1268,6 +1305,27 @@ async function handlePrefix(message, client) {
 
   // ── Demais comandos (bridge a partir dos módulos de comando) ──
   if (EXTRA[comando]) {
+    if (typeof EXTRA[comando].executePrefix === 'function') {
+      const bloqueio = autorizarComando(EXTRA[comando], message);
+      if (bloqueio) {
+        return responder(
+          message,
+          criarEmbed({ titulo: 'Acesso restrito', descricao: `${THEME.div.bolinhas}\n\n${bloqueio}\n\n${THEME.div.bolinhas}`, cor: THEME.corErro }),
+          true
+        );
+      }
+      try {
+        await EXTRA[comando].executePrefix(message, args, client);
+      } catch (erro) {
+        logger.erro(`Erro ao executar ${prefixo}${comando}: ${erro?.message || erro}`, { usuario: message.author.username, comando: `${prefixo}${comando}` });
+        await responder(
+          message,
+          criarEmbed({ titulo: 'Algo se perdeu no caminho', descricao: 'Tive um problema ao executar esse comando. Tente novamente.', cor: THEME.corErro }),
+          true
+        ).catch(() => {});
+      }
+      return;
+    }
     const valores = await parseArgs(comando, args, message, client);
     if (valores === null) {
       return responder(

@@ -1,9 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const { REST, Routes, PermissionFlagsBits } = require('discord.js');
-const { isStaff } = require('./perms');
-
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+const { isStaff, isCriador } = require('./perms');
+const { marcar } = require('./criador');
 
 const comandos = new Map();
 const interacoesEmProcessamento = new Set();
@@ -92,29 +91,47 @@ function listarJson() {
   return Array.from(comandos.values()).map((comando) => comando.json || serializarData(comando.data));
 }
 
-async function registrar() {
-  const { CLIENT_ID, GUILD_ID, DISCORD_TOKEN } = process.env;
+async function registrar(client = null) {
+  const { CLIENT_ID, DISCORD_TOKEN } = process.env;
   const resultado = carregar();
   if (!CLIENT_ID || !DISCORD_TOKEN) {
-    console.warn(`⚠️ Registro slash desativado: faltam ${!CLIENT_ID ? 'CLIENT_ID' : ''}${!CLIENT_ID && !DISCORD_TOKEN ? ' e ' : ''}${!DISCORD_TOKEN ? 'DISCORD_TOKEN' : ''}. Comandos carregados: ${comandos.size}.`);
+    console.warn(`⚠ Registro slash desativado: faltam ${!CLIENT_ID ? 'CLIENT_ID' : ''}${!CLIENT_ID && !DISCORD_TOKEN ? ' e ' : ''}${!DISCORD_TOKEN ? 'DISCORD_TOKEN' : ''}. Comandos carregados: ${comandos.size}.`);
     return { ok: false, skipped: true, ...resultado };
   }
 
   const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
-  const route = GUILD_ID
-    ? Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID)
-    : Routes.applicationCommands(CLIENT_ID);
-
-  try {
-    await rest.put(route, { body: listarJson() });
-    console.log(`✧ ⎯ ੭ Slash commands registrados (${comandos.size}${GUILD_ID ? ` na guild ${GUILD_ID}` : ''}).`);
-    return { ok: true, ...resultado };
-  } catch (erro) {
-    console.error('Erro ao registrar slash commands:', erro?.message || erro);
-    return { ok: false, ...resultado, error: erro };
+  const body = listarJson();
+  const guildIds = new Set();
+  if (client?.guilds?.cache) {
+    for (const guild of client.guilds.cache.values()) guildIds.add(guild.id);
   }
-}
+  if (process.env.GUILD_ID) guildIds.add(process.env.GUILD_ID);
 
+  let okGlobal = false;
+  try {
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body });
+    okGlobal = true;
+    console.log(`✅ 🔗 ⚡ Slash commands registrados globalmente (${comandos.size}).`);
+  } catch (erro) {
+    console.error('Erro ao registrar slash commands globais:', erro?.message || erro);
+  }
+
+  const resultadosGuild = [];
+  for (const guildId of guildIds) {
+    try {
+      await rest.put(Routes.applicationGuildCommands(CLIENT_ID, guildId), { body });
+      resultadosGuild.push({ guildId, ok: true });
+    } catch (erro) {
+      resultadosGuild.push({ guildId, ok: false, error: erro?.message || erro });
+      console.error(`Erro ao registrar slash commands na guild ${guildId}:`, erro?.message || erro);
+    }
+  }
+  if (guildIds.size) {
+    console.log(`✅ 🔗 ⚡ Slash commands registrados em ${resultadosGuild.filter((r) => r.ok).length}/${guildIds.size} guild(s).`);
+  }
+
+  return { ok: okGlobal || resultadosGuild.some((r) => r.ok), ...resultado, guildResults: resultadosGuild };
+}
 function temPermissao(membro, permissao) {
   if (!permissao) return true;
   if (!membro?.permissions?.has) return false;
@@ -123,6 +140,8 @@ function temPermissao(membro, permissao) {
 
 async function preflight(interaction, cmd) {
   const meta = cmd.meta || {};
+  // O criador da Mila tem passe livre em qualquer servidor.
+  if (isCriador(interaction.user) || isCriador(interaction.member)) return null;
   if (meta.guildOnly && !interaction.guildId) return '❌ Este comando só pode ser usado dentro de um servidor.';
   if (meta.staff && !isStaff(interaction.member)) return '❌ Você não tem permissão para usar este comando.';
   if (meta.permissions && !meta.permissions.some((permissao) => temPermissao(interaction.member, permissao))) {
@@ -143,6 +162,9 @@ async function responderErro(interaction, mensagem) {
 
 async function tratar(interaction, client) {
   if (!interaction?.isAutocomplete?.() && !interaction?.isChatInputCommand?.()) return false;
+  // Aprende/confirma o ID do criador a cada interação.
+  marcar(interaction.user);
+  marcar(interaction.member);
   if (interaction.isChatInputCommand() && interaction.id) {
     if (interacoesEmProcessamento.has(interaction.id)) return true;
     interacoesEmProcessamento.add(interaction.id);
@@ -179,6 +201,7 @@ async function tratar(interaction, client) {
 }
 
 if (require.main === module) {
+  require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
   registrar().then((resultado) => {
     if (!resultado.ok && !resultado.skipped) process.exitCode = 1;
   });

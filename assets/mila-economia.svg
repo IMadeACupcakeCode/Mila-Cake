@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="1024" viewBox="0 0 768 1024" role="img" aria-label="Mascote da Mila">
+  <defs>
+    <linearGradient id="ceu" x1="0" y1="0" x2="0.2" y2="1">
+      <stop offset="0" stop-color="#f2fbff"/>
+      <stop offset="0.28" stop-color="#a9dcf8"/>
+      <stop offset="0.66" stop-color="#3a86c8"/>
+      <stop offset="1" stop-color="#0b3a6b"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.42" r="0.6">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="0.42" y2="1">
+      <stop offset="0" stop-color="#403052"/>
+      <stop offset="0.5" stop-color="#251a34"/>
+      <stop offset="1" stop-color="#120c1c"/>
+    </linearGradient>
+    <linearGradient id="dress" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.7" stop-color="#eaf2fb"/>
+      <stop offset="1" stop-color="#c8dbef"/>
+    </linearGradient>
+    <radialGradient id="iris" cx="0.42" cy="0.34" r="0.85">
+      <stop offset="0" stop-color="#ff8b99"/>
+      <stop offset="0.5" stop-color="#e0263e"/>
+      <stop offset="1" stop-color="#760b1b"/>
+    </radialGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff6172"/>
+      <stop offset="1" stop-color="#ac0f28"/>
+    </linearGradient>
+    <linearGradient id="vidro" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.15"/>
+    </linearGradient>
+    <linearGradient id="cupcake" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd6e5"/>
+      <stop offset="1" stop-color="#f59ab9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- papel de parede Aero -->
+  <rect width="768" height="1024" fill="url(#ceu)"/>
+  <circle cx="384" cy="420" r="430" fill="url(#halo)"/>
+  <circle cx="640" cy="150" r="210" fill="#ffffff" opacity="0.10"/>
+  <circle cx="90" cy="760" r="190" fill="#062a52" opacity="0.18"/>
+
+  <!-- janelas flutuantes de 2009 -->
+  <g opacity="0.42">
+    <rect x="58" y="120" width="196" height="132" rx="10" fill="url(#vidro)" stroke="#ffffff" stroke-width="3"/>
+    <rect x="58" y="120" width="196" height="30" rx="10" fill="#ffffff" opacity="0.5"/>
+    <circle cx="76" cy="135" r="5" fill="#3a86c8"/>
+    <rect x="72" y="164" width="150" height="9" rx="4" fill="#3a86c8" opacity="0.55"/>
+    <rect x="72" y="184" width="120" height="9" rx="4" fill="#3a86c8" opacity="0.4"/>
+    <rect x="72" y="204" width="136" height="9" rx="4" fill="#3a86c8" opacity="0.3"/>
+  </g>
+  <g opacity="0.5">
+    <rect x="520" y="640" width="188" height="120" rx="10" fill="url(#vidro)" stroke="#ffffff" stroke-width="3"/>
+    <rect x="520" y="640" width="188" height="28" rx="10" fill="#ffffff" opacity="0.5"/>
+    <rect x="536" y="684" width="120" height="9" rx="4" fill="#2e75b6" opacity="0.55"/>
+    <rect x="536" y="704" width="148" height="9" rx="4" fill="#2e75b6" opacity="0.4"/>
+  </g>
+
+  <!-- balões de conversa -->
+  <g opacity="0.8">
+    <path d="M112 300 h150 a18 18 0 0 1 18 18 v56 a18 18 0 0 1 -18 18 h-104 l-26 26 v-26 h-20 a18 18 0 0 1 -18 -18 v-56 a18 18 0 0 1 18 -18 Z" fill="#ffffff" opacity="0.85" stroke="#8fcdf5" stroke-width="3"/>
+    <circle cx="168" cy="346" r="7" fill="#7fba00"/>
+    <rect x="186" y="336" width="76" height="9" rx="4" fill="#9bb3c9"/>
+    <rect x="186" y="354" width="56" height="9" rx="4" fill="#c3d3e2"/>
+  </g>
+  <g opacity="0.75">
+    <path d="M612 300 h96 a16 16 0 0 1 16 16 v48 a16 16 0 0 1 -16 16 h-48 l-22 22 v-22 h-26 a16 16 0 0 1 -16 -16 v-48 a16 16 0 0 1 16 -16 Z" fill="#db4437" opacity="0.85"/>
+    <rect x="628" y="330" width="66" height="9" rx="4" fill="#ffffff" opacity="0.85"/>
+    <rect x="628" y="350" width="44" height="9" rx="4" fill="#ffffff" opacity="0.65"/>
+  </g>
+
+  <!-- brilhos -->
+  <g fill="#ffffff">
+    <path d="M470 92 l8 24 24 8 -24 8 -8 24 -8 -24 -24 -8 24 -8 Z" opacity="0.9"/>
+    <path d="M300 150 l6 18 18 6 -18 6 -6 18 -6 -18 -18 -6 18 -6 Z" opacity="0.7"/>
+    <path d="M118 540 l6 18 18 6 -18 6 -6 18 -6 -18 -18 -6 18 -6 Z" opacity="0.65"/>
+    <path d="M660 500 l7 20 20 7 -20 7 -7 20 -7 -20 -20 -7 20 -7 Z" opacity="0.7"/>
+  </g>
+
+  <!-- ══ MILA ══ -->
+  <!-- cabelo de trás -->
+  <path d="M196 420 C160 220 244 128 384 128 C524 128 608 220 572 420
+           C566 560 548 680 512 760 C470 738 430 744 384 756
+           C338 744 298 738 256 760 C220 680 202 560 196 420 Z"
+        fill="url(#hair)"/>
+  <path d="M214 400 C206 268 264 178 344 146" fill="none" stroke="#6a5388" stroke-width="14" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- pernas -->
+  <path d="M330 790 h44 v118 h-44 z" fill="#ffe3d7"/>
+  <path d="M394 790 h44 v118 h-44 z" fill="#ffe3d7"/>
+  <path d="M318 900 h68 v46 a10 10 0 0 1 -10 10 h-58 a10 10 0 0 1 -10 -10 Z" fill="#2b1a3d"/>
+  <path d="M382 900 h68 v46 a10 10 0 0 1 -10 10 h-58 a10 10 0 0 1 -10 -10 Z" fill="#2b1a3d"/>
+  <rect x="322" y="890" width="60" height="12" rx="6" fill="#e0263e"/>
+
+  <!-- vestido -->
+  <path d="M250 800 C258 640 306 560 384 560 C462 560 510 640 518 800
+           C480 826 430 834 384 834 C338 834 288 826 250 800 Z"
+        fill="url(#dress)" stroke="#b9cee2" stroke-width="4"/>
+  <path d="M266 782 C316 806 452 806 502 782 L512 818 C458 842 310 842 256 818 Z" fill="#e0263e" opacity="0.9"/>
+  <path d="M296 586 C320 626 448 626 472 586 L454 566 L314 566 Z" fill="#eef4fb" stroke="#cfdfef" stroke-width="3"/>
+
+  <!-- pescoço -->
+  <path d="M352 520 h64 v46 h-64 z" fill="#f0c7bb"/>
+
+  <!-- laço -->
+  <path d="M384 566 L326 536 L332 592 Z" fill="url(#ribbon)"/>
+  <path d="M384 566 L442 536 L436 592 Z" fill="url(#ribbon)"/>
+  <circle cx="384" cy="566" r="15" fill="#d81e37" stroke="#8d0c1e" stroke-width="3"/>
+
+  <!-- orelhas -->
+  <ellipse cx="236" cy="360" rx="24" ry="38" fill="#ffe0d5"/>
+  <ellipse cx="532" cy="360" rx="24" ry="38" fill="#ffe0d5"/>
+
+  <!-- rosto -->
+  <ellipse cx="384" cy="344" rx="150" ry="162" fill="#ffe8dd"/>
+  <ellipse cx="384" cy="384" rx="128" ry="110" fill="#fff2ea" opacity="0.6"/>
+
+  <!-- franja -->
+  <path d="M230 306 C240 190 302 142 384 142 C466 142 528 190 538 306
+           C510 276 480 294 452 262 C430 288 408 278 384 300
+           C360 278 338 288 316 262 C288 294 258 276 230 306 Z" fill="url(#hair)"/>
+  <path d="M250 288 C262 210 310 172 360 162" fill="none" stroke="#6a5388" stroke-width="12" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- mechas laterais -->
+  <path d="M232 306 C210 368 212 470 236 566 C258 500 260 400 256 336 Z" fill="url(#hair)"/>
+  <path d="M536 306 C558 368 556 470 532 566 C510 500 508 400 512 336 Z" fill="url(#hair)"/>
+
+  <!-- presilha de estrela -->
+  <path d="M486 220 l7 18 19 2 -14 14 4 19 -16 -10 -17 10 4 -19 -14 -14 19 -2 Z" fill="#ffd166" stroke="#e0a72e" stroke-width="2"/>
+
+  <!-- sobrancelhas -->
+  <path d="M292 300 C314 286 342 286 362 298" fill="none" stroke="#3a2440" stroke-width="9" stroke-linecap="round"/>
+  <path d="M406 298 C426 286 454 286 476 300" fill="none" stroke="#3a2440" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- olhos -->
+  <ellipse cx="326" cy="366" rx="42" ry="50" fill="#ffffff" stroke="#3a2440" stroke-width="6"/>
+  <ellipse cx="442" cy="366" rx="42" ry="50" fill="#ffffff" stroke="#3a2440" stroke-width="6"/>
+  <ellipse cx="328" cy="372" rx="28" ry="38" fill="url(#iris)"/>
+  <ellipse cx="444" cy="372" rx="28" ry="38" fill="url(#iris)"/>
+  <ellipse cx="328" cy="378" rx="13" ry="20" fill="#2b0710"/>
+  <ellipse cx="444" cy="378" rx="13" ry="20" fill="#2b0710"/>
+  <circle cx="318" cy="352" r="11" fill="#ffffff"/>
+  <circle cx="434" cy="352" r="11" fill="#ffffff"/>
+  <circle cx="338" cy="394" r="5" fill="#ffd9de" opacity="0.9"/>
+  <circle cx="454" cy="394" r="5" fill="#ffd9de" opacity="0.9"/>
+
+  <!-- bochechas e boca -->
+  <ellipse cx="262" cy="434" rx="28" ry="15" fill="#ff9db0" opacity="0.45"/>
+  <ellipse cx="506" cy="434" rx="28" ry="15" fill="#ff9db0" opacity="0.45"/>
+  <path d="M368 448 C376 462 392 462 400 448" fill="none" stroke="#a64a5c" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- braços -->
+  <path d="M266 612 C240 660 262 706 310 716" fill="none" stroke="#ffe1d5" stroke-width="34" stroke-linecap="round"/>
+  <path d="M502 612 C528 660 506 706 458 716" fill="none" stroke="#ffe1d5" stroke-width="34" stroke-linecap="round"/>
+  <path d="M278 600 C252 648 274 690 314 700" fill="none" stroke="#eef4fb" stroke-width="26" stroke-linecap="round" opacity="0.8"/>
+  <path d="M490 600 C516 648 494 690 454 700" fill="none" stroke="#eef4fb" stroke-width="26" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- cupcake na mão -->
+  <g>
+    <path d="M326 690 h116 l-12 62 a14 14 0 0 1 -14 12 h-64 a14 14 0 0 1 -14 -12 Z" fill="#e8a15c" stroke="#b9722f" stroke-width="4"/>
+    <path d="M322 688 C330 640 438 640 446 688 Z" fill="url(#cupcake)" stroke="#ffffff" stroke-width="4"/>
+    <circle cx="384" cy="640" r="16" fill="#e0263e"/>
+    <path d="M384 624 C388 606 400 598 412 596" fill="none" stroke="#3f8f3f" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="356" cy="670" r="6" fill="#ffffff" opacity="0.8"/>
+    <circle cx="404" cy="676" r="5" fill="#ffffff" opacity="0.8"/>
+    <circle cx="326" cy="712" r="19" fill="#ffe1d5"/>
+    <circle cx="442" cy="712" r="19" fill="#ffe1d5"/>
+  </g>
+
+  <!-- corações flutuantes -->
+  <g fill="#ff6172" opacity="0.85">
+    <path d="M592 246 c-8 -14 -28 -10 -28 6 c0 12 16 22 28 32 c12 -10 28 -20 28 -32 c0 -16 -20 -20 -28 -6 Z"/>
+    <path d="M168 470 c-5 -9 -18 -6 -18 4 c0 8 10 14 18 20 c8 -6 18 -12 18 -20 c0 -10 -13 -13 -18 -4 Z" opacity="0.7"/>
+  </g>
+</svg>
