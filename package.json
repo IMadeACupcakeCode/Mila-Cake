@@ -2,6 +2,13 @@
   "name": "mila-bot",
   "version": "1.0.0",
   "description": "⋆｡°✩ Mila Bot — Sua assistente virtual favorita para Discord",
+  "author": "acupcakecatsocial (IMadeACupcakeCode)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IMadeACupcakeCode/Mila-Cake.git"
+  },
+  "homepage": "https://github.com/IMadeACupcakeCode/Mila-Cake#readme",
+  "license": "MIT",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {

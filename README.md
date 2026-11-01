@@ -1,8 +1,14 @@
 # 🍰 Mila Cake Bot
 
-**Mila Cake** é um bot multifuncional para Discord inspirado na essência de bots famosos (Loritta, Mudae, bots de música e economia), mas com identidade própria e temática de confeitaria, doces, festas e comunidade.
+**Mila Cake** é um bot multifuncional para Discord criado por **acupcakecatsocial** ([GitHub](https://github.com/IMadeACupcakeCode)). Reúne música, utilidades de comunidade, economia, jogos e coleção Pokémon em uma identidade própria.
 
-> A Mila é a "anfitriã" do seu servidor: presença amigável, divertida e útil. Ela traz utilidade, personalização, colecionismo, música, economia e sistemas de level — tudo com cara de bolo, cupcake e muita doçura.
+> A Mila é a anfitriã do servidor: presença amigável, utilidades de comunidade, personalização, música, economia, jogos e coleção Pokémon.
+
+## Open source e autoria
+
+O projeto foi criado por **acupcakecatsocial** — [GitHub: IMadeACupcakeCode](https://github.com/IMadeACupcakeCode) — e está licenciado sob a [MIT](./LICENSE). Você pode reutilizar, adaptar e redistribuir o código conforme os termos dessa licença; mantenha o aviso de copyright e a licença nas cópias ou partes substanciais.
+
+A MIT é permissiva: ela não obriga projetos derivados a publicar suas alterações. A licença cobre o código e os materiais originais do projeto, não concede direitos sobre marcas, personagens, sprites ou outros materiais de terceiros. Pokémon é uma propriedade de seus respectivos titulares; Mila Cake é um projeto independente, sem afiliação oficial.
 
 ---
 
@@ -10,7 +16,7 @@
 
 1. **Clone ou baixe este repositório**  
    ```bash
-   git clone <URL_DO_REPOSITORIO>
+   git clone https://github.com/IMadeACupcakeCode/Mila-Cake.git
    cd Mila-Cake
    ```
 
@@ -23,12 +29,12 @@
    Requisitos: **Node.js 22 ou superior** e um bot com as permissões **Ver canais**, **Enviar mensagens**, **Conectar** e **Falar** no canal de voz.
 
 3. **Configure as variáveis de ambiente**  
-   Crie um arquivo `.env` na raiz do projeto com:
+   Copie `.env.example` para `.env` e preencha, no mínimo, `DISCORD_TOKEN` e `CLIENT_ID` com valores da sua aplicação no Discord Developer Portal. `GUILD_ID` é opcional e ajuda a testar comandos em um servidor específico. Não compartilhe o `.env`, cookies, tokens ou segredos; eles nunca são necessários no repositório público.
    ```
-   DISCORD_TOKEN=SEU_TOKEN_DO_BOT_AQUI
-   CLIENT_ID=SEU_CLIENT_ID_DO_BOT (opcional, usado para gerar link de convite)
-   ENABLE_PRIVILEGED_INTENTS=true  # opcional, para cache de membros/presença
+   DISCORD_TOKEN=seu-token
+   CLIENT_ID=id-da-aplicacao
    ```
+   `ENABLE_PRIVILEGED_INTENTS` deve permanecer `false` salvo quando uma função necessária exigir acesso privilegiado e o intent correspondente estiver habilitado no Developer Portal. Para operação pública, troque `MILA_SITE_URL` e `WEB_PUBLIC_URL` pelo domínio HTTPS real. Mantenha `WEB_HOST=127.0.0.1` atrás de um proxy reverso; só use `0.0.0.0` quando o ambiente de hospedagem exigir escuta externa e estiver protegido por firewall/TLS.
 
 4. **Inicie o bot**  
    ```bash
@@ -285,12 +291,14 @@ O site sobe **junto com o bot**: basta `npm start` e abrir
 `http://localhost:3000`. Nenhuma variável é obrigatória.
 
 ```env
-MILA_SITE_URL=http://localhost:3000   # link exibido no bot
+MILA_SITE_URL=http://localhost:3000   # em produção, use o domínio HTTPS do site
 WEB_ATIVO=true      # padrão: true — use false para desligar
 WEB_PORT=3000
-WEB_HOST=0.0.0.0
-WEB_PUBLIC_URL=     # opcional, usado em links
+WEB_HOST=127.0.0.1  # use 0.0.0.0 apenas quando a hospedagem exigir
+WEB_PUBLIC_URL=     # opcional; URL pública HTTPS usada nos links
 ```
+
+`MILA_SITE_URL` e `WEB_PUBLIC_URL` devem apontar para o mesmo endereço público quando o site estiver hospedado. Em desenvolvimento local, `localhost` é esperado e não é um endereço para divulgar.
 
 Para rodar **só o site** (sem Discord): `npm run web`.
 
@@ -315,6 +323,11 @@ conhecidas/cacheadas pelo bot; apelidos de servidor e IDs não são solicitados.
 
 > O criador `acupcakecatsocial` é reconhecido em **todos** os servidores, aparece
 > com 👑 no ranking e tem saldo infinito exibido como `+999999`.
+
+O nome e os links acima identificam a autoria do projeto. Antes de reutilizar,
+redistribuir ou publicar uma versão derivada, confira a licença que será
+adicionada ao repositório; deixar o GitHub público, por si só, não concede
+permissão de uso do código.
 
 ### 🎮 Mila Games (Mini-games e Colecionismo)
 - `/coletar` – Gira uma "roleta de doces" para coletar personagens (ex: "Cupcake", "Donut", "Brownie")  

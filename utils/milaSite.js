@@ -5,18 +5,23 @@
 // Para trocar o domínio sem mexer no código: MILA_SITE_URL no .env
 
 const URL_PADRAO = 'http://localhost:3000';
-const TEXTO = 'localhost:3000';
 
 /** URL normalizada (sempre com http(s) e sem barra no final). */
 function url() {
   const bruto = String(process.env.MILA_SITE_URL || '').trim() || URL_PADRAO;
   const comProtocolo = /^https?:\/\//i.test(bruto) ? bruto : `https://${bruto}`;
-  return comProtocolo.replace(/\/+$/, '');
+  const parsed = new URL(comProtocolo);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new TypeError('MILA_SITE_URL deve usar http:// ou https://.');
+  }
+  return parsed.toString().replace(/\/+$/, '');
 }
 
-/** Link mascarado: mostra "Milablr.com" e abre o site ao clicar. */
+const TEXTO = new URL(url()).host;
+
+/** Link com o domínio configurado e o endereço real do site. */
 function link() {
-  return `[${TEXTO}](${url()})`;
+  return `[${new URL(url()).host}](${url()})`;
 }
 
 /** Linha pronta para o corpo de um embed. */
@@ -27,8 +32,8 @@ function linha() {
 /** Texto da descrição pública da aplicação (limite do Discord: 400). */
 function descricaoAplicacao() {
   return (
-    'Mila Cake 🧁 — a doceria virtual: economia de açúcares, diário, trabalho, ' +
-    `loja, ranking, conquistas e temas de 2009–2012. Site oficial: ${url()}`
+    'Mila Cake 🧁 — bot de comunidade com música, utilidades, economia, jogos e coleção Pokémon, batalhas e insígnias. ' +
+    `Criado por acupcakecatsocial. Site: ${url()}`
   ).slice(0, 400);
 }
 
