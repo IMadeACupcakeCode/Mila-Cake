@@ -93,7 +93,7 @@ function embedCarteira({ membro, dados }) {
 
   const descricao =
     `${THEME.div.bolinhas}\n\n` +
-    `**${membro.username || 'Confeiteiro(a)'}**${dados.ehCriador ? ' · 👑 criador(a) da Mila' : ''}\n\n` +
+    `**${membro.username || 'Confeiteiro(a)'}**${dados.ehCriador ? ' · 👑 Criador da Mila' : ''}\n\n` +
     `${THEME.div.linha}\n\n` +
     `💰 **Saldo:** \`${saldoTexto(dados.acucares, dados.ehCriador)}\` ${theme.MOEDA}\n` +
     `📊 **Posição:** \`#${dados.posicaoDinheiro}\` em açúcares · \`#${dados.posicaoXp}\` em XP\n` +
@@ -294,10 +294,10 @@ function embedRanking({ categoria, entradas, membro }) {
     ? entradas
         .map((e) => {
           const medalha = MEDALHAS[e.posicao - 1] || `\`#${e.posicao}\``;
-          const coroa = e.ehCriador ? ' 👑' : '';
+          const coroa = e.ehCriador ? ` · **${criador.CLASSIFICACAO_RANKING}** 👑` : '';
           const barra = theme.barra(e.valor, e.max, 10);
           const valor = dinheiro
-            ? `${criador.formatarPontos(e.id, e.valor)} ${theme.MOEDA}`
+            ? `${e.ehCriador ? criador.VALOR_RANKING : criador.formatarPontos(e.id, e.valor)} ${theme.MOEDA}`
             : `Nível \`${e.level}\` · \`${theme.formatarNumero(e.xp)}\` XP`;
           return `${medalha} <@${e.id}>${coroa}\n${barra} ${valor}`;
         })

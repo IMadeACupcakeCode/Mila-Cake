@@ -15,6 +15,8 @@ const playerSessions = new Map();
 const TEAM_PAGE_SIZE = 10;
 const SESSION_TTL_MS = 15 * 60 * 1000;
 const INVITATION_TTL_MS = 2 * 60 * 1000;
+const BADGES_PER_PAGE = 4;
+const BADGE_NAV_TTL_MS = 5 * 60 * 1000;
 const BUTTON_PREFIX = 'pb:';
 
 function nomeJogador(ctx, userId) {
@@ -469,6 +471,30 @@ async function encerrarBatalha(sessao, vencedorId, linhas = []) {
   try {
     const venceu = Boolean(vencedorId);
     const jogadorVenceu = sessao.kind === 'gym' ? vencedorId === sessao.playerId : venceu;
+
+    // ── XP para Pokémon da equipe do vencedor ──
+    if (venceu) {
+      const equipeVencedora = sessao.kind === 'gym'
+        ? sessao.teams.get(sessao.playerId)
+        : sessao.teams.get(vencedorId);
+      if (equipeVencedora) {
+        const xpBase = sessao.kind === 'gym' ? 300 : 150;
+        const xpPorPokemon = Math.floor(xpBase / Math.max(1, equipeVencedora.length));
+        for (const poke of equipeVencedora) {
+          if (poke.collectionId) {
+            const resultadoXp = pokemon.ganharXpPokemon(
+              sessao.kind === 'gym' ? sessao.playerId : vencedorId,
+              poke.collectionId,
+              xpPorPokemon
+            );
+            if (resultadoXp.ok && resultadoXp.subiu) {
+              linhas.push(`⬆️ **${poke.nome}** subiu para o nível **${resultadoXp.nivelNovo}**!`);
+            }
+          }
+        }
+      }
+    }
+
     if (sessao.kind === 'gym' && jogadorVenceu) {
       const resultado = battle.registrarVitoriaGinasio(
         sessao.playerId,
@@ -650,7 +676,49 @@ async function iniciarGinasio(ctx, gymId, teamSize) {
 
 async function listarInsigniasCommand(ctx, alvo) {
   const user = alvo || ctx.user;
-  return enviar(ctx, { embeds: [montarEmbedInsignias(user)] }, false);
+  let paginaAtual = 0;
+  const mensagem = ctx.isSlash
+    ? await ctx.interaction.reply({
+      embeds: [montarEmbedInsignias(user, paginaAtual)],
+      components: montarComponentesInsignias(paginaAtual),
+      fetchReply: true,
+    })
+    : await ctx.reply({
+      embeds: [montarEmbedInsignias(user, paginaAtual)],
+      components: montarComponentesInsignias(paginaAtual),
+    });
+  if (!mensagem?.createMessageComponentCollector) {
+    throw new Error('Não foi possível iniciar a navegação das insígnias.');
+  }
+  const coletor = mensagem.createMessageComponentCollector({
+    time: BADGE_NAV_TTL_MS,
+    filter: (componente) => componente.user.id === ctx.user.id,
+  });
+  coletor.on('collect', async (componente) => {
+    try {
+      const ultimaPagina = Math.ceil(battle.GYMS.length / BADGES_PER_PAGE) - 1;
+      const deslocamento = componente.customId === 'pokemon_insignias_anterior' ? -1 : 1;
+      const proximaPagina = Math.max(0, Math.min(ultimaPagina, paginaAtual + deslocamento));
+      paginaAtual = proximaPagina;
+      await componente.update({
+        embeds: [montarEmbedInsignias(user, paginaAtual)],
+        components: montarComponentesInsignias(paginaAtual),
+      });
+    } catch (erro) {
+      console.error('[Pokémon] Falha ao navegar pelas insígnias:', erro?.message || erro);
+      if (!componente.replied && !componente.deferred) {
+        await componente.reply({ content: 'Não consegui abrir essa página de insígnias. Tente novamente.', ephemeral: true });
+      }
+    }
+  });
+  coletor.on('end', async () => {
+    try {
+      await mensagem.edit({ components: [] });
+    } catch (erro) {
+      console.error('[Pokémon] Não consegui encerrar os controles das insígnias:', erro?.message || erro);
+    }
+  });
+  return mensagem;
 }
 
 async function responderPrivado(interaction, texto) {
@@ -904,17 +972,43 @@ async function tratarComponente(interaction) {
   return true;
 }
 
-function montarEmbedInsignias(user) {
+function montarEmbedInsignias(user, pagina = 0) {
   const insignias = battle.listarInsignias(user.id);
   const obtidas = insignias.filter((item) => item.obtida);
-  const descricao = insignias.map((item) => {
+  const totalPaginas = Math.max(1, Math.ceil(insignias.length / BADGES_PER_PAGE));
+  const paginaSegura = Math.max(0, Math.min(totalPaginas - 1, pagina));
+  const insigniasPagina = insignias.slice(paginaSegura * BADGES_PER_PAGE, (paginaSegura + 1) * BADGES_PER_PAGE);
+  const descricao = insigniasPagina.map((item) => {
     const data = item.obtidaEm ? ` · <t:${Math.floor(item.obtidaEm / 1000)}:d>` : '';
-    return `${item.obtida ? '🏅' : '🔒'} **${item.nome}** · líder ${item.lider}${data}`;
+    const ginasio = battle.GYMS.find((entry) => entry.id === item.id);
+    return `${item.obtida ? '🏅' : '🔒'} **${item.nome}** · líder ${item.lider}${data}\nDesafio: ${ginasio?.pokemonPermitidosNomes || 'equipe especial'}`;
   }).join('\n');
-  const embed = embedBase(`Insígnias · ${user.globalName || user.username}`, `**${obtidas.length}/${insignias.length} conquistadas**\n\n${descricao}`);
+  const embed = embedBase(
+    `Insígnias · ${user.globalName || user.username}`,
+    `**${obtidas.length}/${insignias.length} conquistadas** · página ${paginaSegura + 1}/${totalPaginas}\n\n${descricao}`
+  );
   const avatar = user.displayAvatarURL?.({ size: 128 });
   if (avatar) embed.setThumbnail(avatar);
   return embed;
+}
+
+function montarComponentesInsignias(pagina) {
+  const totalPaginas = Math.max(1, Math.ceil(battle.GYMS.length / BADGES_PER_PAGE));
+  if (totalPaginas <= 1) return [];
+  return [new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('pokemon_insignias_anterior')
+      .setLabel('Anterior')
+      .setEmoji('◀️')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(pagina === 0),
+    new ButtonBuilder()
+      .setCustomId('pokemon_insignias_proxima')
+      .setLabel('Próximo')
+      .setEmoji('▶️')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(pagina >= totalPaginas - 1)
+  )];
 }
 
 module.exports = {

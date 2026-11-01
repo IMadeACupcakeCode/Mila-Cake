@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
 
 process.env.MILA_DATABASE_PATH = ':memory:';
 
@@ -145,6 +146,20 @@ async function main() {
   assert.equal(preparado.moves.length, 4);
   assert.ok(preparado.moves.every((move) => move.ppAtual === move.pp));
   assert.ok(preparado.moves.some((move) => move.nome === 'Ataque Rápido'));
+  const equipeDoGinasio = await battle.prepararEquipeDoGinasio('trilha');
+  assert.equal(equipeDoGinasio.length, 3, 'a equipe do ginásio é carregada completa');
+  assert.deepEqual(equipeDoGinasio.map((item) => item.pokemonId), [25, 133, 143]);
+
+  const fetchDisponivel = global.fetch;
+  try {
+    global.fetch = async () => { throw new Error('teste: indisponível'); };
+    const especieReserva = await battle.obterEspecieDeBatalha(1000);
+    const movimentosReserva = await battle.obterMoveset(especieReserva);
+    assert.equal(especieReserva.id, 1000, 'dados básicos permitem batalha durante falha da PokéAPI');
+    assert.ok(movimentosReserva.length >= 2, 'golpes locais mantêm a batalha jogável sem a PokéAPI');
+  } finally {
+    global.fetch = fetchDisponivel;
+  }
 
   const ataque = battle.calcularDano(combatente(), combatente({ tipos: ['grass'] }), {
     tipo: 'fire',
@@ -317,6 +332,41 @@ async function main() {
   });
   assert.equal(database.prepare('SELECT COUNT(*) AS total FROM pokemon_battle_results').get().total, 2);
 
+  await battleCommand.iniciarGinasio(ctx, 'trilha', 2);
+  idSessao = mensagemPublica.components[0].toJSON().components[0].custom_id.split(':')[1];
+  const botaoAbrirGinasio = mensagemPublica.components
+    .flatMap((row) => row.toJSON().components)
+    .find((item) => item.custom_id === `pb:${idSessao}:open-picker:${userId}`);
+  let seletorGinasio = null;
+  await battleCommand.tratarComponente(simularInteracao(botaoAbrirGinasio.custom_id, challenger, {
+    reply: async (payload) => { seletorGinasio = payload; },
+  }));
+  const escolhasGinasio = seletorGinasio.components
+    .flatMap((row) => row.toJSON().components)
+    .filter((item) => item.custom_id.includes(`pb:${idSessao}:pick:`))
+    .slice(0, 2);
+  assert.equal(escolhasGinasio.length, 2);
+  for (const escolha of escolhasGinasio) {
+    await battleCommand.tratarComponente(simularInteracao(escolha.custom_id, challenger, {
+      update: async (payload) => { seletorGinasio = { ...seletorGinasio, ...payload }; },
+    }));
+  }
+  const confirmarGinasio = seletorGinasio.components
+    .flatMap((row) => row.toJSON().components)
+    .find((item) => item.custom_id === `pb:${idSessao}:team-done`);
+  await battleCommand.tratarComponente(simularInteracao(confirmarGinasio.custom_id, challenger, {
+    deferUpdate: async () => {},
+    editReply: async () => {},
+  }));
+  const sessaoGinasio = battleCommand.internals.sessions.get(idSessao);
+  assert.equal(sessaoGinasio.status, 'battle', 'confirmação da equipe inicia a batalha do ginásio');
+  assert.equal(sessaoGinasio.teams.get(sessaoGinasio.npcId).length, 3, 'a equipe do líder é carregada no fluxo do ginásio');
+  await battleCommand.tratarComponente(simularInteracao(`pb:${idSessao}:forfeit`, challenger, {
+    deferUpdate: async () => {},
+  }));
+  assert.equal(battleCommand.internals.sessions.has(idSessao), false, 'encerrar o ginásio libera a sessão do treinador');
+  assert.equal(database.prepare('SELECT COUNT(*) AS total FROM pokemon_battle_results').get().total, 3);
+
   const subcommands = command.data.options.map((option) => option.name);
   assert.ok(subcommands.includes('duelo'));
   assert.ok(subcommands.includes('ginasio'));
@@ -331,12 +381,25 @@ async function main() {
   assert.equal(prefixDuel.tamanho, 3);
   assert.equal(command.internals.opcoesPrefixo('ginasio', ['trilha', '4'], { mentions: {} }).desafio, 'trilha');
   let insigniasPayload = null;
+  const badgeCollector = new EventEmitter();
+  const badgeMessage = {
+    createMessageComponentCollector: () => badgeCollector,
+    edit: async () => {},
+  };
   await battleCommand.listarInsigniasCommand({
     user: { id: userId, username: 'Teste' },
     isSlash: false,
-    reply: async (payload) => { insigniasPayload = payload; },
+    reply: async (payload) => { insigniasPayload = payload; return badgeMessage; },
   });
   assert.ok(insigniasPayload.embeds[0].data.description.includes(`1/${battle.GYMS.length} conquistadas`));
+  assert.equal(insigniasPayload.components[0].toJSON().components[1].label, 'Próximo');
+  let paginaInsignias;
+  await badgeCollector.listeners('collect')[0]({
+    customId: 'pokemon_insignias_proxima',
+    user: { id: userId },
+    update: async (payload) => { paginaInsignias = payload; },
+  });
+  assert.ok(paginaInsignias.embeds[0].data.description.includes('página 2/2'));
 
   console.log('✅ Batalhas Pokémon: cálculo, status, equipes, ginásios, insígnias e comandos validados.');
 }

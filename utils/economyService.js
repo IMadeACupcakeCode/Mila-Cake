@@ -89,7 +89,7 @@ const CONQUISTAS = [
     id: 'criador',
     nome: 'Criador da Mila',
     emoji: '👑',
-    descricao: 'Reconhecido(a) pela própria Mila.',
+    descricao: 'Reconhecido pelo criador da Mila.',
     verifica: (e, extras) => Boolean(extras.ehCriador),
   },
 ];
@@ -232,6 +232,17 @@ function posicaoRanking(userId, categoria = 'money') {
   const lista = db.db
     .prepare(`SELECT id FROM usuarios ORDER BY ${coluna}`)
     .all();
+  if (categoria !== 'xp') {
+    const criadores = criador.idsConhecidos();
+    const posicaoCriador = criadores.indexOf(String(userId));
+    if (posicaoCriador >= 0) return posicaoCriador + 1;
+
+    const comuns = lista.filter((linha) => !criadores.includes(linha.id));
+    const indiceComum = comuns.findIndex((linha) => linha.id === userId);
+    return indiceComum >= 0
+      ? criadores.length + indiceComum + 1
+      : criadores.length + comuns.length + 1;
+  }
   const indice = lista.findIndex((linha) => linha.id === userId);
   return indice >= 0 ? indice + 1 : lista.length + 1;
 }
@@ -267,24 +278,27 @@ function ranking(categoria = 'money', limite = 10) {
     }));
   }
 
-  // Dinheiro: o criador sempre lidera com +999999.
+  // Keep the creator above anomalous balances without changing anyone's data.
   const base = db.getTopAcucares(100);
   const porId = new Map(base.map((l) => [l.id, { ...l }]));
-  for (const id of criador.idsConhecidos()) {
-    const atual = porId.get(id) || { id, acucares: criador.PONTOS_INFINITOS };
-    porId.set(id, { ...atual, acucares: criador.PONTOS_INFINITOS });
-  }
-  const lista = [...porId.values()]
-    .sort((a, b) => (Number(b.acucares) || 0) - (Number(a.acucares) || 0))
-    .slice(0, lim);
-  const max = Math.max(1, ...lista.map((l) => criador.pontosDe(l.id, l.acucares)));
+  const criadores = criador.idsConhecidos().map((id) => (
+    porId.get(id) || { id, acucares: criador.PONTOS_INFINITOS }
+  ));
+  const idsCriadores = new Set(criadores.map((l) => l.id));
+  const comuns = base.filter((l) => !idsCriadores.has(l.id));
+  const lista = [...criadores, ...comuns].slice(0, lim);
+  const max = Math.max(1, ...lista
+    .filter((l) => !idsCriadores.has(l.id))
+    .map((l) => Number(l.acucares) || 0));
   return lista.map((l, i) => ({
     posicao: i + 1,
     id: l.id,
-    valor: criador.pontosDe(l.id, l.acucares),
+    valor: idsCriadores.has(l.id) ? max : Number(l.acucares) || 0,
     acucares: criador.pontosDe(l.id, l.acucares),
+    valorFormatado: idsCriadores.has(l.id) ? criador.VALOR_RANKING : null,
+    classificacao: idsCriadores.has(l.id) ? criador.CLASSIFICACAO_RANKING : null,
     max,
-    ehCriador: criador.ehCriador(l.id),
+    ehCriador: idsCriadores.has(l.id),
   }));
 }
 
@@ -301,11 +315,17 @@ function extrato(userId, limite = 10) {
 // ── Doação ────────────────────────────────────────────────────────────
 function doar(deId, paraId, quantidade) {
   const valor = Number(quantidade);
-  if (!Number.isInteger(valor) || valor <= 0) return { ok: false, motivo: 'valor' };
+  if (!Number.isSafeInteger(valor) || valor <= 0) return { ok: false, motivo: 'valor' };
   if (deId === paraId) return { ok: false, motivo: 'mesmo_usuario' };
 
   const ehCriador = criador.ehCriador(deId);
   const saldoAntes = db.getUsuario(deId).acucares;
+  const saldoDestino = db.getUsuario(paraId).acucares;
+  if (
+    !Number.isSafeInteger(saldoAntes) ||
+    !Number.isSafeInteger(saldoDestino) ||
+    !Number.isSafeInteger(saldoDestino + valor)
+  ) return { ok: false, motivo: 'saldo_invalido' };
   if (!ehCriador && saldoAntes < valor) return { ok: false, motivo: 'sem_saldo', saldo: saldoAntes };
 
   const sucesso = db.transferirAcucares(deId, paraId, valor);
@@ -330,9 +350,8 @@ function doar(deId, paraId, quantidade) {
 
 // ?"? Doacao de itens (presentes) ?"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?�"?
 function doarItem(deId, paraId, itemId, quantidade = 1) {
-  const item = loja.buscarItem(itemId);
-  if (!item) return { ok: false, motivo: 'item_invalido' };
   if (deId === paraId) return { ok: false, motivo: 'mesmo_usuario' };
+  const item = loja.buscarItem(itemId) || { id: itemId, nome: itemId, emoji: '🎁' };
   const qtd = Math.max(1, Number(quantidade) || 1);
   const sucesso = db.transferirItem(deId, paraId, itemId, qtd);
   if (!sucesso) return { ok: false, motivo: 'sem_item' };
@@ -350,6 +369,32 @@ function doarItem(deId, paraId, itemId, quantidade = 1) {
     quantidade: qtd,
     ehCriador: criador.ehCriador(deId),
   };
+}
+
+// ── Venda de itens da mochila ─────────────────────────────────────────
+function venderItem(userId, itemId, quantidade = 1) {
+  const item = loja.buscarItem(itemId);
+  if (!item) return { ok: false, motivo: 'item_invalido' };
+  const qtd = Math.max(1, Number(quantidade) || 1);
+  const inv = db.getInventario(userId).find((i) => String(i.item_id) === String(itemId));
+  if (!inv || Number(inv.quantidade) < qtd) return { ok: false, motivo: 'sem_item' };
+
+  const precoUnitario = Math.max(1, Math.floor((Number(item.preco) || 0) / 2));
+  const valor = precoUnitario * qtd;
+
+  const removeu = db.removerInventario(userId, itemId, qtd);
+  if (!removeu) return { ok: false, motivo: 'sem_item' };
+
+  const ehCriador = criador.ehCriador(userId);
+  if (!ehCriador) db.addAcucares(userId, valor);
+
+  try {
+    db.registrarTransacao(userId, 'venda', valor, `Vendeu ${qtd}x ${item.nome}`);
+  } catch {}
+  concederConquistas(userId);
+
+  const saldo = ehCriador ? criador.PONTOS_INFINITOS : db.getUsuario(userId).acucares;
+  return { ok: true, item, quantidade: qtd, valor, saldo, ehCriador };
 }
 
 module.exports = {
@@ -371,5 +416,6 @@ module.exports = {
   extrato,
   doar,
   doarItem,
+  venderItem,
   loja,
 };

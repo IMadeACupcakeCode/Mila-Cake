@@ -5,7 +5,7 @@
 //
 // O ID encontrado é aprendido e salvo em data/criador.json, então continua
 // valendo mesmo se o @ mudar depois. Como brincadeira, o saldo do criador é
-// sempre infinito: tudo mostra "+999999" e ganhos/gastos não mudam o valor.
+// infinito; comandos mostram +999999 e o ranking usa uma exibição exagerada.
 //
 // Importante: este módulo NÃO depende de utils/db para evitar ciclo — o db
 // é quem depende dele.
@@ -16,6 +16,8 @@ const { lerJson, salvarJson } = require('./jsonStore');
 const PONTOS_INFINITOS = 999999;
 const SELO = '👑 Criador da Mila';
 const TITULO = 'Criador da Mila';
+const CLASSIFICACAO_RANKING = '??';
+const VALOR_RANKING = `+${'9'.repeat(30)}`;
 const ARQUIVO = path.join(__dirname, '..', 'data', 'criador.json');
 
 function normalizarNome(valor) {
@@ -198,6 +200,8 @@ module.exports = {
   PONTOS_INFINITOS,
   SELO,
   TITULO,
+  CLASSIFICACAO_RANKING,
+  VALOR_RANKING,
   NOME_CRIADOR,
   USERNAMES,
   ehCriador,

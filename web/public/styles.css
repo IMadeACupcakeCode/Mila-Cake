@@ -1,5 +1,5 @@
 /* web/public/styles.css — Mila · interfaces clássicas
-   Visuais: Facebook, Google+, 4shared, MediaFire e Friv. Animações autorais,
+   Visuais disponíveis: Facebook, Google+ e Skype. Animações autorais,
    transições combinando origem e destino, troca aleatória + botão secreto. */
 
 /* ── Base compartilhada ─────────────────────────────────────────────── */
@@ -846,10 +846,19 @@ body.bot-indisponivel > .botao-secreto { z-index: 60; }
 .ranking .pos { font-weight: 800; width: 34px; color: var(--medalha); font-size: 15px; }
 .ranking .nome { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ranking .valor { font-weight: 800; color: var(--link); font-variant-numeric: tabular-nums; }
+.ranking .valor-infinito { max-width: 42%; white-space: normal; overflow-wrap: anywhere; text-align: right; font-size: clamp(9px, 1.25vw, 12px); letter-spacing: -.025em; }
 .ranking .barra { height: 6px; border-radius: 4px; background: var(--painel-3); overflow: hidden; width: 110px; }
 .ranking .barra i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--accent)); transition: width .6s var(--ease-out); }
 .ranking .avatar { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--borda); object-fit: cover; background: var(--painel-3); }
 .coroa { color: var(--medalha); }
+.hack-classificacao {
+  display: inline-block; vertical-align: middle; padding: 2px 6px;
+  border: 1px solid var(--medalha); border-radius: 999px;
+  background: color-mix(in srgb, var(--medalha) 14%, var(--painel));
+  color: var(--texto); font: inherit; font-size: 10px; font-weight: 800;
+  cursor: pointer; white-space: nowrap;
+}
+.hack-classificacao:hover, .hack-classificacao:focus-visible { outline: 2px solid var(--foco); outline-offset: 2px; }
 
 /* ── Loja ────────────────────────────────────────────────────────────── */
 .loja { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
@@ -887,6 +896,7 @@ body.bot-indisponivel > .botao-secreto { z-index: 60; }
 .perfil-topo h2 { margin: 0; font-size: 20px; }
 .perfil-topo p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
 .perfil-saldo { margin-left: auto; font-size: 24px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+.perfil-saldo.saldo-infinito { max-width: 55%; overflow-wrap: anywhere; font-size: clamp(11px, 1.8vw, 18px); letter-spacing: -.025em; }
 .perfil-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 16px 0; }
 .perfil-grade div { background: transparent; border: 0; border-radius: 0; padding: 10px 12px; transition: transform var(--transicao-rapida); }
 .perfil-grade div:hover { transform: translateY(-2px); }
@@ -935,6 +945,9 @@ body.bot-indisponivel > .botao-secreto { z-index: 60; }
 .pokemon-perfil-cabecalho img { border: 2px solid var(--borda-forte); border-radius: 50%; object-fit: cover; background: var(--painel-2); }
 .pokemon-perfil-cabecalho h2 { margin: 0; font-size: 20px; }
 .pokemon-perfil-cabecalho p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.pokemon-perfil-atalhos { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.pokemon-perfil-atalhos a { padding: 7px 10px; border: 1px solid var(--borda); border-radius: 20px; background: var(--painel-2); color: var(--texto); font-size: 12px; font-weight: 700; }
+.pokemon-perfil-atalhos a:hover { border-color: var(--accent); background: var(--painel-3); text-decoration: none; }
 .pokemon-arceus { margin-left: auto; padding: 7px 10px; border: 1px solid #d6aa37; border-radius: 20px; background: #fff3c4; color: #684c00; font-size: 12px; font-weight: 800; }
 .pokemon-estatisticas { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 16px 0 10px; }
 .pokemon-estatisticas div { padding: 10px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--painel-2); }
@@ -953,6 +966,10 @@ body.bot-indisponivel > .botao-secreto { z-index: 60; }
 .pokemon-missao p { margin: 6px 0; color: var(--muted); font-size: 12px; }
 .pokemon-progresso { height: 6px; margin: 8px 0; overflow: hidden; border-radius: 6px; background: var(--painel-3); }
 .pokemon-progresso i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent-2), var(--accent)); }
+.pokemon-insignias-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.pokemon-insignia { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--painel-2); }
+.pokemon-insignia.obtida { border-color: #d6aa37; }
+.pokemon-insignia span,.pokemon-insignia small { color: var(--muted); font-size: 12px; line-height: 1.45; }
 .pokemon-colecao { margin-top: 20px; }
 .pokemon-colecao-titulo { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .pokemon-colecao-titulo span { color: var(--muted); font-size: 12px; }

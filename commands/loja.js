@@ -12,6 +12,7 @@ const db = require('../utils/db');
 const criador = require('../utils/criador');
 
 const TEMPO_SESSAO_MS = 5 * 60 * 1000;
+const ITENS_POR_PAGINA = 5;
 const OPCOES_CATEGORIA = [
   { label: 'Todas as categorias', value: 'todas', emoji: '🛍️' },
   ...loja.CATEGORIAS.map((categoria) => ({
@@ -55,15 +56,30 @@ function saldoDo(usuarioId) {
     : Number(db.getUsuario(usuarioId).acucares) || 0;
 }
 
-function montarEmbed({ tema, membro, categoria, saldo, selecionado, aviso, carrinho = new Map() }) {
-  const categorias = loja.listarPorCategoria()
-    .filter((item) => !categoria || categoria === 'todas' || item.id === categoria);
-  const campos = categorias.map((grupo) => ({
-    name: `${grupo.emoji} ${grupo.nome}`,
-    value: grupo.itens.map((item) =>
-      `${item.emoji} **${item.nome}** · \`${theme.formatarNumero(item.preco)}\` ${theme.MOEDA}\n${item.descricao}`
-    ).join('\n\n'),
-  }));
+function itensDaCategoria(categoria) {
+  return loja.listarPorCategoria()
+    .filter((grupo) => !categoria || categoria === 'todas' || grupo.id === categoria)
+    .flatMap((grupo) => grupo.itens);
+}
+
+function paginasDoCatalogo(categoria) {
+  return Math.max(1, Math.ceil(itensDaCategoria(categoria).length / ITENS_POR_PAGINA));
+}
+
+function montarEmbed({ tema, membro, categoria, pagina = 0, saldo, selecionado, aviso, carrinho = new Map() }) {
+  const itens = itensDaCategoria(categoria);
+  const totalPaginas = paginasDoCatalogo(categoria);
+  const itensPagina = itens.slice(pagina * ITENS_POR_PAGINA, (pagina + 1) * ITENS_POR_PAGINA);
+  const campos = [
+    {
+      name: `🛍️ Catálogo · página ${pagina + 1}/${totalPaginas}`,
+      value: `Mostrando ${itensPagina.length} de ${itens.length} itens${categoria && categoria !== 'todas' ? ` em **${loja.CATEGORIAS.find((item) => item.id === categoria)?.nome || categoria}**` : ''}.`,
+    },
+    ...itensPagina.map((item) => ({
+      name: `${item.emoji} ${item.nome}`,
+      value: `\`${theme.formatarNumero(item.preco)}\` ${theme.MOEDA} · ${item.descricao}`,
+    })),
+  ];
   const itemSelecionado = selecionado ? loja.buscarItem(selecionado) : null;
   const itensCarrinho = [...carrinho.entries()]
     .map(([id, quantidade]) => ({ item: loja.buscarItem(id), quantidade }))
@@ -78,7 +94,9 @@ function montarEmbed({ tema, membro, categoria, saldo, selecionado, aviso, carri
     `Saldo disponível: **${theme.formatarNumero(saldo)} ${theme.MOEDA}**`,
     itemSelecionado
       ? `Selecionado: ${itemSelecionado.emoji} **${itemSelecionado.nome}** · \`${theme.formatarNumero(itemSelecionado.preco)}\` ${theme.MOEDA}`
-      : 'Escolha uma categoria e um item. Adicione ao carrinho e finalize quando estiver tudo certo.',
+      : totalPaginas > 1
+        ? 'Escolha uma categoria e um item. Use **Anterior/Próximo** para navegar pelo catálogo; adicione ao carrinho e finalize quando estiver tudo certo.'
+        : 'Escolha um item e adicione ao carrinho. Finalize quando estiver tudo certo.',
     `**Total do carrinho:** ${theme.formatarNumero(totalCarrinho)} ${theme.MOEDA}`,
     aviso || '',
   ].filter(Boolean).join('\n\n');
@@ -94,10 +112,10 @@ function montarEmbed({ tema, membro, categoria, saldo, selecionado, aviso, carri
   });
 }
 
-function montarComponentes({ categoria, selecionado, carrinho = new Map() }) {
-  const grupos = loja.listarPorCategoria()
-    .filter((item) => !categoria || categoria === 'todas' || item.id === categoria);
-  const itens = grupos.flatMap((grupo) => grupo.itens);
+function montarComponentes({ categoria, pagina = 0, selecionado, carrinho = new Map() }) {
+  const itens = itensDaCategoria(categoria);
+  const totalPaginas = paginasDoCatalogo(categoria);
+  const itensPagina = itens.slice(pagina * ITENS_POR_PAGINA, (pagina + 1) * ITENS_POR_PAGINA);
   const categoriaMenu = new StringSelectMenuBuilder()
     .setCustomId('loja_categoria')
     .setPlaceholder('1 · Escolha uma categoria')
@@ -111,7 +129,7 @@ function montarComponentes({ categoria, selecionado, carrinho = new Map() }) {
     const itemMenu = new StringSelectMenuBuilder()
       .setCustomId('loja_item')
       .setPlaceholder('2 · Escolha um item para ver o preço')
-      .addOptions(itens.slice(0, 25).map((item) => ({
+      .addOptions(itensPagina.map((item) => ({
         label: item.nome.slice(0, 100),
         value: item.id,
         description: `${theme.formatarNumero(item.preco)} Açúcares · ${item.descricao}`.slice(0, 100),
@@ -119,6 +137,23 @@ function montarComponentes({ categoria, selecionado, carrinho = new Map() }) {
         default: item.id === selecionado,
       })));
     linhas.push(new ActionRowBuilder().addComponents(itemMenu));
+  }
+
+  if (totalPaginas > 1) {
+    linhas.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('loja_pagina_anterior')
+        .setLabel('Anterior')
+        .setEmoji('◀️')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(pagina === 0),
+      new ButtonBuilder()
+        .setCustomId('loja_pagina_proxima')
+        .setLabel('Próximo')
+        .setEmoji('▶️')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(pagina >= totalPaginas - 1)
+    ));
   }
 
   linhas.push(new ActionRowBuilder().addComponents(
@@ -203,7 +238,7 @@ async function executar(interaction, client) {
     });
   }
 
-  const estado = { categoria: categoriaInicial, selecionado: null, carrinho: new Map() };
+  const estado = { categoria: categoriaInicial, pagina: 0, selecionado: null, carrinho: new Map() };
   const render = (aviso = '') => ({
     embeds: [montarEmbed({ tema, membro, saldo: saldoDo(membro.id), ...estado, aviso })],
     components: montarComponentes(estado),
@@ -218,6 +253,16 @@ async function executar(interaction, client) {
     try {
       if (componente.customId === 'loja_categoria') {
         estado.categoria = componente.values[0];
+        estado.pagina = 0;
+        estado.selecionado = null;
+        await componente.update(render());
+        return;
+      }
+
+      if (componente.customId === 'loja_pagina_anterior' || componente.customId === 'loja_pagina_proxima') {
+        const totalPaginas = paginasDoCatalogo(estado.categoria);
+        const deslocamento = componente.customId === 'loja_pagina_anterior' ? -1 : 1;
+        estado.pagina = Math.max(0, Math.min(totalPaginas - 1, estado.pagina + deslocamento));
         estado.selecionado = null;
         await componente.update(render());
         return;
@@ -225,7 +270,9 @@ async function executar(interaction, client) {
 
       if (componente.customId === 'loja_item') {
         const itemSelecionado = loja.buscarItem(componente.values[0]);
-        if (!itemSelecionado || (estado.categoria !== 'todas' && itemSelecionado.categoria !== estado.categoria)) {
+        if (!itemSelecionado || !itensDaCategoria(estado.categoria)
+          .slice(estado.pagina * ITENS_POR_PAGINA, (estado.pagina + 1) * ITENS_POR_PAGINA)
+          .some((item) => item.id === itemSelecionado.id)) {
           await componente.update(render('Esse item não pertence à categoria selecionada. Escolha um item do catálogo.'));
           return;
         }
@@ -336,5 +383,5 @@ async function executar(interaction, client) {
 module.exports = {
   data,
   execute: executar,
-  internals: { montarEmbed, montarComponentes, montarEmbedCompraLote, mensagemCompraRecusada },
+  internals: { montarEmbed, montarComponentes, montarEmbedCompraLote, mensagemCompraRecusada, paginasDoCatalogo, ITENS_POR_PAGINA },
 };

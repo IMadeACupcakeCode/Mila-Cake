@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#3b5998" id="theme-color">
   <meta name="color-scheme" content="light dark">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' http://localhost:8400 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.discordapp.com https://media.discordapp.net https://raw.githubusercontent.com blob:; connect-src 'self' http://localhost:8400; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' http://localhost:8400 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.discordapp.com https://media.discordapp.net https://raw.githubusercontent.com blob:; media-src 'self' https://www.myinstants.com; connect-src 'self' http://localhost:8400; object-src 'none'; base-uri 'none'; form-action 'self'">
   <meta name="description" content="Conheça a Mila, consulte o manual de comandos, veja o ranking e explore sua comunidade.">
   <title>Mila | Facebook</title>
   <link rel="icon" href="./assets/mila-icone.png" type="image/png">
-  <link rel="stylesheet" href="./styles.css?v=3">
+  <link rel="stylesheet" href="./styles.css?v=4">
 </head>
 <body>
   <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
@@ -27,7 +27,7 @@
       <a class="aba" href="/loja" data-pagina="loja">Loja</a>
       <a class="aba" href="/perfil" data-pagina="carteira">Perfil</a>
       <a class="aba" href="/pokemon" data-pagina="pokemon">Pokémon</a>
-      <a class="aba" href="/criadora" data-pagina="criadora">Criadora</a>
+      <a class="aba" href="/criadora" data-pagina="criadora">Criador</a>
       <a class="aba" href="/referencias" data-pagina="referencias">Sobre</a>
     </nav>
     <div class="topo-status">
@@ -93,6 +93,7 @@
               <button class="seg" data-ranking="xp">🏆 Nível</button>
             </div>
             <span class="ajuda" id="ranking-info">top 10 do servidor</span>
+            <span class="sr-only" id="hack-audio-status" role="status" aria-live="polite"></span>
           </div>
           <ol class="ranking" id="lista-ranking">
             <li class="carregando">Carregando ranking...</li>
@@ -197,6 +198,10 @@
                 <h2>🧭 Missões e rankings</h2>
                 <p>Complete objetivos em <code>/pokemon missoes</code>, resgate as recompensas no Discord e compare sua coleção no ranking global ou no servidor.</p>
               </article>
+              <article class="cartao">
+                <h2>⚙️ Equipe e resets</h2>
+                <p>Administradores configuram encontros com <code>/pokemon configurar</code> (intervalo aceita <code>1min 20sec</code> ou apenas segundos com <code>intervalo_segundos</code>). Para resetar dados: <code>/reset-economia</code> (loja/saldo, sem Pokémon) ou <code>/reset-pokemon</code> (seleção interativa por botões: coleções, itens, preferências, economia). Trocas entre treinadores são feitas com <code>/trocar</code> (ambos confirmam).</p>
+              </article>
             </div>
             <p class="ajuda pokemon-nota">O site é um painel de consulta. Capturas, compras, favoritos, configurações e resgates continuam protegidos pelos comandos do Discord.</p>
           </section>
@@ -254,21 +259,21 @@
       </div>
     </section>
 
-    <!-- ── Criadora ── -->
+    <!-- ── Criador ── -->
     <section class="pagina" id="pagina-criadora">
       <div class="janela">
-        <div class="barra-janela"><span class="janela-titulo">👑 Criadora</span></div>
+        <div class="barra-janela"><span class="janela-titulo">👑 Criador</span></div>
         <div class="janela-corpo">
           <div class="pagina-cabecalho">
             <p class="selo">FEITA POR UMA PESSOA, PARA COMUNIDADES</p>
             <h1>Por trás da Mila</h1>
-            <p>A Mila é um projeto independente criado por <strong>ACupcakeCat</strong>, conhecida no Discord como <strong>acupcakecatsocial</strong>.</p>
+            <p>A Mila é um projeto independente criado por <strong>ACupcakeCat</strong>, conhecido no Discord como <strong>acupcakecatsocial</strong>.</p>
           </div>
           <div class="perfil-criadora">
             <div class="criadora-avatar" aria-hidden="true">🧁</div>
             <div>
               <h2>ACupcakeCat</h2>
-              <p>Desenvolvimento de sistemas · HTML, CSS, JavaScript, TypeScript, Svelte, Python e C++.</p>
+              <p>Criador da Mila · Desenvolvimento de sistemas · HTML, CSS, JavaScript, TypeScript, Svelte, Python e C++.</p>
               <div class="acoes-criadora">
                 <a class="botao primario" href="https://github.com/IMadeACupcakeCode" target="_blank" rel="noopener noreferrer">Abrir GitHub ↗</a>
                 <a class="botao" href="https://github.com/IMadeACupcakeCode/Mila-Cake" target="_blank" rel="noopener noreferrer">Repositório da Mila ↗</a>
@@ -327,10 +332,7 @@
           </div>
           <h2 class="subtitulo-secao">Referências visuais</h2>
           <div class="lista-referencias">
-            <p><strong>4shared:</strong> página arquivada de 2013 com login, chamada para compartilhamento e links para armazenamento e aplicativos. <a href="https://web.archive.org/web/20130102024140/http://www.4shared.com/" target="_blank" rel="noopener noreferrer">Ver captura arquivada ↗</a></p>
-            <p><strong>MediaFire:</strong> captura de 2013 com foco em acesso aos arquivos, colaboração, compartilhamento simples e aplicações móveis. <a href="https://web.archive.org/web/20130101115313/http://www.mediafire.com/" target="_blank" rel="noopener noreferrer">Ver captura arquivada ↗</a></p>
-            <p><strong>Friv:</strong> captura arquivada de 2011 com uma grade compacta de jogos sobre fundo roxo. Aqui, os cartões levam às páginas reais da Mila, não a jogos inexistentes. <a href="https://web.archive.org/web/20110101034137/http://www.friv.com/" target="_blank" rel="noopener noreferrer">Ver captura arquivada ↗</a></p>
-            <p><strong>Facebook e Google+:</strong> visuais inspirados nos layouts clássicos dessas redes; não são réplicas oficiais nem mantêm integração com as plataformas.</p>
+            <p><strong>Facebook, Google+ e Skype:</strong> visuais inspirados nas interfaces clássicas dessas plataformas. Este é um projeto independente, sem afiliação ou integração oficial.</p>
           </div>
         </div>
       </div>
@@ -359,6 +361,6 @@
     </div>
   </div>
 
-  <script src="./app.js?v=3"></script>
+  <script src="./app.js?v=4"></script>
 </body>
 </html>

@@ -1,12 +1,35 @@
 const db = require('./db');
 const criador = require('./criador');
+const typeChart = require('./typeChart');
+const crypto = require('node:crypto');
 
 const database = db.db;
 const MAX_POKEMON_ID = 1025;
+const NATURES = [
+  { nome: 'Carinhoso', hp: 1.1, ataque: 0.95, defesa: 1.05, velocidade: 1 },
+  { nome: 'Feroz', hp: 0.95, ataque: 1.15, defesa: 0.95, velocidade: 1.05 },
+  { nome: 'Tímido', hp: 1, ataque: 0.9, defesa: 1, velocidade: 1.2 },
+  { nome: 'Robusto', hp: 1.15, ataque: 1, defesa: 1.1, velocidade: 0.9 },
+  { nome: 'Astuto', hp: 0.95, ataque: 1.05, defesa: 0.95, velocidade: 1.1 },
+  { nome: 'Calmo', hp: 1.1, ataque: 0.9, defesa: 1.1, velocidade: 0.95 },
+];
+function natureAleatoria() { return NATURES[Math.floor(Math.random() * NATURES.length)].nome; }
+function obterPokemonCacheSync(id) {
+  try {
+    const row = sql.cachedSpecies.get(Number(id));
+    if (!row) return null;
+    return JSON.parse(row.payload);
+  } catch {
+    return null;
+  }
+}
+function obterNatureza(nome) { return NATURES.find((n) => n.nome === nome) || NATURES[0]; }
+
 const ARCEUS_ID = 493;
 const ENCONTRO_TTL_MS = 10 * 60 * 1000;
 const INCENSO_MS = 30 * 60 * 1000;
 const API_TIMEOUT_MS = 10_000;
+const SPAWN_RESERVATION_MS = 2 * 60 * 1000;
 const API_BASE = 'https://pokeapi.co/api/v2';
 const FallbackPokemon = [
   { id: 1, name: 'bulbasaur', namePt: 'Bulbasaur', captureRate: 45 },
@@ -26,12 +49,95 @@ const FallbackPokemon = [
   { id: 700, name: 'sylveon', namePt: 'Sylveon', captureRate: 45 },
 ];
 
+const PRESETS_CONFIG = {
+  padrao: {
+    nome: 'Aventura equilibrada',
+    enabled: true,
+    muted: false,
+    spawnChance: 3,
+    cooldownMs: 15 * 60 * 1000,
+    shinyChance: 4096,
+    rarityMode: 'equilibrada',
+  },
+  tranquilo: {
+    nome: 'Tranquilo',
+    enabled: true,
+    muted: false,
+    spawnChance: 2,
+    cooldownMs: 30 * 60 * 1000,
+    shinyChance: 4096,
+    rarityMode: 'conservadora',
+  },
+  aventura: {
+    nome: 'Aventura',
+    enabled: true,
+    muted: false,
+    spawnChance: 5,
+    cooldownMs: 10 * 60 * 1000,
+    shinyChance: 2048,
+    rarityMode: 'generosa',
+  },
+  silencio: {
+    nome: 'Silencioso',
+    enabled: false,
+    muted: true,
+    spawnChance: 3,
+    cooldownMs: 15 * 60 * 1000,
+    shinyChance: 4096,
+    rarityMode: 'equilibrada',
+  },
+};
+
+const EVOLUCOES = [
+  { origem: 133, destino: 134, nome: 'Vaporeon', item: 'pedra_agua' },
+  { origem: 133, destino: 135, nome: 'Jolteon', item: 'pedra_trovao' },
+  { origem: 133, destino: 136, nome: 'Flareon', item: 'pedra_fogo' },
+  { origem: 133, destino: 196, nome: 'Espeon', item: 'laco_amizade' },
+  { origem: 133, destino: 197, nome: 'Umbreon', item: 'pedra_lunar' },
+  { origem: 133, destino: 470, nome: 'Leafeon', item: 'pedra_folha' },
+  { origem: 133, destino: 471, nome: 'Glaceon', item: 'pedra_gelo' },
+  { origem: 133, destino: 700, nome: 'Sylveon', item: 'fita_fada' },
+  { origem: 35, destino: 36, nome: 'Clefable', item: 'pedra_lunar' },
+  { origem: 37, destino: 38, nome: 'Ninetales', item: 'pedra_fogo' },
+  { origem: 58, destino: 59, nome: 'Arcanine', item: 'pedra_fogo' },
+  { origem: 61, destino: 62, nome: 'Poliwrath', item: 'pedra_agua' },
+  { origem: 61, destino: 186, nome: 'Politoed', item: 'pedra_rei' },
+  { origem: 70, destino: 71, nome: 'Victreebel', item: 'pedra_folha' },
+  { origem: 44, destino: 45, nome: 'Vileplume', item: 'pedra_folha' },
+  { origem: 44, destino: 182, nome: 'Bellossom', item: 'pedra_solar' },
+  { origem: 102, destino: 103, nome: 'Exeggutor', item: 'pedra_folha' },
+  { origem: 271, destino: 272, nome: 'Ludicolo', item: 'pedra_agua' },
+  { origem: 274, destino: 275, nome: 'Shiftry', item: 'pedra_folha' },
+  { origem: 406, destino: 407, nome: 'Roserade', item: 'pedra_brilhante' },
+  { origem: 548, destino: 549, nome: 'Lilligant', item: 'pedra_solar' },
+  { origem: 546, destino: 547, nome: 'Whimsicott', item: 'pedra_solar' },
+  { origem: 25, destino: 26, nome: 'Raichu', item: 'pedra_trovao' },
+  { origem: 79, destino: 199, nome: 'Slowking', item: 'pedra_rei' },
+  { origem: 117, destino: 230, nome: 'Kingdra', item: 'escama_dragao' },
+  { origem: 123, destino: 212, nome: 'Scizor', item: 'revestimento_metal' },
+  { origem: 95, destino: 208, nome: 'Steelix', item: 'revestimento_metal' },
+  { origem: 137, destino: 233, nome: 'Porygon2', item: 'upgrade' },
+  { origem: 233, destino: 474, nome: 'Porygon-Z', item: 'disco_duvidoso' },
+  { origem: 356, destino: 477, nome: 'Dusknoir', item: 'tecido_ceifador' },
+  { origem: 112, destino: 464, nome: 'Rhyperior', item: 'protetor' },
+  { origem: 125, destino: 466, nome: 'Electivire', item: 'eletrizador' },
+  { origem: 126, destino: 467, nome: 'Magmortar', item: 'magmatizador' },
+  { origem: 215, destino: 461, nome: 'Weavile', item: 'garra_afiada' },
+  { origem: 207, destino: 472, nome: 'Gliscor', item: 'presa_afiada' },
+  { origem: 349, destino: 350, nome: 'Milotic', item: 'escama_bela' },
+  { origem: 682, destino: 683, nome: 'Aromatisse', item: 'saquinho_perfumado' },
+  { origem: 684, destino: 685, nome: 'Slurpuff', item: 'doce_batido' },
+  { origem: 366, destino: 367, nome: 'Huntail', item: 'dente_abissal' },
+  { origem: 366, destino: 368, nome: 'Gorebyss', item: 'escama_abissal' },
+];
+
 const CATEGORIAS = [
   { id: 'basicas', nome: 'Clássicas', emoji: '🔴', descricao: 'Pokébolas do dia a dia e modelos especiais.' },
   { id: 'situacionais', nome: 'Estratégicas', emoji: '🎯', descricao: 'Bolas com bônus para a aventura.' },
   { id: 'apricorn', nome: 'Apricorn', emoji: '🌰', descricao: 'Bolas artesanais e colecionáveis.' },
   { id: 'raras', nome: 'Raras', emoji: '✨', descricao: 'Bolas especiais e difíceis de encontrar.' },
   { id: 'consumiveis', nome: 'Consumíveis', emoji: '🪻', descricao: 'Itens de uso temporário.' },
+  { id: 'evolucao', nome: 'Evolução', emoji: '💎', descricao: 'Pedras e itens para evoluir Pokémon.' },
   { id: 'cosmeticos', nome: 'Cosméticos', emoji: '🎨', descricao: 'Personalize a aparência das capturas.' },
 ];
 
@@ -71,6 +177,32 @@ const ITENS = [
   { id: 'strangeball', nome: 'Strange Ball', emoji: '🌀', preco: 9500, tipo: 'bola', categoria: 'raras', multiplicador: 1.5, descricao: 'Uma bola misteriosa de outra época.' },
   { id: 'originball', nome: 'Origin Ball', emoji: '🌌', preco: 25000, tipo: 'bola', categoria: 'raras', multiplicador: 1.9, descricao: 'Uma bola lendária de Hisui com bônus especial.' },
   { id: 'incenso', nome: 'Incenso', emoji: '🪻', preco: 1400, tipo: 'consumivel', categoria: 'consumiveis', descricao: 'Por 30 minutos, suas mensagens atraem mais encontros.' },
+  { id: 'pedra_fogo', nome: 'Pedra de Fogo', emoji: '🔥', preco: 2200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Pokémon compatíveis, como Eevee, Vulpix e Growlithe.' },
+  { id: 'pedra_agua', nome: 'Pedra de Água', emoji: '💧', preco: 2200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Pokémon compatíveis, como Eevee, Poliwhirl e Lombre.' },
+  { id: 'pedra_trovao', nome: 'Pedra do Trovão', emoji: '⚡', preco: 2400, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Pokémon compatíveis, como Eevee e Pikachu.' },
+  { id: 'pedra_folha', nome: 'Pedra de Folha', emoji: '🍃', preco: 2200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Pokémon compatíveis, como Eevee, Gloom e Weepinbell.' },
+  { id: 'pedra_lunar', nome: 'Pedra da Lua', emoji: '🌙', preco: 2400, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Pokémon compatíveis e Eevee para Umbreon.' },
+  { id: 'pedra_gelo', nome: 'Pedra de Gelo', emoji: '❄️', preco: 2600, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Eevee para Glaceon.' },
+  { id: 'pedra_solar', nome: 'Pedra Solar', emoji: '☀️', preco: 2600, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Pokémon compatíveis, incluindo Gloom, Cottonee e Petilil.' },
+  { id: 'pedra_brilhante', nome: 'Pedra Brilhante', emoji: '✨', preco: 2800, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Roselia para Roserade.' },
+  { id: 'laco_amizade', nome: 'Laço da Amizade', emoji: '🤝', preco: 3200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Ajuda Eevee a evoluir para Espeon.' },
+  { id: 'fita_fada', nome: 'Fita de Fada', emoji: '🎀', preco: 3200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Ajuda Eevee a evoluir para Sylveon.' },
+  { id: 'pedra_rei', nome: 'Pedra do Rei', emoji: '👑', preco: 4200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Catalisador para evoluções especiais de Poliwhirl e Slowpoke.' },
+  { id: 'escama_dragao', nome: 'Escama de Dragão', emoji: '🐉', preco: 4200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Seadra para Kingdra.' },
+  { id: 'revestimento_metal', nome: 'Revestimento Metálico', emoji: '🔩', preco: 4200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Onix para Steelix e Scyther para Scizor.' },
+  { id: 'upgrade', nome: 'Upgrade', emoji: '💿', preco: 4600, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Porygon para Porygon2.' },
+  { id: 'disco_duvidoso', nome: 'Disco Duvidoso', emoji: '📀', preco: 5200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Porygon2 para Porygon-Z.' },
+  { id: 'tecido_ceifador', nome: 'Tecido Ceifador', emoji: '🧵', preco: 4600, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Dusclops para Dusknoir.' },
+  { id: 'protetor', nome: 'Protetor', emoji: '🛡️', preco: 4600, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Rhydon para Rhyperior.' },
+  { id: 'eletrizador', nome: 'Eletrizador', emoji: '🔋', preco: 4600, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Electabuzz para Electivire.' },
+  { id: 'magmatizador', nome: 'Magmatizador', emoji: '🌋', preco: 4600, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Magmar para Magmortar.' },
+  { id: 'garra_afiada', nome: 'Garra Afiada', emoji: '🗡️', preco: 4200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Sneasel para Weavile.' },
+  { id: 'presa_afiada', nome: 'Presa Afiada', emoji: '🦷', preco: 4200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Gligar para Gliscor.' },
+  { id: 'escama_bela', nome: 'Escama Bela', emoji: '🐚', preco: 4200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Feebas para Milotic.' },
+  { id: 'saquinho_perfumado', nome: 'Saquinho Perfumado', emoji: '🌸', preco: 4200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Spritzee para Aromatisse.' },
+  { id: 'doce_batido', nome: 'Doce Batido', emoji: '🍬', preco: 4200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Swirlix para Slurpuff.' },
+  { id: 'dente_abissal', nome: 'Dente Abissal', emoji: '🦈', preco: 4200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Clamperl para Huntail.' },
+  { id: 'escama_abissal', nome: 'Escama Abissal', emoji: '🌊', preco: 4200, tipo: 'evolucao', categoria: 'evolucao', descricao: 'Evolui Clamperl para Gorebyss.' },
   { id: 'moldura_morango', nome: 'Moldura Morango', emoji: '🍓', preco: 3500, tipo: 'cosmetico', categoria: 'cosmeticos', cor: 0xff80ab, descricao: 'Uma moldura rosa para suas capturas.' },
   { id: 'moldura_aurora', nome: 'Moldura Aurora', emoji: '🌌', preco: 6500, tipo: 'cosmetico', categoria: 'cosmeticos', cor: 0x8e9bff, descricao: 'Uma moldura cósmica para suas capturas.' },
   { id: 'moldura_limao', nome: 'Moldura Limão', emoji: '🍋', preco: 5000, tipo: 'cosmetico', categoria: 'cosmeticos', cor: 0x9bd36a, descricao: 'Uma moldura verde para suas capturas.' },
@@ -87,15 +219,19 @@ const MISSOES = [
 database.exec(`
   CREATE TABLE IF NOT EXISTS pokemon_server_config (
     guild_id TEXT PRIMARY KEY,
-    enabled INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
     muted INTEGER NOT NULL DEFAULT 0,
     spawn_chance INTEGER NOT NULL DEFAULT 3,
     cooldown_ms INTEGER NOT NULL DEFAULT 900000,
-    channels_json TEXT NOT NULL DEFAULT '[]'
+    channels_json TEXT NOT NULL DEFAULT '[]',
+    rarity_mode TEXT NOT NULL DEFAULT 'equilibrada',
+    shiny_chance INTEGER NOT NULL DEFAULT 4096
   );
   CREATE TABLE IF NOT EXISTS pokemon_spawn_state (
     guild_id TEXT PRIMARY KEY,
-    last_spawn_at INTEGER NOT NULL DEFAULT 0
+    last_spawn_at INTEGER NOT NULL DEFAULT 0,
+    pending_token TEXT,
+    pending_until INTEGER NOT NULL DEFAULT 0
   );
   CREATE TABLE IF NOT EXISTS pokemon_encounters (
     guild_id TEXT PRIMARY KEY,
@@ -161,25 +297,60 @@ database.exec(`
   );
 `);
 
+const spawnStateColumns = new Set(database.prepare('PRAGMA table_info(pokemon_spawn_state)').all().map((column) => column.name));
+if (!spawnStateColumns.has('pending_token')) {
+  database.exec('ALTER TABLE pokemon_spawn_state ADD COLUMN pending_token TEXT');
+}
+if (!spawnStateColumns.has('pending_until')) {
+  database.exec('ALTER TABLE pokemon_spawn_state ADD COLUMN pending_until INTEGER NOT NULL DEFAULT 0');
+}
+
+const configColumns = new Set(database.prepare('PRAGMA table_info(pokemon_server_config)').all().map((column) => column.name));
+if (!configColumns.has('rarity_mode')) {
+  database.exec("ALTER TABLE pokemon_server_config ADD COLUMN rarity_mode TEXT NOT NULL DEFAULT 'equilibrada'");
+}
+if (!configColumns.has('shiny_chance')) {
+  database.exec('ALTER TABLE pokemon_server_config ADD COLUMN shiny_chance INTEGER NOT NULL DEFAULT 4096');
+}
+
 const collectionColumns = new Set(database.prepare('PRAGMA table_info(pokemon_collection)').all().map((column) => column.name));
 if (!collectionColumns.has('guild_id')) {
   database.exec('ALTER TABLE pokemon_collection ADD COLUMN guild_id TEXT');
+}
+if (!collectionColumns.has('xp')) {
+  database.exec('ALTER TABLE pokemon_collection ADD COLUMN xp INTEGER NOT NULL DEFAULT 0');
+}
+if (!collectionColumns.has('nature')) {
+  database.exec("ALTER TABLE pokemon_collection ADD COLUMN nature TEXT");
 }
 database.exec('CREATE INDEX IF NOT EXISTS idx_pokemon_collection_guild ON pokemon_collection(guild_id, user_id, caught_at DESC)');
 
 const sql = {
   config: database.prepare('SELECT * FROM pokemon_server_config WHERE guild_id = ?'),
   upsertConfig: database.prepare(`
-    INSERT INTO pokemon_server_config (guild_id, enabled, muted, spawn_chance, cooldown_ms, channels_json)
-    VALUES (@guild_id, @enabled, @muted, @spawn_chance, @cooldown_ms, @channels_json)
+    INSERT INTO pokemon_server_config
+      (guild_id, enabled, muted, spawn_chance, cooldown_ms, channels_json, rarity_mode, shiny_chance)
+    VALUES (@guild_id, @enabled, @muted, @spawn_chance, @cooldown_ms, @channels_json, @rarity_mode, @shiny_chance)
     ON CONFLICT(guild_id) DO UPDATE SET
       enabled = excluded.enabled, muted = excluded.muted, spawn_chance = excluded.spawn_chance,
-      cooldown_ms = excluded.cooldown_ms, channels_json = excluded.channels_json
+      cooldown_ms = excluded.cooldown_ms, channels_json = excluded.channels_json,
+      rarity_mode = excluded.rarity_mode, shiny_chance = excluded.shiny_chance
   `),
-  state: database.prepare('SELECT last_spawn_at FROM pokemon_spawn_state WHERE guild_id = ?'),
-  upsertState: database.prepare(`
-    INSERT INTO pokemon_spawn_state (guild_id, last_spawn_at) VALUES (?, ?)
-    ON CONFLICT(guild_id) DO UPDATE SET last_spawn_at = excluded.last_spawn_at
+  state: database.prepare('SELECT last_spawn_at, pending_token, pending_until FROM pokemon_spawn_state WHERE guild_id = ?'),
+  reserveSpawn: database.prepare(`
+    INSERT INTO pokemon_spawn_state (guild_id, last_spawn_at, pending_token, pending_until)
+    VALUES (@guild_id, 0, @token, @expires_at)
+    ON CONFLICT(guild_id) DO UPDATE SET
+      pending_token = excluded.pending_token, pending_until = excluded.pending_until
+  `),
+  finishSpawn: database.prepare(`
+    UPDATE pokemon_spawn_state
+       SET last_spawn_at = ?, pending_token = NULL, pending_until = 0
+     WHERE guild_id = ? AND pending_token = ?
+  `),
+  releaseSpawn: database.prepare(`
+    UPDATE pokemon_spawn_state SET pending_token = NULL, pending_until = 0
+     WHERE guild_id = ? AND pending_token = ?
   `),
   encounter: database.prepare('SELECT * FROM pokemon_encounters WHERE guild_id = ?'),
   upsertEncounter: database.prepare(`
@@ -222,10 +393,27 @@ const sql = {
      LIMIT 50
   `),
   collection: database.prepare(`
-    SELECT id, pokemon_id, species_name, name_pt, shiny, level, caught_at, ball_id, cosmetic_id
-      FROM pokemon_collection WHERE user_id = ? ORDER BY caught_at DESC, id DESC LIMIT ?
+    SELECT id, pokemon_id, species_name, name_pt, shiny, level, xp, caught_at, ball_id, cosmetic_id, nature
+      FROM pokemon_collection WHERE user_id = ? ORDER BY caught_at DESC, id DESC LIMIT ? OFFSET ?
+  `),
+  collectionByGuild: database.prepare(`
+    SELECT id, pokemon_id, species_name, name_pt, shiny, level, xp, caught_at, ball_id, cosmetic_id, nature
+      FROM pokemon_collection WHERE user_id = ? AND guild_id = ?
+      ORDER BY caught_at DESC, id DESC LIMIT ? OFFSET ?
   `),
   collectionCount: database.prepare('SELECT COUNT(*) AS total, COUNT(DISTINCT pokemon_id) AS species FROM pokemon_collection WHERE user_id = ?'),
+  collectionCountByGuild: database.prepare(`
+    SELECT COUNT(*) AS total, COUNT(DISTINCT pokemon_id) AS species
+      FROM pokemon_collection WHERE user_id = ? AND guild_id = ?
+  `),
+  collectionEntry: database.prepare(`
+    SELECT id, user_id, guild_id, pokemon_id, species_name, name_pt, shiny, level, xp
+      FROM pokemon_collection WHERE id = ? AND user_id = ?
+  `),
+  evolveCollectionEntry: database.prepare(`
+    UPDATE pokemon_collection SET pokemon_id = ?, species_name = ?, name_pt = ?
+      WHERE id = ? AND user_id = ? AND pokemon_id = ?
+  `),
   profileCount: database.prepare(`
     SELECT COUNT(*) AS total, COUNT(DISTINCT pokemon_id) AS species, COALESCE(SUM(shiny), 0) AS shinies
       FROM pokemon_collection WHERE user_id = ?
@@ -289,7 +477,15 @@ function normalizarNome(valor) {
 }
 
 function configPadrao() {
-  return { enabled: false, muted: false, spawnChance: 3, cooldownMs: 15 * 60 * 1000, channels: [] };
+  return {
+    enabled: true,
+    muted: false,
+    spawnChance: 3,
+    cooldownMs: 15 * 60 * 1000,
+    channels: [],
+    rarityMode: 'equilibrada',
+    shinyChance: 4096,
+  };
 }
 
 function obterConfig(guildId) {
@@ -302,6 +498,8 @@ function obterConfig(guildId) {
     spawnChance: row.spawn_chance,
     cooldownMs: row.cooldown_ms,
     channels: JSON.parse(row.channels_json),
+    rarityMode: row.rarity_mode || 'equilibrada',
+    shinyChance: row.shiny_chance || 4096,
   };
 }
 
@@ -318,10 +516,23 @@ function salvarConfig(guildId, patch) {
   }
   if (patch.cooldownMs !== undefined) {
     const cooldown = Number(patch.cooldownMs);
-    if (!Number.isInteger(cooldown) || cooldown < 60_000 || cooldown > 24 * 60 * 60 * 1000) {
-      throw new RangeError('O intervalo deve ficar entre 1 minuto e 24 horas.');
+    if (!Number.isInteger(cooldown) || cooldown < 1_000 || cooldown > 24 * 60 * 60 * 1000) {
+      throw new RangeError('O intervalo deve ficar entre 1 segundo e 24 horas.');
     }
     config.cooldownMs = cooldown;
+  }
+  if (patch.rarityMode !== undefined) {
+    if (!['conservadora', 'equilibrada', 'generosa'].includes(patch.rarityMode)) {
+      throw new RangeError('Escolha uma configuração de raridade válida.');
+    }
+    config.rarityMode = patch.rarityMode;
+  }
+  if (patch.shinyChance !== undefined) {
+    const shinyChance = Number(patch.shinyChance);
+    if (!Number.isInteger(shinyChance) || shinyChance < 1 || shinyChance > 100_000) {
+      throw new RangeError('A chance shiny deve ser um denominador entre 1 e 100000.');
+    }
+    config.shinyChance = shinyChance;
   }
   if (patch.channels !== undefined) {
     if (!Array.isArray(patch.channels) || patch.channels.some((id) => !/^\d{5,25}$/.test(String(id)))) {
@@ -336,8 +547,19 @@ function salvarConfig(guildId, patch) {
     spawn_chance: config.spawnChance,
     cooldown_ms: config.cooldownMs,
     channels_json: JSON.stringify(config.channels),
+    rarity_mode: config.rarityMode,
+    shiny_chance: config.shinyChance,
   });
   return config;
+}
+
+function aplicarPreset(guildId, presetId) {
+  const preset = PRESETS_CONFIG[String(presetId || '').toLowerCase()];
+  if (!preset) throw new RangeError('Preset Pokémon desconhecido.');
+  return salvarConfig(guildId, {
+    ...preset,
+    channels: obterConfig(guildId).channels,
+  });
 }
 
 function atualizarCanal(guildId, action, channelId) {
@@ -630,7 +852,24 @@ function reivindicarMissao(userId, missaoId, now = Date.now()) {
     const registrado = sql.claimMission.run(String(userId), missao.id, atual.periodoKey, now);
     if (registrado.changes !== 1) return { ok: false, motivo: 'ja_resgatada', missao: atual };
     sql.addInventory.run(String(userId), missao.recompensa, 1);
-    return { ok: true, missao: atual, recompensa: buscarItem(missao.recompensa) };
+
+    // ── XP de Pokémon por completar missão ──
+    const xpPorMissao = 500;
+    const colecao = listarColecao(userId, 250).pokemon;
+    const xpResultados = [];
+    for (const poke of colecao) {
+      const resultadoXp = ganharXpPokemon(userId, Number(poke.id), xpPorMissao);
+      if (resultadoXp.ok && resultadoXp.subiu) {
+        xpResultados.push(`${poke.name_pt || poke.species_name} → nível ${resultadoXp.nivelNovo} ⬆️`);
+      }
+    }
+
+    return {
+      ok: true,
+      missao: atual,
+      recompensa: buscarItem(missao.recompensa),
+      xpPokemon: xpResultados,
+    };
   });
   return resgate.immediate();
 }
@@ -733,11 +972,12 @@ function capturar(guildId, channelId, userId, guess = '', options = {}) {
     }
     const cosmetic = buscarItem(preferencias.equippedCosmetic);
     const ballId = usaBola?.id || 'pokebola';
+    const nature = natureAleatoria();
     const result = database.prepare(`
       INSERT INTO pokemon_collection
-        (user_id, guild_id, pokemon_id, species_name, name_pt, shiny, level, caught_at, ball_id, cosmetic_id)
-      VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
-    `).run(String(userId), String(guildId), row.pokemon_id, row.species_name, row.name_pt, row.shiny, now, ballId, cosmetic?.id || null);
+        (user_id, guild_id, pokemon_id, species_name, name_pt, shiny, level, caught_at, ball_id, cosmetic_id, nature)
+      VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+    `).run(String(userId), String(guildId), row.pokemon_id, row.species_name, row.name_pt, row.shiny, now, ballId, cosmetic?.id || null, nature);
     sql.deleteEncounter.run(String(guildId));
     return { ok: true, pokemon, collectionId: Number(result.lastInsertRowid), ball: usaBola, cosmetic };
   });
@@ -821,21 +1061,186 @@ function reivindicarTentativaSpawn(guildId, channelId, incenseUntil, options = {
     if (active && active.expires_at > now) return false;
     if (active) sql.deleteEncounter.run(String(guildId));
     const state = sql.state.get(String(guildId));
-    if (state && now - state.last_spawn_at < config.cooldownMs) return false;
+    if (state?.pending_token && state.pending_until > now) return false;
+    if (state?.last_spawn_at > 0 && now - state.last_spawn_at < config.cooldownMs) return false;
     const chance = Math.min(1, config.spawnChance / 100 * (incenseUntil > now ? 1.5 : 1));
     if (random() >= chance) return false;
-    sql.upsertState.run(String(guildId), now);
-    return true;
+    const token = crypto.randomBytes(12).toString('hex');
+    sql.reserveSpawn.run({
+      guild_id: String(guildId),
+      token,
+      expires_at: now + SPAWN_RESERVATION_MS,
+    });
+    return token;
   });
   return claim.immediate();
 }
 
-function listarColecao(userId, limit = 20) {
+function confirmarTentativaSpawn(guildId, token, now = Date.now()) {
+  if (!guildId || !token) throw new TypeError('Servidor e reserva são obrigatórios para confirmar o encontro.');
+  return sql.finishSpawn.run(Number(now) || Date.now(), String(guildId), String(token)).changes === 1;
+}
+
+function liberarTentativaSpawn(guildId, token) {
+  if (!guildId || !token) return false;
+  return sql.releaseSpawn.run(String(guildId), String(token)).changes === 1;
+}
+
+const CHANCES_RARIDADE = {
+  conservadora: { comum: 1, incomum: 0.45, raro: 0.2, lendario: 0.05 },
+  equilibrada: { comum: 1, incomum: 0.75, raro: 0.45, lendario: 0.2 },
+  generosa: { comum: 1, incomum: 0.95, raro: 0.8, lendario: 0.55 },
+};
+
+function ajustarRaridadePokemon(pokemon, rarityMode, random = Math.random) {
+  const chances = CHANCES_RARIDADE[rarityMode];
+  if (!chances) throw new RangeError(`Configuração de raridade inválida: ${rarityMode}.`);
+  const raridade = classificarRaridade(pokemon.captureRate);
+  if (random() < chances[raridade.id]) return pokemon;
+
+  const comuns = FallbackPokemon.filter((item) => classificarRaridade(item.captureRate).id === 'comum');
+  if (!comuns.length) throw new Error('Não há espécies comuns disponíveis para completar o encontro.');
+  const indice = Math.min(comuns.length - 1, Math.floor(Math.max(0, random()) * comuns.length));
+  console.info(`[Pokémon] A raridade "${rarityMode}" selecionou uma espécie comum em vez de ${pokemon.name}.`);
+  return carregarFallback(comuns[indice].id);
+}
+
+function listarColecao(userId, limit = 20, offset = 0, guildId = null) {
   const safeLimit = Math.max(1, Math.min(250, Number(limit) || 20));
+  const safeOffset = Math.max(0, Math.floor(Number(offset) || 0));
+  const normalizar = (lista) => (lista || []).map((item) => ({
+    ...item,
+    nature: item.nature || NATURES[item.id % NATURES.length].nome,
+  }));
+  if (guildId) {
+    return {
+      pokemon: normalizar(sql.collectionByGuild.all(String(userId), String(guildId), safeLimit, safeOffset)),
+      ...sql.collectionCountByGuild.get(String(userId), String(guildId)),
+    };
+  }
   return {
-    pokemon: sql.collection.all(String(userId), safeLimit),
+    pokemon: normalizar(sql.collection.all(String(userId), safeLimit, safeOffset)),
     ...sql.collectionCount.get(String(userId)),
   };
+}
+
+function calcularStatusPokemon(captura, species) {
+  const nature = obterNatureza(captura?.nature);
+  const base = species?.stats || {};
+  const level = Math.max(1, Number(captura?.level) || 1);
+  const hpBase = Number(base.hp) || 45;
+  const atkBase = Number(base.attack) || 49;
+  const defBase = Number(base.defense) || 49;
+  const spdBase = Number(base.speed) || 45;
+  return {
+    natureza: nature.nome,
+    hp: Math.round((hpBase * level / 50 + 10) * nature.hp),
+    ataque: Math.round((atkBase * level / 50) * nature.ataque),
+    defesa: Math.round((defBase * level / 50) * nature.defesa),
+    velocidade: Math.round((spdBase * level / 50) * nature.velocidade),
+  };
+}
+
+function listarEvolucoes(pokemonId) {
+  return EVOLUCOES.filter((evolucao) => evolucao.origem === Number(pokemonId)).map((evolucao) => ({
+    ...evolucao,
+    item: buscarItem(evolucao.item),
+  }));
+}
+
+function evoluirPokemon(userId, collectionId, destinationId) {
+  if (!userId || !Number.isInteger(Number(collectionId)) || Number(collectionId) < 1) {
+    return { ok: false, motivo: 'pokemon_invalido' };
+  }
+  const captura = sql.collectionEntry.get(Number(collectionId), String(userId));
+  if (!captura) return { ok: false, motivo: 'pokemon_nao_encontrado' };
+  const evolucao = EVOLUCOES.find((item) =>
+    item.origem === captura.pokemon_id && item.destino === Number(destinationId)
+  );
+  if (!evolucao) return { ok: false, motivo: 'evolucao_indisponivel' };
+  const item = buscarItem(evolucao.item);
+  if (!item) throw new Error(`O item de evolução "${evolucao.item}" não está no catálogo.`);
+  const executar = database.transaction(() => {
+    const consumido = sql.useInventory.run(String(userId), item.id);
+    if (consumido.changes !== 1) return { ok: false, motivo: 'sem_item', item };
+    const atualizado = sql.evolveCollectionEntry.run(
+      evolucao.destino,
+      normalizarNome(evolucao.nome),
+      evolucao.nome,
+      Number(collectionId),
+      String(userId),
+      evolucao.origem
+    );
+    if (atualizado.changes !== 1) throw new Error('A captura mudou durante a evolução; nenhuma alteração foi aplicada.');
+    return { ok: true, pokemon: evolucao, item, shiny: Boolean(captura.shiny) };
+  });
+  return executar.immediate();
+}
+
+// ── XP e nível de Pokémon capturado ───────────────────────────────────
+function xpNecessarioParaNivel(level) {
+  const n = Math.max(1, Number(level) || 1);
+  return n * 1000; // cada nível custa level * 1000 XP
+}
+
+function ganharXpPokemon(userId, collectionId, quantidade) {
+  const qtd = Math.max(0, Number(quantidade) || 0);
+  if (qtd === 0) return { ok: true, nivelAntigo: 1, nivelNovo: 1, subiu: false, xpGanho: 0, xp: 0, nivel: 1, proximo: xpNecessarioParaNivel(1) };
+
+  const executar = database.transaction(() => {
+    const captura = sql.collectionEntry.get(Number(collectionId), String(userId));
+    if (!captura) return { ok: false, motivo: 'pokemon_nao_encontrado' };
+
+    const nivelAntigo = Number(captura.level) || 1;
+    const xpAntigo = Number(captura.xp) || 0;
+    let novoXp = xpAntigo + qtd;
+    let novoNivel = nivelAntigo;
+    let subiu = false;
+
+    while (novoXp >= xpNecessarioParaNivel(novoNivel)) {
+      novoXp -= xpNecessarioParaNivel(novoNivel);
+      novoNivel += 1;
+      subiu = true;
+    }
+
+    const atualizado = database.prepare(`
+      UPDATE pokemon_collection SET level = ?, xp = ? WHERE id = ? AND user_id = ?
+    `).run(novoNivel, novoXp, Number(collectionId), String(userId));
+
+    return {
+      ok: atualizado.changes === 1,
+      nivelAntigo,
+      nivelNovo: novoNivel,
+      subiu,
+      xpGanho: qtd,
+      xp: novoXp,
+      nivel: novoNivel,
+      proximo: xpNecessarioParaNivel(novoNivel),
+    };
+  });
+
+  return executar.immediate();
+}
+
+function classificarRaridade(captureRate) {
+  const taxa = Number(captureRate) || 45;
+  if (taxa <= 3) return { id: 'lendario', nome: 'Lendário', emoji: '🌟' };
+  if (taxa <= 45) return { id: 'raro', nome: 'Raro', emoji: '💎' };
+  if (taxa <= 120) return { id: 'incomum', nome: 'Incomum', emoji: '✨' };
+  return { id: 'comum', nome: 'Comum', emoji: '🍃' };
+}
+
+function spriteUrl(pokemonId, shiny = false, speciesName = null) {
+  const id = Number(pokemonId);
+  if (!Number.isInteger(id) || id < 1 || id > MAX_POKEMON_ID) return null;
+  if (id <= 649) {
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${shiny ? 'shiny/' : ''}${id}.gif`;
+  }
+  const slug = String(speciesName || '').toLowerCase();
+  if (/^[a-z0-9-]+$/.test(slug)) {
+    return `https://play.pokemonshowdown.com/sprites/${shiny ? 'ani-shiny' : 'ani'}/${slug}.gif`;
+  }
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny ? 'other/official-artwork/shiny/' : 'other/official-artwork/'}${id}.png`;
 }
 
 function ranking(limit = 10) {
@@ -886,6 +1291,7 @@ function carregarFallback(id) {
   return {
     ...fallback,
     types: [],
+    stats: { hp: 45, attack: 49, defense: 49, 'special-attack': 65, 'special-defense': 65, speed: 45 },
     imageUrl: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${fallback.id}.png`,
     shinyImageUrl: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/${fallback.id}.png`,
     animatedUrl: fallback.id <= 649
@@ -936,6 +1342,10 @@ async function obterPokemon(alvo) {
       namePt,
       captureRate: Number(speciesData.capture_rate) || 45,
       types: (pokemonData.types || []).map((entry) => entry.type.name),
+      stats: (pokemonData.stats || []).reduce((acc, entry) => {
+        acc[entry.stat.name] = Number(entry.base_stat) || 0;
+        return acc;
+      }, {}),
       imageUrl: official?.front_default || pokemonData.sprites?.front_default || null,
       shinyImageUrl: official?.front_shiny || pokemonData.sprites?.front_shiny || null,
       animatedUrl: pokemonData.id <= 649
@@ -973,7 +1383,7 @@ async function processarMensagem(message) {
     if (resultado.ok) {
       await message.reply({ embeds: [criarEmbedCaptura(resultado, message.author)] });
     } else if (resultado.motivo === 'escapou') {
-      await message.reply(`😿 ${message.author}, **${resultado.pokemon.namePt}** escapou da Pokébola! Tente novamente.`);
+      await message.reply(`😿 ${message.author}, **${resultado?.pokemon?.namePt || 'O Pokémon'}** escapou da Pokébola! Tente novamente.`);
     }
     return;
   }
@@ -983,37 +1393,48 @@ async function processarMensagem(message) {
   if (!config.enabled || config.muted) return;
   if (config.channels.length && !config.channels.includes(String(message.channelId))) return;
   const preferencias = obterPreferencias(message.author.id);
-  if (!reivindicarTentativaSpawn(message.guild.id, message.channelId, preferencias.incenseUntil)) return;
-  const pokemon = await sortearPokemon();
-  pokemon.shiny = Math.random() < 1 / 4096;
-  const image = pokemon.shiny ? pokemon.shinyImageUrl || pokemon.imageUrl : pokemon.imageUrl;
-  pokemon.imageUrl = image || pokemon.imageUrl;
-  if (pokemon.shiny && pokemon.animatedUrl) {
-    pokemon.animatedUrl = pokemon.animatedUrl.replace(/\/animated\/(\d+)\.gif$/, '/animated/shiny/$1.gif');
-  }
-  const embed = {
-    color: pokemon.shiny ? 0xffd700 : 0xf2a7c8,
-    title: pokemon.shiny ? '✨ Um Pokémon brilhante apareceu!' : '✨ Um Pokémon selvagem apareceu!',
-    description:
-      `**${pokemon.namePt}** apareceu! Use \`/pokemon capturar\` ou digite o nome para tentar capturar.\n` +
-      `⏳ O encontro desaparece em **10 minutos**${pokemon.types.length ? `\n🏷️ Tipo: ${pokemon.types.join(' · ')}` : ''}`,
-    image: { url: pokemon.animatedUrl || pokemon.imageUrl },
-    footer: { text: `Pokédex #${String(pokemon.id).padStart(4, '0')} · Mila Pokémon` },
-  };
-  if (!embed.image.url) delete embed.image;
-  const users = obterUsuariosParaAviso(message.guild.id, pokemon.id);
-  const payload = {
-    embeds: [embed],
-    allowedMentions: { parse: [], users },
-  };
-  if (users.length) payload.content = `🔔 Favorito encontrado: ${users.map((id) => `<@${id}>`).join(' ')}`;
-
+  const reservation = reivindicarTentativaSpawn(message.guild.id, message.channelId, preferencias.incenseUntil);
+  if (!reservation) return;
+  let published = false;
   try {
+    let pokemon = await sortearPokemon();
+    pokemon = ajustarRaridadePokemon(pokemon, config.rarityMode);
+    const rarity = classificarRaridade(pokemon.captureRate);
+    pokemon.rarity = rarity;
+    pokemon.shiny = Math.random() < 1 / config.shinyChance;
+    const image = pokemon.shiny ? pokemon.shinyImageUrl || pokemon.imageUrl : pokemon.imageUrl;
+    pokemon.imageUrl = image || pokemon.imageUrl;
+    if (pokemon.shiny && pokemon.animatedUrl) {
+      pokemon.animatedUrl = pokemon.animatedUrl.replace(/\/animated\/(\d+)\.gif$/, '/animated/shiny/$1.gif');
+    }
+    const embed = {
+      color: pokemon.shiny ? 0xffd700 : 0xf2a7c8,
+      title: pokemon.shiny ? '✨ Um Pokémon brilhante apareceu!' : '✨ Um Pokémon selvagem apareceu!',
+      description:
+        `**${pokemon.namePt}** apareceu! Use \`/pokemon capturar\` ou digite o nome para tentar capturar.\n` +
+        `${rarity.emoji} Raridade: **${rarity.nome}** · ⏳ O encontro desaparece em **10 minutos**${pokemon.types.length ? `\n🏷️ Tipo: ${pokemon.types.join(' · ')}` : ''}`,
+      image: { url: pokemon.animatedUrl || pokemon.imageUrl },
+      footer: { text: `Pokédex #${String(pokemon.id).padStart(4, '0')} · Mila Pokémon` },
+    };
+    if (!embed.image.url) delete embed.image;
+    const users = obterUsuariosParaAviso(message.guild.id, pokemon.id);
+    const payload = {
+      embeds: [embed],
+      allowedMentions: { parse: [], users },
+    };
+    if (users.length) payload.content = `🔔 Favorito encontrado: ${users.map((id) => `<@${id}>`).join(' ')}`;
+
     const posted = await message.channel.send(payload);
     registrarEncontro(message.guild.id, message.channelId, pokemon, posted.id);
+    if (!confirmarTentativaSpawn(message.guild.id, reservation)) {
+      throw new Error('A reserva do encontro expirou antes de confirmar o cooldown.');
+    }
+    published = true;
   } catch (erro) {
-    console.error(`[Pokémon] Não consegui publicar encontro no servidor ${message.guild.id}:`, erro?.message || erro);
+    console.error(`[Pokémon] Não consegui criar ou publicar encontro no servidor ${message.guild.id}:`, erro?.message || erro);
     throw erro;
+  } finally {
+    if (!published) liberarTentativaSpawn(message.guild.id, reservation);
   }
 }
 
@@ -1039,6 +1460,7 @@ module.exports = {
   ENCONTRO_TTL_MS,
   INCENSO_MS,
   CATEGORIAS,
+  PRESETS_CONFIG,
   MISSOES,
   listarItens,
   listarCategorias,
@@ -1046,6 +1468,7 @@ module.exports = {
   normalizarNome,
   obterConfig,
   salvarConfig,
+  aplicarPreset,
   atualizarCanal,
   obterPreferencias,
   salvarPreferencias,
@@ -1065,12 +1488,26 @@ module.exports = {
   obterEncontro,
   registrarEncontro,
   reivindicarTentativaSpawn,
+  confirmarTentativaSpawn,
+  liberarTentativaSpawn,
   listarColecao,
+  listarEvolucoes,
+  evoluirPokemon,
+  xpNecessarioParaNivel,
+  ganharXpPokemon,
+  classificarRaridade,
+  ajustarRaridadePokemon,
+  spriteUrl,
   ranking,
   rankingServidor,
   obterPerfil,
   obterPokemon,
   sortearPokemon,
   processarMensagem,
+  calcularStatusPokemon,
+  obterNatureza,
+  obterPokemonCacheSync,
   criarEmbedCaptura,
+  NATURES,
 };
+

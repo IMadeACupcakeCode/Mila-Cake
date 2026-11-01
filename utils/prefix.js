@@ -76,6 +76,7 @@ const SIGNATURES = {
   mila: [],
   moeda: [],
   omnitrix: [{ name: 'usuario', user: true, optional: true }],
+  perfil: [{ name: 'usuario', user: true, optional: true }],
   roleta_russa: [],
   seguranca: [],
   securitybreach: [],
@@ -90,7 +91,9 @@ const SIGNATURES = {
   dadoduelo: [{ name: 'oponente', user: true, required: true }, { name: 'aposta', int: true, required: true }],
   jokenpo: [{ name: 'oponente', user: true, required: true }, { name: 'aposta', int: true, required: true }],
   blackjack: [{ name: 'aposta', int: true, required: true }],
-  doar: [{ name: 'usuario', user: true, required: true }, { name: 'quantidade', int: true, required: true }],
+  doar: [{ name: 'usuario', user: true, optional: true }, { name: 'item', token: true, optional: true }, { name: 'quantidade', int: true, optional: true }],
+  comprar: [{ name: 'item', token: true, required: true }],
+  vender: [{ name: 'item', token: true, required: true }, { name: 'quantidade', int: true, optional: true }],
   presentear: [{ name: 'usuario', user: true, required: true }, { name: 'item', token: true, optional: true }, { name: 'quantidade', int: true, optional: true }],
   status: [],
   votar: 'especial',
@@ -235,8 +238,20 @@ async function parseArgs(comando, args, message, client) {
       }
     } else if (s.int) {
       const tok = args[idx];
-      idx++;
-      v[s.name] = tok != null ? parseInt(tok, 10) : null;
+      if (tok === undefined) {
+        v[s.name] = null;
+      } else {
+        v[s.name] = parseInt(tok, 10);
+        idx++;
+      }
+    } else if (s.token) {
+      const tok = args[idx];
+      if (tok === undefined) {
+        v[s.name] = null;
+      } else {
+        v[s.name] = tok;
+        idx++;
+      }
     } else {
       const tok = args[idx];
       idx++;
@@ -415,7 +430,28 @@ async function handlePrefix(message, client) {
 
   const args = message.content.slice(prefixo.length).trim().split(/\s+/);
   const comandoDigitado = (args.shift() || '').toLowerCase();
-  const comando = MUSIC_ALIASES[comandoDigitado] || comandoDigitado;
+  let comando = MUSIC_ALIASES[comandoDigitado] || comandoDigitado;
+
+  // Abreviações estratégicas e fallback por prefixo único.
+  const ABBREVIATIONS = {
+    p: 'pokemon', poke: 'pokemon', pk: 'pokemon',
+    eco: 'economia', e: 'economia',
+    loj: 'loja', shop: 'loja',
+    perf: 'perfil', profile: 'perfil',
+    doa: 'doar',
+    pres: 'presentear',
+    col: 'colecao',
+    mis: 'missoes', mission: 'missoes',
+    du: 'duelo', gym: 'ginasio',
+    cfg: 'configurar', config: 'configurar',
+    cod: 'codex', h: 'ajuda', help: 'ajuda',
+    mus: 'tocar', play: 'play',
+  };
+  if (ABBREVIATIONS[comando]) comando = ABBREVIATIONS[comando];
+  if (!INLINE.has(comando) && !EXTRA[comando]) {
+    const candidatos = [...INLINE, ...Object.keys(EXTRA)].filter((nome) => nome.startsWith(comando));
+    if (candidatos.length === 1) comando = candidatos[0];
+  }
   if (!comando) return;
 
   // ⋆｡°✩ Log decorado do comando no terminal
@@ -430,7 +466,7 @@ async function handlePrefix(message, client) {
   // jeito que funcionam por `/`, sem depender da lista de canais permitidos.
   const comandosEconomiaLivres = new Set([
     'economia', 'trabalhar', 'diario', 'coletar', 'loja', 'carteira', 'perfil',
-    'ranking', 'extrato', 'tema', 'conquistas', 'colecao', 'doar', 'presentear',
+    'ranking', 'extrato', 'tema', 'conquistas', 'colecao', 'doar', 'presentear', 'comprar', 'vender',
     'blackjack', 'aposta', 'jokenpo', 'parouimpar', 'maiorcarta', 'dadoduelo',
     'roletacor', 'coinflip', 'cassino', 'pokemon',
   ]);

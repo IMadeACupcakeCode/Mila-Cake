@@ -306,7 +306,7 @@ O link do site aparece em `/economia`, `/perfil` e `/sobre`, e também é
 gravado na descrição pública do bot no Discord (aba "Sobre" da aplicação)
 toda vez que a Mila fica online.
 
-- `http://localhost:3000` – site com Manual, ranking, loja, perfis, painel Pokémon, criadora e referências
+- `http://localhost:3000` – site com Manual, ranking, loja, perfis, painel Pokémon, Criador e referências
 - O visual inicial é aleatório entre Facebook, Google+, 4shared, MediaFire e Friv; o seletor fica no botão discreto no canto da página
 - API JSON: `/api/status`, `/api/temas`, `/api/comandos`, `/api/loja`, `/api/ranking`,
   `/api/perfil?username=...`, `/api/servidor/:id`, `/api/conquistas`,
@@ -339,20 +339,21 @@ permissão de uso do código.
 
 ### 🌿 Mila Pokémon (encontros, captura e coleção)
 - Encontros aparecem em mensagens elegíveis, com sprites animados quando disponíveis e arte estática como alternativa. A PokéAPI é consultada com timeout e espécies ficam em cache local.
-- A equipe ativa o sistema com `/pokemon configurar ativo:true` e pode silenciar, ajustar chance/intervalo e restringir os encontros com `/pokemon canal`. Há no máximo um encontro ativo por servidor; mensagens elegíveis respeitam a chance e o intervalo configurados.
+- Servidores novos já recebem encontros ativos com chance de 3% e intervalo de 15 minutos. A equipe pode ajustar chance, intervalo, raridade e chance shiny em `/pokemon configurar`, aplicar os presets `padrao`, `tranquilo`, `aventura` ou `silencio`, e restringir encontros com `/pokemon canal`. O intervalo começa após a publicação bem-sucedida; um filtro de raridade nunca descarta silenciosamente um encontro que passou na chance configurada. Há no máximo um encontro ativo por servidor.
 - `/pokemon manual` abre o guia completo do jogo: regras de encontro e captura, raridades, itens, favoritos e comandos.
-- Capture digitando o nome no canal do encontro ou usando `/pokemon capturar`; confira sua coleção com `/pokemon colecao` e consulte espécies com `/pokemon info`.
+- Capture digitando o nome no canal do encontro ou usando `/pokemon capturar`; `/pokemon colecao` mostra sprites animados e controles de página, com coleção global ou filtrada por servidor. Consulte pelo apelido ou número com `/pokemon pokedex` (ou `/pokemon info`).
 - `/pokemon perfil [usuario]` mostra coleção global e do servidor, brilhantes, posições nos rankings, captura recente, equipamento, inventário e favoritos. O perfil é público e pode mostrar você ou outra pessoa do servidor.
 - `/pokemon ranking` mostra as capturas deste servidor; escolha `Global` para ver o placar combinado de todos os servidores da Mila. Capturas feitas após esta atualização são atribuídas ao servidor correto; capturas anteriores seguem contando no perfil e no global.
 - `/pokemon favorito` salva espécies por servidor. Em `/pokemon avisos`, cada pessoa escolhe separadamente se aceita pings e alertas de favoritos; ambos os pings são opcionais e começam desligados.
-- `/pokemon loja` abre um catálogo privado no estilo da loja principal: categorias, seletor de itens, carrinho, total e confirmação antes do débito. O catálogo traz 34 bolas, incluindo as variantes clássicas, estratégicas, Apricorn e de Hisui, além de incenso e molduras; os preços e bônus são próprios deste minijogo.
+- `/pokemon loja` abre um catálogo privado no estilo da loja principal: categorias, seletor de itens, carrinho, total e confirmação antes do débito. O catálogo traz Pokébolas, incenso, molduras e pedras/catalisadores de evolução.
 - `/pokemon missoes` acompanha objetivos permanentes e uma missão diária (renova à meia-noite UTC) e permite resgatar Great, Friend, Ultra, Quick e Master Balls. As recompensas só são entregues uma vez por missão/período.
 - `/pokemon comprar`, `/pokemon inventario`, `/pokemon usar` e `/pokemon equipar` continuam disponíveis para ações diretas; a Master Ball garante a captura e os itens são comprados com Açúcares.
+- `/pokemon evoluir captura destino` evolui uma captura compatível quando você possui o item necessário. Eevee tem suas oito evoluções disponíveis; outras linhas cobrem pedras evolutivas e catalisadores especiais.
 - `/pokemon duelo usuario tamanho` cria uma partida PvP em um servidor: escolha 1 Pokémon ou equipes de 2 a 6; cada treinador seleciona apenas capturas da própria coleção. Os turnos têm golpes com PP e precisão, prioridades, tipos, atributos, status, trocas e HP atualizado com sprites animados. O nível é normalizado para 50; habilidades, itens de batalha, clima, EVs/naturezas e outras regras competitivas avançadas não estão simulados.
 - `/pokemon ginasio desafio` inicia um combate PvE com equipe de 2 a 6 contra o líder. Para receber a insígnia, vença e inclua na sua equipe pelo menos um Pokémon da lista específica mostrada no desafio; `/pokemon insignias [usuario]` e `/pokemon perfil` consultam as conquistas. Resultados e insígnias ficam no SQLite; convites e partidas em andamento são temporários e terminam se o processo reiniciar.
 - Os atalhos de prefixo incluem `$pokemon duelo @pessoa 1`, `$pokemon duelo @pessoa 3`, `$pokemon ginasio trilha 3` e `$pokemon insignias [@pessoa]`.
 - Arceus não aparece em encontros: o perfil `acupcakecatsocial` recebe uma única entrada global, registrada com Master Ball, visível na coleção e no perfil em todos os servidores da Mila.
-- Comandos também funcionam por prefixo: `$pokemon manual`, `$pokemon perfil @pessoa`, `$pokemon ranking` e `$pokemon ranking global`. Para canais, `$pokemon canal` lista a configuração; `$pokemon canal adicionar` usa o canal atual; `$pokemon canal #pokemon` ou `$pokemon canal pokemon` seleciona um canal pelo nome; `remover` aceita o mesmo formato. Exemplo: `$pokemon configurar ativo on chance 5 intervalo 15`.
+- Comandos também funcionam por prefixo: `$pokemon manual`, `$pokemon dex pikachu`, `$pokemon meus servidor`, `$pokemon evo <id-da-captura> raichu`, `$pokemon perfil @pessoa` e `$pokemon ranking global`. Para canais, `$pokemon canal` lista a configuração; `$pokemon canal adicionar` usa o canal atual; `$pokemon canal #pokemon` ou `$pokemon canal pokemon` seleciona um canal pelo nome; `remover` aceita o mesmo formato. Exemplo: `$pokemon configurar ativo on chance 5 intervalo 15 raridade generosa shiny 2048`.
 - Para encontrar o slash, digite `/pokemon` no campo de mensagem e escolha o comando (a lista aberta apenas com `/` pode estar rolada para outra letra). O registro foi verificado no escopo global e no servidor configurado. Se não aparecer após filtrar, confirme se está no servidor configurado e se o bot foi convidado com o escopo `applications.commands`; para republicar, confirme `CLIENT_ID` e `DISCORD_TOKEN` no `.env` e rode `npm run deploy:pokemon`. Esse comando publica/atualiza **somente** `/pokemon`, sem substituir os demais comandos slash.
 - Valide o sistema offline com `npm run test:pokemon` (inclui o teste isolado `npm run test:pokemon-battle`).
 

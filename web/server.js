@@ -20,6 +20,7 @@ const { obterConfig } = require('../utils/servidorStore');
 const service = require('../utils/economyService');
 const loja = require('../utils/economyLoja');
 const pokemon = require('../utils/pokemon');
+const pokemonBattle = require('../utils/pokemonBattle');
 const criador = require('../utils/criador');
 const { CATEGORIAS, COMANDOS } = require('../utils/codexData');
 const slash = require('../utils/slash');
@@ -200,6 +201,10 @@ function dadosPerfilPokemon(userId, guildId) {
   const perfil = pokemon.obterPerfil(userId, guildId || null);
   const colecao = pokemon.listarColecao(userId, 50);
   const inventario = pokemon.obterInventario(userId);
+  const insignias = pokemonBattle.listarInsignias(userId).map((insignia) => ({
+    ...insignia,
+    pokemonPermitidosNomes: pokemonBattle.GYMS.find((ginasio) => ginasio.id === insignia.id)?.pokemonPermitidosNomes || '',
+  }));
   return {
     perfil,
     colecao: colecao.pokemon,
@@ -208,6 +213,7 @@ function dadosPerfilPokemon(userId, guildId) {
     inventario: inventario.itens,
     preferencias: inventario.preferencias,
     missoes: pokemon.listarMissoes(userId),
+    insignias,
   };
 }
 

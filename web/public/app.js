@@ -6,14 +6,14 @@
 
 (() => {
   const TEMAS = {
-    facebook: { nome: 'Facebook', emoji: '📘', cores: ['#3b5998', '#4e69a2', '#e9ebee', '#ffffff'], desc: 'Feed, páginas e comunidade.', marca: 'facebook', subtitulo: 'Mila · Amigos', titulo: 'Mila | Facebook', corNavegador: '#3b5998', abas: ['Manual', 'Destaques', 'Loja', 'Perfil', 'Pokémon', 'Criadora', 'Sobre'], rodape: 'Mila · Facebook', tituloRanking: 'Pessoas em destaque', tituloLoja: 'Loja da Mila', tituloPerfil: 'Perfil' },
-    gplus: { nome: 'Google+', emoji: '➕', cores: ['#db4437', '#f4b400', '#f1f1f1', '#ffffff'], desc: 'Círculos, novidades e comunidades.', marca: 'Google+', subtitulo: 'Mila · Comandos', titulo: 'Mila - Google+', corNavegador: '#db4437', abas: ['Comandos', 'Círculos', 'Loja', 'Perfil', 'Pokémon', 'Criadora', 'Sobre'], rodape: 'Mila · Google+', tituloRanking: 'Pessoas em destaque', tituloLoja: 'Loja', tituloPerfil: 'Perfil' },
-    fourshared: { nome: '4shared', emoji: '📁', cores: ['#1b75bb', '#36a9e1', '#edf5fb', '#ffffff'], desc: 'Arquivos, pastas e conteúdo compartilhado.', marca: '4shared', subtitulo: 'Arquivos da Mila', titulo: 'Mila - 4shared', corNavegador: '#1b75bb', abas: ['Arquivos', 'Destaques', 'Loja', 'Minha conta', 'Pokémon', 'Criadora', 'Sobre'], rodape: '4shared · Mila', tituloRanking: 'Mais acessados', tituloLoja: 'Loja', tituloPerfil: 'Minha conta' },
-    mediafire: { nome: 'MediaFire', emoji: '🔥', cores: ['#168de2', '#55b6f5', '#edf7ff', '#ffffff'], desc: 'Armazenamento na nuvem e compartilhamento.', marca: 'MediaFire', subtitulo: 'Nuvem da Mila', titulo: 'Mila - MediaFire', corNavegador: '#168de2', abas: ['Explorar', 'Destaques', 'Loja', 'Minha conta', 'Pokémon', 'Criadora', 'Sobre'], rodape: 'MediaFire · Mila', tituloRanking: 'Mais acessados', tituloLoja: 'Loja', tituloPerfil: 'Minha conta' },
-    friv: { nome: 'Friv', emoji: '🎮', cores: ['#642d88', '#ffcc00', '#ff6600', '#ffffff'], desc: 'Grade de jogos colorida em um portal roxo.', marca: 'friv.com', subtitulo: 'Jogos e atividades', titulo: 'Friv.com - Mila', corNavegador: '#ffcc00', abas: ['Ajuda', 'Mais populares', 'Loja', 'Jogador', 'Pokémon', 'Criadora', 'Sobre'], rodape: 'Friv.com · Mila', tituloRanking: 'Mais populares', tituloLoja: 'Loja', tituloPerfil: 'Jogador' },
+    facebook: { nome: 'Facebook', emoji: '📘', cores: ['#3b5998', '#4e69a2', '#e9ebee', '#ffffff'], desc: 'Feed, páginas e comunidade.', marca: 'facebook', subtitulo: 'Mila · Amigos', titulo: 'Mila | Facebook', corNavegador: '#3b5998', abas: ['Manual', 'Destaques', 'Loja', 'Perfil', 'Pokémon', 'Criador', 'Sobre'], rodape: 'Mila · Facebook', tituloRanking: 'Pessoas em destaque', tituloLoja: 'Loja da Mila', tituloPerfil: 'Perfil' },
+    gplus: { nome: 'Google+', emoji: '➕', cores: ['#db4437', '#f4b400', '#f1f1f1', '#ffffff'], desc: 'Círculos, novidades e comunidades.', marca: 'Google+', subtitulo: 'Mila · Comandos', titulo: 'Mila - Google+', corNavegador: '#db4437', abas: ['Comandos', 'Círculos', 'Loja', 'Perfil', 'Pokémon', 'Criador', 'Sobre'], rodape: 'Mila · Google+', tituloRanking: 'Pessoas em destaque', tituloLoja: 'Loja', tituloPerfil: 'Perfil' },
+    skype: { nome: 'Skype', emoji: '💬', cores: ['#00aff0', '#7fba00', '#dcf4ff', '#ffffff'], desc: 'Conversas, contatos e chamadas.', marca: 'Skype', subtitulo: 'Mila · contatos', titulo: 'Mila | Skype', corNavegador: '#00aff0', abas: ['Conversas', 'Contatos', 'Loja', 'Perfil', 'Pokémon', 'Criador', 'Sobre'], rodape: 'Mila · Skype', tituloRanking: 'Pessoas em destaque', tituloLoja: 'Loja', tituloPerfil: 'Perfil' },
   };
 
   const ORDEM_TEMAS = Object.keys(TEMAS);
+  const VALOR_CRIADOR = `+${'9'.repeat(30)}`;
+  const URL_AUDIO_HACK = 'https://www.myinstants.com/media/sounds/x-files-theme-song-copy_ppcqym5_qvW8arE.mp3';
   const PAGINAS = {
     comandos: '/',
     ranking: '/ranking',
@@ -41,6 +41,46 @@
 
   // ── Utilidades ─────────────────────────────────────────────────────
   const numero = (n) => Number(n || 0).toLocaleString('pt-BR');
+
+  const audioHack = new Audio(URL_AUDIO_HACK);
+  audioHack.preload = 'none';
+
+  function tocarAudioHack() {
+    if (!audioHack.paused) return;
+    audioHack.currentTime = 0;
+    audioHack.play()
+      .then(() => { $('#hack-audio-status').textContent = ''; })
+      .catch((erro) => {
+        console.warn('[Mila] Não foi possível reproduzir o áudio do selo:', erro);
+      });
+  }
+
+  function ligarAudioHack() {
+    document.addEventListener('pointerover', (evento) => {
+      if (!(evento.target instanceof Element)) return;
+      const selo = evento.target.closest('[data-hack-audio]');
+      if (!selo || selo.contains(evento.relatedTarget)) return;
+      tocarAudioHack();
+    });
+    document.addEventListener('click', (evento) => {
+      if (evento.target instanceof Element && evento.target.closest('[data-hack-audio]')) {
+        tocarAudioHack();
+      }
+    });
+    audioHack.addEventListener('error', () => {
+      console.warn('[Mila] Não foi possível carregar o áudio externo do Myinstants.');
+    });
+  }
+
+  function criarSeloHack() {
+    const selo = document.createElement('button');
+    selo.type = 'button';
+    selo.className = 'hack-classificacao';
+    selo.dataset.hackAudio = '';
+    selo.textContent = '??';
+    selo.setAttribute('aria-label', '??');
+    return selo;
+  }
 
   async function buscarJson(url) {
     const resposta = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -373,15 +413,18 @@
           const medalha = ['🥇', '🥈', '🥉'][e.posicao - 1] || `#${e.posicao}`;
           const valor = dados.categoria === 'xp'
             ? `Nv ${e.level} · ${numero(e.xp)} XP`
-            : `${numero(e.acucares)} 🍬`;
-          const largura = Math.max(3, Math.round((e.valor / maior) * 100));
+            : `${e.ehCriador ? (e.valorFormatado || VALOR_CRIADOR) : numero(e.acucares)} 🍬`;
+          const largura = e.ehCriador ? 100 : Math.max(3, Math.round((e.valor / maior) * 100));
+          const classificacao = e.ehCriador
+            ? ' <button type="button" class="hack-classificacao" data-hack-audio aria-label="??">??</button>'
+            : '';
           return `
             <li>
               <span class="pos">${medalha}</span>
               <img class="avatar" src="${escapar(avatar)}" alt="" loading="lazy">
-              <span class="nome">${escapar(nome)}${e.ehCriador ? ' <span class="coroa">👑</span>' : ''}</span>
+              <span class="nome">${escapar(nome)}${classificacao}</span>
               <span class="barra"><i style="width:${largura}%"></i></span>
-              <span class="valor">${valor}</span>
+              <span class="valor${e.ehCriador && dados.categoria !== 'xp' ? ' valor-infinito' : ''}">${valor}</span>
             </li>`;
         })
         .join('');
@@ -450,8 +493,13 @@
     $('#perfil-avatar').src = usuario.avatar || './assets/mila-icone.png';
     $('#perfil-avatar').alt = usuario.globalName || usuario.username || 'Avatar do usuário';
     $('#perfil-nome').textContent = usuario.globalName || usuario.username || 'Usuário';
-    $('#perfil-titulo').textContent = dados.ehCriador ? '👑 Criador da Mila' : dados.titulo;
-    $('#perfil-saldo').textContent = dados.ehCriador ? '+999999 🍬' : `${numero(dados.acucares)} 🍬`;
+    const titulo = $('#perfil-titulo');
+    titulo.replaceChildren();
+    if (dados.ehCriador) titulo.append(criarSeloHack());
+    else titulo.textContent = dados.titulo;
+    const saldo = $('#perfil-saldo');
+    saldo.textContent = dados.ehCriador ? `${VALOR_CRIADOR} 🍬` : `${numero(dados.acucares)} 🍬`;
+    saldo.classList.toggle('saldo-infinito', Boolean(dados.ehCriador));
 
     $('#perfil-nivel').textContent = dados.level;
     $('#perfil-xp').textContent = numero(dados.xp);
@@ -683,7 +731,7 @@
   }
 
   function renderizarPerfilPokemon(dados) {
-    const { usuario, perfil, colecao, colecaoTotal, inventario, preferencias, missoes } = dados;
+    const { usuario, perfil, colecao, colecaoTotal, inventario, preferencias, missoes, insignias = [] } = dados;
     const resultado = $('#pokemon-perfil-resultado');
     const ultima = perfil.latestGlobal;
     const favoritos = perfil.favorites.length
@@ -710,6 +758,14 @@
           <small>Recompensa: ${escapar(missao.recompensaItem?.emoji || '🎁')} ${escapar(missao.recompensaItem?.nome || missao.recompensa)}</small>
         </article>`;
     }).join('');
+    const insigniasHtml = insignias.length
+      ? insignias.map((insignia) => `
+        <article class="pokemon-insignia ${insignia.obtida ? 'obtida' : 'bloqueada'}">
+          <strong>${insignia.obtida ? '🏅' : '🔒'} ${escapar(insignia.nome)}</strong>
+          <span>${insignia.obtida ? `Conquistada${insignia.obtidaEm ? ` · ${formatarDataPokemon(insignia.obtidaEm)}` : ''}` : `Ginásio de ${escapar(insignia.lider)}`}</span>
+          <small>Desafio: ${escapar(insignia.pokemonPermitidosNomes || 'Consulte /pokemon ginasio')}</small>
+        </article>`).join('')
+      : '<p class="ajuda">Nenhuma insígnia cadastrada.</p>';
     const preferenciasAviso = preferencias.pingEnabled && preferencias.favoriteAlerts
       ? 'Menções de favoritos permitidas'
       : preferencias.favoriteAlerts
@@ -722,7 +778,15 @@
           <div><h2>${escapar(usuario.globalName || usuario.username)}</h2><p>@${escapar(usuario.username)}</p></div>
           ${perfil.arceusExclusivo ? '<span class="pokemon-arceus">🌟 Arceus</span>' : ''}
         </header>
-        <div class="pokemon-estatisticas">
+        <nav class="pokemon-perfil-atalhos" aria-label="Seções do perfil">
+          <a href="#pokemon-perfil-status">📊 Status</a>
+          <a href="#pokemon-perfil-mochila">🎒 Mochila</a>
+          <a href="#pokemon-perfil-favoritos">⭐ Favoritos</a>
+          <a href="#pokemon-perfil-missoes">🧭 Missões</a>
+          <a href="#pokemon-perfil-insignias">🏅 Insígnias</a>
+          <a href="#pokemon-perfil-colecao">📚 Coleção</a>
+        </nav>
+        <div class="pokemon-estatisticas" id="pokemon-perfil-status">
           <div><small>Capturas globais</small><strong>${numeroPokemon(perfil.global.total)}</strong></div>
           <div><small>Espécies</small><strong>${numeroPokemon(perfil.global.species)}</strong></div>
           <div><small>Brilhantes</small><strong>${numeroPokemon(perfil.global.shinies)}</strong></div>
@@ -730,14 +794,18 @@
           <div><small>Ranking ${dados.servidor ? 'do servidor' : 'local'}</small><strong>${perfil.guildPosition ? `#${numeroPokemon(perfil.guildPosition)}` : '—'}</strong></div>
         </div>
         <p class="ajuda">${dados.servidor ? `Dados locais de ${escapar(dados.servidor.nome)}.` : 'Selecione um servidor acima para consultar estatísticas e favoritos locais.'}</p>
-        ${perfil.arceusExclusivo ? '<p class="pokemon-nota">Arceus é um presente exclusivo global do perfil da criadora, capturado com uma Master Ball.</p>' : ''}
+        ${perfil.arceusExclusivo ? '<p class="pokemon-nota">Arceus é um presente exclusivo global do perfil do Criador, capturado com uma Master Ball.</p>' : ''}
         <div class="pokemon-perfil-colunas">
-          <section><h3>🕰️ Captura mais recente</h3><p>${ultima ? `${ultima.shiny ? '✨ ' : ''}${escapar(ultima.name_pt)} · #${String(ultima.pokemon_id).padStart(4, '0')} · ${formatarDataPokemon(ultima.caught_at)}` : 'Nenhuma captura registrada.'}</p></section>
-          <section><h3>🎒 Mochila</h3><ul class="pokemon-lista">${itens}</ul><p class="ajuda">Pokébola: ${escapar(perfil.equippedBall?.nome || 'Pokébola comum')} · Cosmético: ${escapar(perfil.equippedCosmetic?.nome || 'nenhum')}</p></section>
-          <section><h3>⭐ Favoritos ${dados.servidor ? 'deste servidor' : ''}</h3><ul class="pokemon-lista">${favoritos}</ul><p class="ajuda">${escapar(preferenciasAviso)}</p></section>
-          <section><h3>🧭 Missões</h3><div class="pokemon-missoes">${missoesHtml || '<p class="ajuda">Nenhuma missão disponível.</p>'}</div></section>
+          <section><h3>🕰️ Captura mais recente</h3><p>${ultima ? `${ultima.shiny ? '✨ ' : ''}${escapar(ultima.name_pt)} · #${String(ultima.pokemon_id).padStart(4, '0')} · ${formatarDataPokemon(ultima.caught_at)}` : 'Nenhuma captura registrada.'}</p><p class="ajuda">${perfil.incenseUntil > Date.now() ? `Incenso ativo até ${formatarDataPokemon(perfil.incenseUntil)}` : 'Incenso inativo'}</p></section>
+          <section id="pokemon-perfil-mochila"><h3>🎒 Mochila</h3><ul class="pokemon-lista">${itens}</ul><p class="ajuda">Pokébola: ${escapar(perfil.equippedBall?.nome || 'Pokébola comum')} · Cosmético: ${escapar(perfil.equippedCosmetic?.nome || 'nenhum')}</p></section>
+          <section id="pokemon-perfil-favoritos"><h3>⭐ Favoritos ${dados.servidor ? 'deste servidor' : ''}</h3><ul class="pokemon-lista">${favoritos}</ul><p class="ajuda">${escapar(preferenciasAviso)}</p></section>
+          <section id="pokemon-perfil-missoes"><h3>🧭 Missões</h3><div class="pokemon-missoes">${missoesHtml || '<p class="ajuda">Nenhuma missão disponível.</p>'}</div></section>
         </div>
-        <section class="pokemon-colecao">
+        <section class="pokemon-colecao" id="pokemon-perfil-insignias">
+          <div class="pokemon-colecao-titulo"><h3>🏅 Insígnias</h3><span>${numeroPokemon(insignias.filter((item) => item.obtida).length)} / ${numeroPokemon(insignias.length)} conquistadas</span></div>
+          <div class="pokemon-insignias-grade">${insigniasHtml}</div>
+        </section>
+        <section class="pokemon-colecao" id="pokemon-perfil-colecao">
           <div class="pokemon-colecao-titulo"><h3>📚 Coleção recente</h3><span>${numeroPokemon(colecaoTotal)} capturas · ${numeroPokemon(dados.especies)} espécies</span></div>
           <div class="pokemon-colecao-grade">${capturas}</div>
         </section>
@@ -817,6 +885,7 @@
     ligarManual();
     ligarRanking();
     ligarCarteira();
+    ligarAudioHack();
     ligarPokemon();
     ligarPopup();
     ligarReconexao();

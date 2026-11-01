@@ -69,17 +69,18 @@ async function main() {
   }).toJSON();
   assert.ok(catalogo.title.includes('Loja da Mila'));
   assert.ok(catalogo.description.includes('Saldo disponível'));
-  assert.equal(catalogo.fields.length, 2, 'filtro exibe apenas a categoria selecionada e mantém o resumo do carrinho');
-  assert.ok(catalogo.fields[0].value.includes('5.000'), 'catálogo mostra o preço formatado');
-  assert.ok(catalogo.fields[0].value.includes('🏅'), 'catálogo usa emojis descritivos dos itens');
+  assert.equal(catalogo.fields.length, Math.min(5, loja.listarPorCategoria().find((item) => item.id === 'titulos').itens.length) + 2, 'catálogo paginado exibe título, itens da página e resumo do carrinho');
+  assert.ok(catalogo.fields[1].value.includes('5.000'), 'catálogo mostra o preço formatado');
+  assert.ok(catalogo.fields[1].name.includes('🏅'), 'catálogo usa emojis descritivos dos itens');
 
   const componentes = comandoLoja.internals.montarComponentes({ categoria: 'todas', selecionado: null })
     .map((linha) => linha.toJSON());
-  assert.equal(componentes.length, 4, 'loja organiza categoria, item, carrinho e finalização em linhas separadas');
+  assert.equal(componentes.length, 5, 'loja organiza categoria, item, paginação, carrinho e finalização em linhas separadas');
   assert.equal(componentes[0].components[0].options.length, 5, 'seletor oferece todas as categorias e visão completa');
-  assert.equal(componentes[1].components[0].options.length, loja.listarItens().length, 'seletor lista todo o catálogo');
-  assert.equal(componentes[2].components[0].disabled, true, 'adicionar fica bloqueado até selecionar um item');
-  assert.equal(componentes[3].components[0].disabled, true, 'finalizar fica bloqueado até adicionar um item');
+  assert.equal(componentes[1].components[0].options.length, 5, 'seletor exibe os itens da página atual');
+  assert.equal(componentes[2].components[1].label, 'Próximo', 'catálogo oferece paginação explícita');
+  assert.equal(componentes[3].components[0].disabled, true, 'adicionar fica bloqueado até selecionar um item');
+  assert.equal(componentes[4].components[0].disabled, true, 'finalizar fica bloqueado até adicionar um item');
   assert.equal(comandoCarrinho.execute, comandoLoja.execute, '/carrinho reutiliza a loja sem um segundo fluxo confuso');
 
   const collector = new EventEmitter();
@@ -113,8 +114,11 @@ async function main() {
     respostaDaLoja = updated;
     return updated;
   };
+  const paginaSeguinte = await selecionar('loja_pagina_proxima', []);
+  assert.ok(paginaSeguinte.embeds[0].toJSON().fields[0].name.includes('2/'), 'botão Próximo avança o catálogo completo');
+  await selecionar('loja_pagina_anterior', []);
   const filtroItens = await selecionar('loja_categoria', ['itens']);
-  assert.equal(filtroItens.embeds[0].toJSON().fields.length, 2, 'trocar categoria atualiza o catálogo e mantém o carrinho');
+  assert.equal(filtroItens.embeds[0].toJSON().fields.length, Math.min(5, loja.listarPorCategoria().find((item) => item.id === 'itens').itens.length) + 2, 'trocar categoria atualiza o catálogo e mantém o carrinho');
   const itemEscolhido = await selecionar('loja_item', ['ingresso_evento']);
   assert.notEqual(itemEscolhido.components[2].components[0].disabled, true, 'seleção habilita adicionar o item ao carrinho');
   const itemAdicionado = await selecionar('loja_adicionar', []);
@@ -150,9 +154,27 @@ async function main() {
   const compraCriador = loja.comprar(c, 'titulo_vip');
   assert.equal(compraCriador.ok, true, 'criador compra sem saldo real');
   assert.equal(compraCriador.saldo, 999999, 'saldo do criador não muda');
+  const rankingCriador = service.ranking('money', 50);
+  const primeiroCriador = rankingCriador.find((entrada) => entrada.ehCriador);
+  assert.equal(primeiroCriador.posicao, 1, 'criador fica acima de saldos anormais');
+  assert.equal(primeiroCriador.classificacao, '??');
+  assert.match(primeiroCriador.valorFormatado, /^\+9{30}$/);
+  assert.equal(
+    service.carteira(c).posicaoDinheiro,
+    rankingCriador.find((entrada) => entrada.id === c).posicao,
+    'posição no perfil coincide com a ordem do ranking corrigido'
+  );
   const diarioCriador = service.resgatarDiario(c);
   assert.equal(diarioCriador.ok, true);
   assert.equal(diarioCriador.ehCriador, true);
+
+  // Quantias inseguras não podem ser convertidas em saldos REAL pelo SQLite.
+  const saldoAntesDoTeste = db.getUsuario(b).acucares;
+  assert.deepEqual(service.doar(a, b, Number.MAX_SAFE_INTEGER + 1), { ok: false, motivo: 'valor' });
+  assert.equal(db.transferirAcucares(a, b, Number.MAX_SAFE_INTEGER + 1), false);
+  assert.equal(db.getUsuario(b).acucares, saldoAntesDoTeste);
+  assert.throws(() => db.addAcucares(a, Number.MAX_SAFE_INTEGER + 1), RangeError);
+  assert.throws(() => db.addAcucares(a, Number.MAX_SAFE_INTEGER), RangeError, 'saldo resultante fora do limite é rejeitado');
 
   // ── Renderização de todos os cartões ──
   const client = { user: { displayAvatarURL: () => 'https://example.com/bot.png' } };

@@ -50,7 +50,7 @@ module.exports = {
       `${tema.marcador} 🏆 Conquistas: \`${desbloqueadas}/${conquistas.length}\`\n\n` +
       `${theme.separador(tema)}\n\n` +
       site.linha() +
-      (ehCriador ? '\n\n👑 *Reconhecido(a) pela Mila em todos os servidores.*' : '');
+      (ehCriador ? '\n\n👑 *Reconhecido pelo Criador da Mila em todos os servidores.*' : '');
 
     const embed = theme.janela({
       tema,

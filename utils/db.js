@@ -52,7 +52,15 @@ db.exec(`
     processada_em INTEGER NOT NULL
   );
 
-  CREATE INDEX IF NOT EXISTS idx_inventario_user ON inventario(user_id);
+  CREATE TABLE IF NOT EXISTS pokemon_equipped (
+    user_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (user_id, item_id),
+    FOREIGN KEY(user_id) REFERENCES usuarios(id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_pokemon_equipped_user ON pokemon_equipped(user_id);
+  CREATE INDEX IF NOT EXISTS idx_pokemon_equipped_user ON pokemon_equipped(user_id);
   CREATE INDEX IF NOT EXISTS idx_usuarios_rank ON usuarios(level DESC, xp DESC);
   CREATE INDEX IF NOT EXISTS idx_usuarios_acucares ON usuarios(acucares DESC);
   CREATE INDEX IF NOT EXISTS idx_mensagens_em ON mensagens_processadas(processada_em);
@@ -182,10 +190,23 @@ function getUsuario(id) {
  */
 function addAcucares(id, amount) {
   if (criador.ehCriador(id)) return criador.PONTOS_INFINITOS;
-  getUsuario(id);
-  const linha = sql.atualizarAcucares.get(Number(amount) || 0, id);
+  const valor = Number(amount);
+  if (!Number.isSafeInteger(valor)) {
+    throw new RangeError('A quantia de Açúcares precisa ser um inteiro seguro.');
+  }
+  const linha = transacaoAtualizarAcucares.immediate(id, valor);
   return linha?.acucares ?? 0;
 }
+
+const transacaoAtualizarAcucares = db.transaction((id, valor) => {
+  getUsuario(id);
+  const saldoAtual = sql.selecionarUsuario.get(id).acucares;
+  const saldoFinal = Math.max(0, saldoAtual + valor);
+  if (!Number.isSafeInteger(saldoAtual) || !Number.isSafeInteger(saldoFinal)) {
+    throw new RangeError('O saldo excederia o limite seguro de Açúcares.');
+  }
+  return sql.atualizarAcucares.get(valor, id);
+});
 
 /**
  * Adiciona XP e cuida de "level up" (cada nível = nivel atual * 1000)
@@ -267,6 +288,16 @@ function addInventario(userId, itemId, quantidade = 1) {
   }
 }
 
+function removerInventario(userId, itemId, quantidade = 1) {
+  const qtd = Math.max(1, Number(quantidade) || 1);
+  const item = sql.itemInventario.get(userId, itemId);
+  if (!item || Number(item.quantidade) < qtd) return false;
+  const debitou = sql.debitarItem.run(qtd, userId, itemId, qtd);
+  if (debitou.changes !== 1) return false;
+  sql.limparItemZerado.run(userId, itemId);
+  return true;
+}
+
 function atualizarTitulo(id, novoTitulo) {
   getUsuario(id); // garante
   sql.atualizarTitulo.run(String(novoTitulo ?? '').slice(0, 80), id);
@@ -297,6 +328,13 @@ function reivindicarComando(fingerprint, janelaMs = 5000) {
 const transacaoDoacao = db.transaction((deId, paraId, quantidade) => {
   getUsuario(deId);
   getUsuario(paraId);
+  const saldoOrigem = sql.selecionarUsuario.get(deId).acucares;
+  const saldoDestino = sql.selecionarUsuario.get(paraId).acucares;
+  if (
+    !Number.isSafeInteger(saldoOrigem) ||
+    !Number.isSafeInteger(saldoDestino) ||
+    !Number.isSafeInteger(saldoDestino + quantidade)
+  ) return false;
   const debitou = sql.debitar.run(quantidade, deId, quantidade);
   if (debitou.changes !== 1) return false;
   sql.creditar.run(quantidade, paraId);
@@ -305,15 +343,21 @@ const transacaoDoacao = db.transaction((deId, paraId, quantidade) => {
 
 function transferirAcucares(deId, paraId, quantidade) {
   const valor = Number(quantidade);
-  if (!Number.isInteger(valor) || valor <= 0 || deId === paraId) return false;
+  if (!Number.isSafeInteger(valor) || valor <= 0 || deId === paraId) return false;
   // Criador doa sem perder saldo (afinal, são infinitos).
   if (criador.ehCriador(deId)) {
-    getUsuario(paraId);
-    sql.creditar.run(valor, paraId);
-    return true;
+    return transacaoCreditar.immediate(paraId, valor);
   }
   return transacaoDoacao.immediate(deId, paraId, valor);
 }
+
+const transacaoCreditar = db.transaction((userId, valor) => {
+  getUsuario(userId);
+  const saldoAtual = sql.selecionarUsuario.get(userId).acucares;
+  if (!Number.isSafeInteger(saldoAtual) || !Number.isSafeInteger(saldoAtual + valor)) return false;
+  sql.creditar.run(valor, userId);
+  return true;
+});
 
 // ── Extrato ───────────────────────────────────────────────────────────
 /**
@@ -456,7 +500,7 @@ module.exports = {
   getTopAcucares,
   getInventario,
   addInventario,
-  transferirAcucares,
+  removerInventario,  transferirAcucares,
   transferirItem,
   resetarEconomiaUsuarios,
   atualizarTitulo,

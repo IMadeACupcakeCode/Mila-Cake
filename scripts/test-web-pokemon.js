@@ -85,6 +85,9 @@ async function main() {
     assert.equal(perfilPokemon.dados.perfil.servidor.total, 0);
     assert.ok(Array.isArray(perfilPokemon.dados.missoes));
     assert.ok(Array.isArray(perfilPokemon.dados.colecao));
+    assert.ok(Array.isArray(perfilPokemon.dados.insignias));
+    assert.equal(perfilPokemon.dados.insignias.length, 8);
+    assert.ok(perfilPokemon.dados.insignias.every((insignia) => insignia.pokemonPermitidosNomes));
 
     const perfilGlobal = await get('/api/pokemon/perfil?username=testtrainer');
     assert.equal(perfilGlobal.resposta.status, 200);

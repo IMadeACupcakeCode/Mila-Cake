@@ -249,11 +249,47 @@ async function obterEspecieDeBatalha(id) {
   const cache = sql.species.get(pokemonId);
   if (cache) return JSON.parse(cache.payload);
 
-  const [dadosPokemon, dadosPublicos] = await Promise.all([
-    buscarJson(`${API_BASE}/pokemon/${pokemonId}`),
-    pokemon.obterPokemon(String(pokemonId)),
-  ]);
-  if (!dadosPublicos) throw new Error(`Não consegui carregar os dados de ${dadosPokemon.name} para batalha.`);
+  let dadosPokemon;
+  let dadosPublicos;
+  try {
+    [dadosPokemon, dadosPublicos] = await Promise.all([
+      buscarJson(`${API_BASE}/pokemon/${pokemonId}`),
+      pokemon.obterPokemon(String(pokemonId)),
+    ]);
+  } catch (erro) {
+    dadosPublicos = await pokemon.obterPokemon(String(pokemonId));
+    console.warn(`[Pokémon] PokéAPI indisponível para #${pokemonId}; usando dados básicos de batalha:`, erro?.message || erro);
+    const types = dadosPublicos?.types?.length ? dadosPublicos.types : ['normal'];
+    const especieFallback = {
+      id: pokemonId,
+      nome: dadosPublicos?.namePt || `Pokémon #${pokemonId}`,
+      nomeOriginal: dadosPublicos?.name || `pokemon-${pokemonId}`,
+      tipos: types,
+      stats: {
+        hp: 65,
+        attack: 65,
+        defense: 65,
+        'special-attack': 65,
+        'special-defense': 65,
+        speed: 65,
+      },
+      imageUrl: dadosPublicos?.imageUrl || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonId}.png`,
+      animatedUrl: dadosPublicos?.animatedUrl || (pokemonId <= 649
+        ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/${pokemonId}.gif`
+        : null),
+      moves: [{ name: 'tackle', level: 1 }, { name: 'quick-attack', level: 1 }],
+    };
+    return especieFallback;
+  }
+  if (!dadosPublicos) {
+    dadosPublicos = {
+      name: dadosPokemon.name,
+      namePt: dadosPokemon.name,
+      types: (dadosPokemon.types || []).map((item) => item.type.name),
+      imageUrl: dadosPokemon.sprites?.other?.['official-artwork']?.front_default || dadosPokemon.sprites?.front_default || null,
+      animatedUrl: null,
+    };
+  }
   const stats = Object.fromEntries((dadosPokemon.stats || []).map((item) => [item.stat.name, Number(item.base_stat)]));
   for (const stat of ['hp', 'attack', 'defense', 'special-attack', 'special-defense', 'speed']) {
     if (!Number.isFinite(stats[stat]) || stats[stat] < 1) {
@@ -277,14 +313,49 @@ async function obterEspecieDeBatalha(id) {
 async function obterMoveset(especie) {
   const candidatos = especie.moves;
   const movimentos = [];
-  for (let inicio = 0; inicio < candidatos.length && movimentos.length < 4; inicio += 4) {
-    const lote = candidatos.slice(inicio, inicio + 4);
-    const resultados = await comLimite(lote, 4, (item) => obterDetalheMovimento(item.name));
-    movimentos.push(...resultados.filter(temEfeitoUtil));
+  try {
+    for (let inicio = 0; inicio < candidatos.length && movimentos.length < 4; inicio += 4) {
+      const lote = candidatos.slice(inicio, inicio + 4);
+      const resultados = await comLimite(lote, 4, (item) => obterDetalheMovimento(item.name));
+      movimentos.push(...resultados.filter(temEfeitoUtil));
+    }
+  } catch (erro) {
+    console.warn(`[Pokémon] Não consegui carregar todos os golpes de ${especie.nome}; usando golpes básicos:`, erro?.message || erro);
   }
   const unicos = new Map(movimentos.map((movimento) => [movimento.nomeOriginal, movimento]));
   const moveset = Array.from(unicos.values()).slice(0, 4);
-  if (!moveset.length) throw new Error(`Não encontrei golpes utilizáveis para ${especie.nome}.`);
+  if (!moveset.length) {
+    moveset.push(
+      {
+        nome: 'Investida',
+        nomeOriginal: 'tackle',
+        tipo: 'normal',
+        categoria: 'physical',
+        poder: 40,
+        precisao: 100,
+        pp: 35,
+        prioridade: 0,
+        ailment: 'none',
+        ailmentChance: 0,
+        statChanges: [],
+        alvo: 'selected-pokemon',
+      },
+      {
+        nome: 'Ataque Rápido',
+        nomeOriginal: 'quick-attack',
+        tipo: 'normal',
+        categoria: 'physical',
+        poder: 40,
+        precisao: 100,
+        pp: 30,
+        prioridade: 1,
+        ailment: 'none',
+        ailmentChance: 0,
+        statChanges: [],
+        alvo: 'selected-pokemon',
+      }
+    );
+  }
   return moveset.map((movimento) => ({ ...movimento, ppAtual: movimento.pp }));
 }
 

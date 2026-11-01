@@ -58,7 +58,31 @@ function pokemonTeste() {
 async function main() {
   limpar();
   try {
-    assert.equal(pokemon.obterConfig(guildId).enabled, false, 'encontros começam desativados');
+    assert.equal(pokemon.obterConfig(guildId).enabled, true, 'servidores novos recebem encontros pré-configurados');
+    assert.equal(pokemon.obterConfig(guildId).shinyChance, 4096);
+    assert.equal(pokemon.obterConfig(missionGuildId).spawnChance, 3);
+    assert.equal(pokemon.obterConfig(missionGuildId).cooldownMs, 15 * 60 * 1000);
+    assert.equal(
+      pokemon.reivindicarTentativaSpawn(missionGuildId, channelId, 0, { now: 900_000, random: () => 0.03 }),
+      false,
+      'pré-configuração aplica exatamente 3% de chance'
+    );
+    const reservaPadrao = pokemon.reivindicarTentativaSpawn(missionGuildId, channelId, 0, { now: 900_000, random: () => 0.029 });
+    assert.ok(reservaPadrao, 'pré-configuração permite spawn abaixo de 3%');
+    assert.equal(pokemon.liberarTentativaSpawn(missionGuildId, reservaPadrao), true);
+    const presetTranquilo = pokemon.aplicarPreset(otherGuildId, 'tranquilo');
+    assert.equal(presetTranquilo.spawnChance, 2);
+    assert.equal(presetTranquilo.cooldownMs, 30 * 60 * 1000);
+    const presetAventura = pokemon.aplicarPreset(otherGuildId, 'aventura');
+    assert.equal(presetAventura.spawnChance, 5);
+    assert.equal(presetAventura.shinyChance, 2048);
+    assert.equal(presetAventura.rarityMode, 'generosa');
+    assert.equal(pokemon.aplicarPreset(otherGuildId, 'silencio').enabled, false);
+    assert.throws(() => pokemon.aplicarPreset(otherGuildId, 'desconhecido'), RangeError);
+    assert.throws(() => pokemon.salvarConfig(guildId, { shinyChance: 0 }), RangeError);
+    assert.deepEqual(pokemon.classificarRaridade(3), { id: 'lendario', nome: 'Lendário', emoji: '🌟' });
+    assert.equal(pokemon.classificarRaridade(190).id, 'comum');
+    assert.ok(pokemon.spriteUrl(700, true, 'sylveon').includes('/ani-shiny/sylveon.gif'), 'sprites de Pokémon recentes continuam animados e respeitam shiny');
     const config = pokemon.salvarConfig(guildId, {
       enabled: true,
       spawnChance: 8,
@@ -73,16 +97,52 @@ async function main() {
       false,
       'canal fora da lista não gera encontro'
     );
+    const primeiraReserva = pokemon.reivindicarTentativaSpawn(guildId, channelId, 0, { now: 1_000_000, random: () => 0 });
+    assert.ok(primeiraReserva, 'canal permitido pode reservar um encontro');
     assert.equal(
-      pokemon.reivindicarTentativaSpawn(guildId, channelId, 0, { now: 1_000_000, random: () => 0 }),
-      true,
-      'canal permitido pode gerar encontro'
+      pokemon.reivindicarTentativaSpawn(guildId, channelId, 0, { now: 1_000_001, random: () => 0 }),
+      false,
+      'uma reserva pendente impede encontros simultâneos'
     );
+    assert.equal(pokemon.confirmarTentativaSpawn(guildId, primeiraReserva, 1_000_002), true, 'o cooldown começa quando o encontro é publicado');
     assert.equal(
       pokemon.reivindicarTentativaSpawn(guildId, channelId, 0, { now: 1_000_001, random: () => 0 }),
       false,
       'cooldown impede encontros repetidos'
     );
+
+    pokemon.salvarConfig(otherGuildId, {
+      enabled: true,
+      muted: false,
+      spawnChance: 92,
+      cooldownMs: 180_000,
+      channels: [channelId],
+    });
+    assert.equal(
+      pokemon.reivindicarTentativaSpawn(otherGuildId, channelId, 0, { now: 2_000_000, random: () => 0.92 }),
+      false,
+      'chance configurada de 92% não dispara quando o sorteio atinge 92%'
+    );
+    const reserva92 = pokemon.reivindicarTentativaSpawn(otherGuildId, channelId, 0, { now: 2_000_000, random: () => 0.919 });
+    assert.ok(reserva92, 'chance configurada de 92% dispara abaixo do limite');
+    assert.equal(pokemon.confirmarTentativaSpawn(otherGuildId, reserva92, 2_000_000), true);
+    assert.equal(
+      pokemon.reivindicarTentativaSpawn(otherGuildId, channelId, 0, { now: 2_179_999, random: () => 0 }),
+      false,
+      'intervalo de três minutos bloqueia até completar o cooldown'
+    );
+    const reservaAposCooldown = pokemon.reivindicarTentativaSpawn(otherGuildId, channelId, 0, { now: 2_180_000, random: () => 0 });
+    assert.ok(reservaAposCooldown, 'intervalo de três minutos permite nova tentativa ao terminar');
+    assert.equal(pokemon.liberarTentativaSpawn(otherGuildId, reservaAposCooldown), true);
+    const reservaLiberada = pokemon.reivindicarTentativaSpawn(otherGuildId, channelId, 0, { now: 2_180_001, random: () => 0 });
+    assert.ok(reservaLiberada, 'liberar uma reserva permite outra tentativa sem impor cooldown');
+    assert.equal(pokemon.liberarTentativaSpawn(otherGuildId, reservaLiberada), true);
+    const especieRaraRebaixada = pokemon.ajustarRaridadePokemon(
+      { id: 150, name: 'mewtwo', namePt: 'Mewtwo', captureRate: 3 },
+      'conservadora',
+      () => 0.99
+    );
+    assert.equal(pokemon.classificarRaridade(especieRaraRebaixada.captureRate).id, 'comum', 'preset controla a espécie sem cancelar o encontro');
 
     const pikachu = pokemonTeste();
     assert.equal(pokemon.alterarFavorito(guildId, userId, 'adicionar', pikachu).ok, true);
@@ -122,6 +182,14 @@ async function main() {
     assert.equal(pokemon.listarColecao(userId).total, 1);
     assert.equal(pokemon.listarColecao(userId).species, 1);
     assert.equal(pokemon.obterInventario(userId).itens.find((item) => item.id === 'greatball'), undefined, 'bola usada é consumida');
+    assert.equal(pokemon.comprar(userId, 'pedra_trovao').ok, true, 'loja vende itens de evolução');
+    const evolucao = pokemon.evoluirPokemon(userId, captura.collectionId, 26);
+    assert.equal(evolucao.ok, true, 'Pikachu evolui com a Pedra do Trovão');
+    assert.equal(pokemon.listarColecao(userId, 1).pokemon[0].pokemon_id, 26);
+    assert.equal(pokemon.obterInventario(userId).itens.some((item) => item.id === 'pedra_trovao'), false);
+    assert.equal(pokemon.evoluirPokemon(userId, captura.collectionId, 135).motivo, 'evolucao_indisponivel');
+    assert.deepEqual(pokemon.listarEvolucoes(133).map((item) => item.destino).sort((a, b) => a - b), [134, 135, 136, 196, 197, 470, 471, 700]);
+    db.addAcucares(userId, 2500);
 
     const compraLote = pokemon.comprarLote(userId, [
       { itemId: 'greatball', quantidade: 2 },
@@ -194,7 +262,9 @@ async function main() {
     const incenso = pokemon.usarItem(userId, 'incenso', 3_000_000);
     assert.equal(incenso.ok, true);
     assert.equal(incenso.expiresAt, 3_000_000 + pokemon.INCENSO_MS);
-    assert.equal(pokemon.reivindicarTentativaSpawn(guildId, channelId, incenso.expiresAt, { now: 3_100_000, random: () => 0 }), true, 'incenso mantém o sistema de encontros funcional');
+    const reservaIncenso = pokemon.reivindicarTentativaSpawn(guildId, channelId, incenso.expiresAt, { now: 3_100_000, random: () => 0 });
+    assert.ok(reservaIncenso, 'incenso mantém o sistema de encontros funcional');
+    assert.equal(pokemon.liberarTentativaSpawn(guildId, reservaIncenso), true);
 
     const command = require('../commands/pokemon');
     let prefixReply = null;
@@ -204,18 +274,69 @@ async function main() {
         guildId,
         channelId,
         member: {},
-        reply: async (payload) => { prefixReply = payload; },
+        reply: async (payload) => { prefixReply = payload; return { id: 'm', edit: async () => {}, createMessageComponentCollector: () => ({ on: () => {}, stop: () => {} }) }; },
       },
       ['manual'],
       { user: { id: '800000000000001099' } }
     );
     const prefixEmbed = prefixReply?.embeds?.[0]?.toJSON?.() || prefixReply?.embeds?.[0];
     assert.ok(prefixEmbed?.title?.includes('Manual'), 'manual completo está disponível por prefixo');
-    assert.ok(prefixEmbed?.fields?.some((field) => field.name.includes('Como capturar')), 'manual cobre as regras de captura');
-    assert.ok(prefixEmbed?.fields?.some((field) => field.name.includes('Loja')), 'manual cobre os itens e a loja');
-    assert.ok(prefixEmbed?.fields?.some((field) => field.name.includes('Missões')), 'manual explica as missões');
+    assert.ok(Array.isArray(prefixReply?.components) && prefixReply.components.length > 0, 'manual paginado tem botões de navegação');
 
     const userView = { id: userId, username: 'Teste', displayAvatarURL: () => 'https://example.com/user.png' };
+    const collectionPaginationUser = { id: '800000000000001011', username: 'Coleção paginada' };
+    const paginationGuildId = '800000000000001012';
+    const otherPaginationGuildId = '800000000000001013';
+    const inserirCapturaPaginacao = db.db.prepare(`
+      INSERT INTO pokemon_collection (user_id, pokemon_id, species_name, name_pt, shiny, level, caught_at)
+      VALUES (?, 25, 'pikachu', 'Pikachu', 0, 1, ?)
+    `);
+    for (let index = 0; index < 12; index += 1) {
+      inserirCapturaPaginacao.run(collectionPaginationUser.id, Date.now() + index);
+    }
+    assert.equal(pokemon.listarColecao(collectionPaginationUser.id, 10, 10).pokemon.length, 2, 'consulta da coleção respeita o deslocamento');
+    assert.equal(command.internals.paginasColecao(collectionPaginationUser), 3, 'coleções extensas calculam todas as páginas');
+    assert.equal(command.internals.perfilColecaoEmbed(collectionPaginationUser, 1).length, 5, 'cada página mostra até cinco capturas');
+    assert.ok(
+      command.internals.perfilColecaoEmbed(collectionPaginationUser, 1)[0].toJSON().image.url.includes('/25.gif'),
+      'coleção mostra sprites animados'
+    );
+    const capturaServidor = db.db.prepare(`
+      INSERT INTO pokemon_collection
+        (user_id, guild_id, pokemon_id, species_name, name_pt, shiny, level, caught_at)
+      VALUES (?, ?, 25, 'pikachu', 'Pikachu', 0, 1, ?)
+    `);
+    capturaServidor.run(collectionPaginationUser.id, paginationGuildId, Date.now());
+    capturaServidor.run(collectionPaginationUser.id, otherPaginationGuildId, Date.now() + 1);
+    assert.equal(pokemon.listarColecao(collectionPaginationUser.id, 20, 0, paginationGuildId).total, 1, 'coleção por servidor filtra capturas locais');
+    assert.equal(pokemon.listarColecao(collectionPaginationUser.id).total, 14, 'coleção global mantém capturas de todos os servidores');
+    const colecaoReactionCollector = new EventEmitter();
+    const colecaoReactionEvents = [];
+    let colecaoMensagemAtual = null;
+    const colecaoMensagem = {
+      react: async (emoji) => colecaoReactionEvents.push(emoji),
+      createMessageComponentCollector: () => new EventEmitter(),
+      createReactionCollector: () => colecaoReactionCollector,
+      edit: async (payload) => { colecaoMensagemAtual = payload; },
+      reactions: { removeAll: async () => {} },
+    };
+    const mensagemColecao = {
+      author: collectionPaginationUser,
+      guildId: paginationGuildId,
+      channelId,
+      mentions: { users: { first: () => null } },
+      reply: async (payload) => {
+        colecaoMensagemAtual = payload;
+        return colecaoMensagem;
+      },
+    };
+    await command.executePrefix(mensagemColecao, ['colecao'], {});
+    assert.deepEqual(colecaoReactionEvents, ['◀️', '▶️'], 'coleção longa oferece reações clicáveis além dos botões');
+    await colecaoReactionCollector.listeners('collect')[0](
+      { emoji: { name: '▶️' }, partial: false, users: { remove: async () => {} } },
+      { id: collectionPaginationUser.id, bot: false }
+    );
+    assert.ok(colecaoMensagemAtual.embeds[0].toJSON().footer.text.includes('página 2/3'), 'reação avança a página da coleção');
     const catalog = command.internals.montarLojaEmbed({
       user: userView,
       categoria: 'todas',
@@ -224,22 +345,31 @@ async function main() {
       carrinho: new Map(),
     }).toJSON();
     assert.ok(catalog.title.includes('Loja Pokémon'));
-    assert.ok(catalog.fields.some((field) => field.value.includes('Master Ball')));
+    assert.ok(catalog.fields[0].name.includes('Catálogo') && catalog.fields[0].value.includes('de'));
     const shopControls = command.internals.montarLojaComponentes({
       categoria: 'todas',
       selecionado: null,
       carrinho: new Map(),
     }).map((row) => row.toJSON());
-    assert.equal(shopControls.length, 4, 'loja Pokémon separa categorias, item, carrinho e checkout');
+    assert.equal(shopControls.length, 5, 'loja Pokémon separa categorias, item, páginas, carrinho e checkout');
     assert.equal(shopControls[0].components[0].options.length, pokemon.CATEGORIAS.length + 1);
+    assert.equal(shopControls[2].components[1].label, 'Próximo', 'catálogo Pokémon oferece navegação explícita');
     for (const categoria of pokemon.CATEGORIAS) {
       const controls = command.internals.montarLojaComponentes({
         categoria: categoria.id,
         selecionado: null,
         carrinho: new Map(),
       }).map((row) => row.toJSON());
-      assert.equal(controls[1].components[0].options.length, pokemon.listarCategorias().find((item) => item.id === categoria.id).itens.length);
+      assert.equal(
+        controls[1].components[0].options.length,
+        Math.min(command.internals.ITENS_LOJA_POR_PAGINA, pokemon.listarCategorias().find((item) => item.id === categoria.id).itens.length)
+      );
     }
+    const perfilResumo = command.internals.montarTelaPerfil(userView, guildId, 'resumo', 0);
+    assert.equal(perfilResumo.components[0].components.length, 5, 'perfil tem atalhos interativos para as áreas principais');
+    const perfilInsignias = command.internals.montarTelaPerfil(userView, guildId, 'insignias', 0);
+    assert.ok(perfilInsignias.embeds[0].toJSON().description.includes('página 1/2'), 'insígnias do perfil são divididas em páginas');
+    assert.equal(perfilInsignias.components.length, 2, 'insígnias oferecem controles Anterior/Próximo');
 
     const shopCollector = new EventEmitter();
     shopCollector.stop = (reason) => shopCollector.emit('end', [], reason);
@@ -275,11 +405,18 @@ async function main() {
       shopReply = updated;
       return updated;
     };
+    const paginaPokemonSeguinte = await interagirComLoja('pokemon_loja_pagina_proxima');
+    assert.ok(paginaPokemonSeguinte.embeds[0].toJSON().fields[0].name.includes('2/'), 'botão Próximo avança o catálogo Pokémon');
     await interagirComLoja('pokemon_loja_categoria', ['situacionais']);
+    const paginaEstrategicaSeguinte = await interagirComLoja('pokemon_loja_pagina_proxima');
+    assert.ok(paginaEstrategicaSeguinte.embeds[0].toJSON().fields[0].name.includes('2/'), 'a paginação também funciona após filtrar uma categoria');
     await interagirComLoja('pokemon_loja_item', ['quickball']);
     await interagirComLoja('pokemon_loja_adicionar');
     const reciboPokemon = await interagirComLoja('pokemon_loja_finalizar');
-    assert.ok(reciboPokemon.embeds[0].toJSON().title.includes('Pedido Pokémon confirmado'));
+    assert.ok(
+      reciboPokemon.embeds[0].toJSON().title.includes('Pedido Pokémon confirmado'),
+      `checkout da loja Pokémon deve concluir: ${reciboPokemon.embeds[0].toJSON().title} — ${reciboPokemon.embeds[0].toJSON().description}`
+    );
     assert.equal(reciboPokemon.components.length, 0, 'checkout encerra a loja e remove os controles');
 
     const missionView = { ...userView, id: missionUserId };
@@ -291,6 +428,11 @@ async function main() {
       [channelId, { id: channelId, name: 'pokemon-geral', type: 0 }],
       [otherChannelId, { id: otherChannelId, name: '✨|pokemon-teste', type: 0 }],
     ]);
+    const profileCollector = new EventEmitter();
+    const profileMessage = {
+      createMessageComponentCollector: () => profileCollector,
+      edit: async (payload) => { prefixReply = payload; },
+    };
     const channelMessage = {
       author: { id: userId, username: 'Teste' },
       guildId,
@@ -299,7 +441,10 @@ async function main() {
       channel: channelCache.get(otherChannelId),
       member: { permissions: { has: () => true } },
       mentions: { channels: { first: () => null }, users: { first: () => null } },
-      reply: async (payload) => { prefixReply = payload; },
+      reply: async (payload) => {
+        prefixReply = payload;
+        return payload.components?.length ? profileMessage : undefined;
+      },
     };
     await command.executePrefix(channelMessage, ['canal', '✨|pokemon-teste'], { user: { id: '800000000000001099' } });
     let channelEmbed = prefixReply?.embeds?.[0]?.toJSON?.() || prefixReply?.embeds?.[0];
@@ -320,6 +465,17 @@ async function main() {
     await command.executePrefix(channelMessage, ['configurar', 'chance', 'abc'], { user: { id: '800000000000001099' } });
     channelEmbed = prefixReply?.embeds?.[0]?.toJSON?.() || prefixReply?.embeds?.[0];
     assert.ok(channelEmbed?.title?.includes('Chance inválida'), 'valor de configuração inválido recebe orientação em vez de erro genérico');
+    await command.executePrefix(
+      { ...channelMessage, guildId: missionGuildId },
+      ['configurar', 'preset', 'aventura', 'chance', '92', 'intervalo', '3', 'raridade', 'conservadora', 'shiny', '900'],
+      { user: { id: '800000000000001099' } }
+    );
+    const configDePrefixo = pokemon.obterConfig(missionGuildId);
+    assert.equal(configDePrefixo.enabled, true);
+    assert.equal(configDePrefixo.spawnChance, 92);
+    assert.equal(configDePrefixo.cooldownMs, 3 * 60 * 1000);
+    assert.equal(configDePrefixo.rarityMode, 'conservadora');
+    assert.equal(configDePrefixo.shinyChance, 900);
 
     pokemon.registrarEncontro(guildId, channelId, pikachu, 'message-2');
     let capturaNatural = null;
@@ -353,6 +509,14 @@ async function main() {
     let responseEmbed = prefixReply?.embeds?.[0]?.toJSON?.() || prefixReply?.embeds?.[0];
     assert.ok(responseEmbed?.title?.includes('Perfil Pokémon'), 'perfil próprio está disponível');
     assert.ok(responseEmbed?.fields?.some((field) => field.name.includes('Coleção global')), 'perfil mostra estatísticas globais');
+    assert.equal(prefixReply.components[0].components.length, 5, 'perfil oferece navegação interativa para status, mochila, coleção e insígnias');
+    let mochilaDoPerfil;
+    await profileCollector.listeners('collect')[0]({
+      customId: 'pokemon_perfil_aba_mochila',
+      user: { id: userId },
+      update: async (payload) => { mochilaDoPerfil = payload; },
+    });
+    assert.ok(mochilaDoPerfil.embeds[0].toJSON().title.includes('Mochila'), 'atalho abre a seção de inventário do perfil');
     channelMessage.mentions.users.first = () => ({ id: otherUserId, username: 'Outro', displayAvatarURL: () => null });
     await command.executePrefix(channelMessage, ['perfil', `<@${otherUserId}>`], { user: { id: '800000000000001099' } });
     channelMessage.mentions.users.first = () => null;
@@ -383,15 +547,23 @@ async function main() {
       ON CONFLICT(pokemon_id) DO UPDATE SET payload = excluded.payload, cached_at = excluded.cached_at
     `).run(JSON.stringify(bulbasaur), Date.now());
     let spawnPayload = null;
+    let quantidadeSpawns = 0;
     const originalSpawnRandom = Math.random;
     Math.random = () => 0;
     try {
       await pokemon.processarMensagem({
-        guild: { id: guildId },
+        guild: { id: otherGuildId },
         author: { id: userId, bot: false },
         content: 'Oi, Mila!',
         channelId,
-        channel: { send: async (payload) => { spawnPayload = payload; return { id: 'spawned-message' }; } },
+        channel: { send: async (payload) => { quantidadeSpawns += 1; spawnPayload = payload; return { id: 'spawned-message' }; } },
+      });
+      await pokemon.processarMensagem({
+        guild: { id: otherGuildId },
+        author: { id: userId, bot: false },
+        content: 'Mais uma mensagem elegível',
+        channelId,
+        channel: { send: async () => { quantidadeSpawns += 1; return { id: 'unexpected-spawn' }; } },
       });
     } finally {
       Math.random = originalSpawnRandom;
@@ -406,7 +578,8 @@ async function main() {
       }
     }
     assert.ok(spawnPayload?.embeds?.[0]?.title?.includes('Pokémon'), 'mensagem elegível gera e publica um encontro');
-    assert.equal(pokemon.obterEncontro(guildId)?.id, 1, 'encontro publicado fica disponível para captura');
+    assert.equal(quantidadeSpawns, 1, 'chance de spawn é aplicada antes do intervalo de três minutos');
+    assert.equal(pokemon.obterEncontro(otherGuildId)?.id, 1, 'encontro publicado fica disponível para captura');
 
     const commandLoader = require('../utils/slash').carregar();
     assert.equal(commandLoader.invalidos.some((entry) => entry.includes('pokemon.js')), false);
@@ -417,6 +590,8 @@ async function main() {
     assert.ok(commandData.options.some((option) => option.name === 'perfil'), 'perfil está registrado como slash');
     assert.ok(commandData.options.some((option) => option.name === 'ranking'), 'rankings estão registrados como slash');
     assert.ok(commandData.options.some((option) => option.name === 'missoes'), 'missões estão registradas como slash');
+    assert.ok(commandData.options.some((option) => option.name === 'pokedex'), 'a Pokédex possui comando slash direto');
+    assert.ok(commandData.options.some((option) => option.name === 'evoluir'), 'evolução possui comando slash');
     assert.equal(commandData.options.find((option) => option.name === 'comprar').options[0].choices, undefined, 'catálogo completo não excede o limite de opções do Discord');
     assert.ok(commandData.options.length <= 25, 'o número de subcomandos respeita o limite do Discord');
     assert.ok(commandData.options.every((option) => option.description.length <= 100), 'as descrições respeitam o limite do Discord');
