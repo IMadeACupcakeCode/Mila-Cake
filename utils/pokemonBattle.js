@@ -4,7 +4,31 @@ const pokemon = require('./pokemon');
 const database = db.db;
 const API_BASE = 'https://pokeapi.co/api/v2';
 const API_TIMEOUT_MS = 10_000;
-const LEVEL_BATALHA = 50;
+const MISSINGNO_ID = 9001;
+const CUSTOM_SPECIES = {
+  [MISSINGNO_ID]: {
+    id: MISSINGNO_ID,
+    nome: 'MissingNo.',
+    nomeOriginal: 'missingno',
+    tipos: ['normal', 'flying'],
+    stats: { hp: 33, attack: 136, defense: 0, 'special-attack': 6, 'special-defense': 6, speed: 29 },
+    imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/archive/6/62/20140124140453%21MissingNo.png',
+    animatedUrl: null,
+    moves: [
+      { name: 'gaster-blaster', level: 1 },
+      { name: 'command-block', level: 1 },
+      { name: 'mordida-de-87', level: 1 },
+      { name: 'slenderman', level: 1 },
+    ],
+  },
+};
+
+const CUSTOM_MOVES = {
+  'gaster-blaster': { id: 9001, nome: 'Gaster Blaster', nomeOriginal: 'gaster-blaster', tipo: 'dark', categoria: 'special', poder: 120, precisao: 90, pp: 5, prioridade: 0, ailment: 'none', ailmentChance: 0, statChanges: [], alvo: 'selected-pokemon' },
+  'command-block': { id: 9002, nome: 'Command Block', nomeOriginal: 'command-block', tipo: 'psychic', categoria: 'special', poder: 100, precisao: 100, pp: 10, prioridade: 0, ailment: 'none', ailmentChance: 0, statChanges: [], alvo: 'selected-pokemon' },
+  'mordida-de-87': { id: 9003, nome: 'Mordida de 87', nomeOriginal: 'mordida-de-87', tipo: 'dark', categoria: 'physical', poder: 87, precisao: 95, pp: 15, prioridade: 0, ailment: 'none', ailmentChance: 0, statChanges: [], alvo: 'selected-pokemon' },
+  'slenderman': { id: 9004, nome: 'Slenderman', nomeOriginal: 'slenderman', tipo: 'ghost', categoria: 'status', poder: 0, precisao: 100, pp: 5, prioridade: 0, ailment: 'none', ailmentChance: 0, statChanges: [{ stat: 'defense', change: -1 }, { stat: 'evasion', change: -1 }], alvo: 'selected-pokemon' },
+};
 const MAX_TIME = 6;
 const MAX_TURNS = 80;
 const STATUS_VALIDOS = new Set(['burn', 'poison', 'paralysis', 'sleep', 'freeze']);
@@ -209,6 +233,7 @@ function listarMovimentosAprendidos(pokemonData) {
 }
 
 async function obterDetalheMovimento(nome) {
+  if (CUSTOM_MOVES[nome]) return { ...CUSTOM_MOVES[nome] };
   const emCache = sql.move.get(nome);
   if (emCache) return JSON.parse(emCache.payload);
   if (!/^[a-z0-9-]+$/.test(nome)) throw new TypeError('Nome de movimento inválido recebido da PokéAPI.');
@@ -243,6 +268,9 @@ function temEfeitoUtil(movimento) {
 
 async function obterEspecieDeBatalha(id) {
   const pokemonId = Number(id);
+  if (CUSTOM_SPECIES[pokemonId]) {
+    return { ...CUSTOM_SPECIES[pokemonId] };
+  }
   if (!Number.isInteger(pokemonId) || pokemonId < 1 || pokemonId > pokemon.MAX_POKEMON_ID) {
     throw new RangeError('Espécie Pokémon fora do intervalo suportado.');
   }
@@ -310,53 +338,99 @@ async function obterEspecieDeBatalha(id) {
   return especies;
 }
 
-async function obterMoveset(especie) {
-  const candidatos = especie.moves;
+async function obterMoveset(especie, level = LEVEL_BATALHA, movimentosEscolhidos = null) {
+  const nivel = Math.max(1, Number(level) || LEVEL_BATALHA);
+  const candidatosBase = Array.isArray(especie.moves) ? especie.moves : [];
+  const aprendiveis = candidatosBase.filter((item) => {
+    if (item?.name && typeof item?.level === 'number') {
+      return item.level <= nivel;
+    }
+    const detalhes = item.version_group_details || [];
+    return detalhes.some((detalhe) =>
+      detalhe.move_learn_method?.name === 'level-up' &&
+      Number(detalhe.level_learned_at) <= nivel
+    );
+  });
+  let nomes = [];
+  if (Array.isArray(movimentosEscolhidos) && movimentosEscolhidos.length) {
+    nomes = movimentosEscolhidos.map((item) => String(item).trim()).filter(Boolean);
+  } else {
+    nomes = aprendiveis.map((item) => item.move?.name || item.name).filter(Boolean);
+  }
+  nomes = [...new Set(nomes)];
   const movimentos = [];
   try {
-    for (let inicio = 0; inicio < candidatos.length && movimentos.length < 4; inicio += 4) {
-      const lote = candidatos.slice(inicio, inicio + 4);
-      const resultados = await comLimite(lote, 4, (item) => obterDetalheMovimento(item.name));
+    for (let inicio = 0; inicio < nomes.length && movimentos.length < 4; inicio += 4) {
+      const lote = nomes.slice(inicio, inicio + 4);
+      const resultados = await comLimite(lote, 4, (nome) => obterDetalheMovimento(nome));
       movimentos.push(...resultados.filter(temEfeitoUtil));
     }
   } catch (erro) {
     console.warn(`[Pokémon] Não consegui carregar todos os golpes de ${especie.nome}; usando golpes básicos:`, erro?.message || erro);
   }
   const unicos = new Map(movimentos.map((movimento) => [movimento.nomeOriginal, movimento]));
-  const moveset = Array.from(unicos.values()).slice(0, 4);
+  let moveset = Array.from(unicos.values()).slice(0, 4);
+  if (movimentosEscolhidos && moveset.length < movimentosEscolhidos.length) {
+    // Completa com golpes aprendíveis caso algum escolhido seja inválido.
+    const extras = aprendiveis.map((item) => item.move?.name).filter((nome) => !moveset.some((mov) => mov.nomeOriginal === nome));
+    for (const nome of extras) {
+      if (moveset.length >= 4) break;
+      try {
+        const detalhe = await obterDetalheMovimento(nome);
+        if (temEfeitoUtil(detalhe) && !moveset.some((mov) => mov.nomeOriginal === detalhe.nomeOriginal)) {
+          moveset.push(detalhe);
+        }
+      } catch { /* ignora golpe inválido */ }
+    }
+  }
   if (!moveset.length) {
     moveset.push(
-      {
-        nome: 'Investida',
-        nomeOriginal: 'tackle',
-        tipo: 'normal',
-        categoria: 'physical',
-        poder: 40,
-        precisao: 100,
-        pp: 35,
-        prioridade: 0,
-        ailment: 'none',
-        ailmentChance: 0,
-        statChanges: [],
-        alvo: 'selected-pokemon',
-      },
-      {
-        nome: 'Ataque Rápido',
-        nomeOriginal: 'quick-attack',
-        tipo: 'normal',
-        categoria: 'physical',
-        poder: 40,
-        precisao: 100,
-        pp: 30,
-        prioridade: 1,
-        ailment: 'none',
-        ailmentChance: 0,
-        statChanges: [],
-        alvo: 'selected-pokemon',
-      }
+      { nome: 'Investida', nomeOriginal: 'tackle', tipo: 'normal', categoria: 'physical', poder: 40, precisao: 100, pp: 35, prioridade: 0, ailment: 'none', ailmentChance: 0, statChanges: [], alvo: 'selected-pokemon' },
+      { nome: 'Ataque Rápido', nomeOriginal: 'quick-attack', tipo: 'normal', categoria: 'physical', poder: 40, precisao: 100, pp: 30, prioridade: 1, ailment: 'none', ailmentChance: 0, statChanges: [], alvo: 'selected-pokemon' }
     );
   }
-  return moveset.map((movimento) => ({ ...movimento, ppAtual: movimento.pp }));
+  if (!movimentosEscolhidos) {
+    const embaralhar = (lista) => {
+      const copia = [...lista];
+      for (let i = copia.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copia[i], copia[j]] = [copia[j], copia[i]];
+      }
+      return copia;
+    };
+    const deDano = moveset.filter((movimento) => movimento.categoria !== 'status' && movimento.poder > 0);
+    const deApoio = moveset.filter((movimento) => !(movimento.categoria !== 'status' && movimento.poder > 0));
+    moveset = [...embaralhar(deDano), ...embaralhar(deApoio)];
+  }
+  return moveset.slice(0, 4).map((movimento) => ({ ...movimento, ppAtual: movimento.pp }));
+}
+
+async function listarGolpesAprendiveis(especie, level = LEVEL_BATALHA) {
+  const nivel = Math.max(1, Number(level) || LEVEL_BATALHA);
+  const candidatosBase = Array.isArray(especie.moves) ? especie.moves : [];
+  const aprendiveis = candidatosBase.filter((item) => {
+    if (item?.name && typeof item?.level === 'number') {
+      return item.level <= nivel;
+    }
+    const detalhes = item.version_group_details || [];
+    return detalhes.some((detalhe) =>
+      detalhe.move_learn_method?.name === 'level-up' &&
+      Number(detalhe.level_learned_at) <= nivel
+    );
+  });
+  const nomes = [...new Set(aprendiveis.map((item) => item.move?.name || item.name).filter(Boolean))];
+  const movimentos = [];
+  try {
+    for (let inicio = 0; inicio < nomes.length; inicio += 4) {
+      const lote = nomes.slice(inicio, inicio + 4);
+      const resultados = await comLimite(lote, 4, (nome) => obterDetalheMovimento(nome));
+      movimentos.push(...resultados.filter(temEfeitoUtil));
+    }
+  } catch (erro) {
+    console.warn(`[Pokémon] Não consegui listar golpes de ${especie.nome}:`, erro?.message || erro);
+  }
+  const unicos = new Map(movimentos.map((movimento) => [movimento.nomeOriginal, movimento]));
+  return Array.from(unicos.values());
 }
 
 function calcularStat(base, level, hp = false) {
@@ -365,29 +439,36 @@ function calcularStat(base, level, hp = false) {
 }
 
 async function prepararPokemon(row) {
+  const level = Math.max(1, Math.min(100, Number(row.level) || LEVEL_BATALHA));
+  let movimentosEscolhidos = null;
+  if (row.moves_json) {
+    try { movimentosEscolhidos = JSON.parse(row.moves_json); } catch { movimentosEscolhidos = null; }
+  }
   const especie = await obterEspecieDeBatalha(row.pokemon_id);
-  const moveset = await obterMoveset(especie);
+  const moveset = await obterMoveset(especie, level, movimentosEscolhidos);
   const stats = {
-    hp: calcularStat(especie.stats.hp, LEVEL_BATALHA, true),
-    attack: calcularStat(especie.stats.attack, LEVEL_BATALHA),
-    defense: calcularStat(especie.stats.defense, LEVEL_BATALHA),
-    'special-attack': calcularStat(especie.stats['special-attack'], LEVEL_BATALHA),
-    'special-defense': calcularStat(especie.stats['special-defense'], LEVEL_BATALHA),
-    speed: calcularStat(especie.stats.speed, LEVEL_BATALHA),
+    hp: calcularStat(especie.stats.hp, level, true),
+    attack: calcularStat(especie.stats.attack, level),
+    defense: calcularStat(especie.stats.defense, level),
+    'special-attack': calcularStat(especie.stats['special-attack'], level),
+    'special-defense': calcularStat(especie.stats['special-defense'], level),
+    speed: calcularStat(especie.stats.speed, level),
   };
+  const vida = pokemon.estadoVidaPokemon({ ...row, level }, { stats: especie.stats });
+  stats.hp = vida.hpMax;
   return {
     collectionId: row.id == null ? null : Number(row.id),
     pokemonId: especie.id,
     nome: row.name_pt || especie.nome,
     nomeOriginal: especie.nomeOriginal,
     shiny: Boolean(Number(row.shiny)),
-    level: LEVEL_BATALHA,
+    level,
     tipos: especie.tipos,
     stats,
-    hp: stats.hp,
-    hpMax: stats.hp,
-    status: null,
-    sleepTurns: 0,
+    hp: Math.min(vida.hpMax, vida.hp),
+    hpMax: vida.hpMax,
+    status: vida.status,
+    sleepTurns: Math.max(0, Number(row.status_turns) || 0),
     stages: { attack: 0, defense: 0, 'special-attack': 0, 'special-defense': 0, speed: 0, accuracy: 0, evasion: 0 },
     moves: moveset,
     imageUrl: especie.imageUrl,
@@ -650,6 +731,8 @@ function registrarResultado({ guildId, modo, jogador1, jogador2 = null, vencedor
   );
 }
 
+const LEVEL_BATALHA = 50;
+
 module.exports = {
   LEVEL_BATALHA,
   MAX_TIME,
@@ -658,11 +741,13 @@ module.exports = {
   GYMS,
   obterEspecieDeBatalha,
   obterMoveset,
+  listarGolpesAprendiveis,
   prepararPokemon,
   prepararEquipeDoUsuario,
   prepararEquipeDoGinasio,
   multiplicadorTipo,
   multiplicadorEstagio,
+  velocidadeAtual,
   calcularDano,
   iniciarTurno,
   resolverGolpe,

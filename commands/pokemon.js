@@ -8,6 +8,7 @@ const pokemon = require('../utils/pokemon');
 const typeChart = require('../utils/typeChart');
 const pokemonBattle = require('../utils/pokemonBattle');
 const batalhas = require('../utils/pokemonBattleCommand');
+const rinha = require('../utils/rinha');
 const db = require('../utils/db');
 const criador = require('../utils/criador');
 const { isStaff } = require('../utils/perms');
@@ -36,7 +37,6 @@ const data = {
   options: [
     { type: TIPO.subcommand, name: 'admin', description: 'Lista de comandos de admin e configuração' },
     { type: TIPO.subcommand, name: 'manual', description: 'Manual completo: regras, comandos, captura e itens' },
-    { type: TIPO.subcommand, name: 'ajuda', description: 'Mostra o manual do jogo' },
     {
       type: TIPO.subcommand,
       name: 'capturar',
@@ -123,12 +123,6 @@ const data = {
     },
     {
       type: TIPO.subcommand,
-      name: 'info',
-      description: 'Consulte a Pokédex',
-      options: [{ type: TIPO.string, name: 'pokemon', description: 'Nome ou número na Pokédex', required: true }],
-    },
-    {
-      type: TIPO.subcommand,
       name: 'pokedex',
       description: 'Consulte a Pokédex pelo nome ou apelido oficial',
       options: [{ type: TIPO.string, name: 'pokemon', description: 'Nickname ou número na Pokédex', required: true }],
@@ -136,15 +130,37 @@ const data = {
     {
       type: TIPO.subcommand,
       name: 'upar',
-      description: 'Veja XP e nível de uma captura (ID, nome ou posição na lista)',
-      options: [{ type: TIPO.string, name: 'captura', description: 'ID, nome ou posição da captura na sua coleção', required: true, min_length: 1 }],
+      description: 'Evolua uma captura (ou veja como evoluí-la)',
+      options: [
+        { type: TIPO.string, name: 'captura', description: 'ID, nome ou posição da captura na sua coleção', required: true, min_length: 1 },
+        { type: TIPO.string, name: 'destino', description: 'ID ou nome da evolução desejada (opcional)', required: false },
+      ],
+    },
+    {
+      type: TIPO.subcommand,
+      name: 'curar',
+      description: 'Use poções e remédios para curar vida e status de um Pokémon',
+      options: [
+        { type: TIPO.string, name: 'captura', description: 'ID, nome ou posição da captura', required: false, min_length: 1 },
+        { type: TIPO.string, name: 'item', description: 'Item de cura (padrão: escolher na interface)', required: false },
+      ],
+    },
+    {
+      type: TIPO.subcommand,
+      name: 'rinha',
+      description: 'Rinha Pokémon 2DS contra o bot ou outro treinador (1 ou 7 Pokémon)',
+      options: [
+        { type: TIPO.user, name: 'usuario', description: 'Adversário humano (deixe vazio para lutar contra o bot)', required: false },
+        { type: TIPO.integer, name: 'tamanho', description: '1 ou 7 Pokémon por equipe', required: false, choices: [{ name: '1 Pokémon', value: 1 }, { name: '7 Pokémon', value: 7 }] },
+        { type: TIPO.string, name: 'equipe', description: 'IDs/nomes separados por vírgula (padrão: os primeiros)', required: false },
+      ],
     },
     {
       type: TIPO.subcommand,
       name: 'evoluir',
       description: 'Evolua uma captura usando um item compatível',
       options: [
-        { type: TIPO.integer, name: 'captura', description: 'ID da captura mostrado na coleção', required: true, min_value: 1 },
+        { type: TIPO.string, name: 'captura', description: 'ID, nome ou posição da captura na coleção', required: true, min_length: 1 },
         { type: TIPO.string, name: 'destino', description: 'ID ou nome da evolução desejada', required: true },
       ],
     },
@@ -310,8 +326,10 @@ const SECOES_MANUAL = [
   { name: '📖 8 · Pokédex e atalhos', value: '`/pokemon pokedex` (ou `/pokemon info`) consulta por nickname ou número. Prefixos rápidos: `$pokemon dex`, `$pokemon meus`, `$pokemon evo`. Novos servidores já começam com encontros configurados; a equipe pode usar os presets `tranquilo`, `aventura`, `silencio` e `padrao` em `/pokemon configurar`.' },
   { name: '🏆 Sobre as classificações', value: 'O perfil e o ranking Global contam toda a coleção da pessoa. O ranking deste servidor conta apenas capturas feitas nele desde que a Mila passou a registrar o servidor da captura; capturas antigas continuam no perfil e no global.' },
   { name: '🧬 11 · Naturezas e status', value: 'Cada captura recebe uma natureza aleatória (Carinhoso, Feroz, Tímido, Robusto, Astuto, Calmo) que altera HP, Ataque, Defesa e Velocidade. Ao ver sua própria coleção, o embed mostra HP, Ataque, Defesa, Velocidade, Natureza, Tipos e Fraquezas. Use as reações ◀️▶️ para folhear a coleção; o embed atualiza a cada página.' },
-  { name: '⚔️ 9 · Batalhas e insígnias', value: '`/pokemon duelo usuario tamanho` cria um desafio PvP; escolha 1 Pokémon ou equipes de 2 a 6. `tamanho:1` é o duelo solo. Cada lado escolhe da própria coleção; o nível é normalizado para 50. Golpes, tipos, atributos, precisão, PP, trocas e alguns status afetam a partida.' },
+  { name: '⚔️ 9 · Batalhas e insígnias', value: '`/pokemon duelo usuario tamanho` cria um desafio PvP; escolha 1 Pokémon ou equipes de 2 a 6. `tamanho:1` é o duelo solo. Cada lado escolhe da própria coleção; o nível e a vida salvos de cada Pokémon são usados na batalha. Golpes, tipos, atributos, precisão, PP, trocas e status afetam a partida.' },
   { name: '🏅 10 · Ginásios', value: '`/pokemon ginasio desafio` abre um desafio contra uma equipe controlada pela Mila; o tamanho padrão é 3 (de 2 a 6). Para conquistar a insígnia, vença e leve ao menos um Pokémon da lista específica do ginásio. `/pokemon insignias [usuario]` e a aba Insígnias do perfil mostram desafios e conquistas.' },
+  { name: '🧪 12 · Vida, status e cura', value: 'Todo Pokémon tem HP fixo calculado pelo nível e pela natureza. Batalhas, rinhas e desmaios deixam o HP baixo: use `/pokemon curar` (ou `$p curar`) para abrir o Centro de Cura e escolher Pokémon e item. A loja tem a categoria **🧪 Cura**: Poção, Super Poção, Hiper Poção, Poção Máxima, Antídoto, Cura Paralisia, Cura Queimadura, Despertar, Descongelante, Cura Total e Reviver. Queimadura, veneno, paralisia, sono e congelamento afetam a batalha e aparecem na coleção.' },
+  { name: '🔄 13 · Trocas e rinha', value: '`$p troca @pessoa <seu pokémon> [pokémon dela]` (ou `/trocar`) abre uma troca com menus e botões: cada lado escolhe, os dois confirmam e só então os Pokémon mudam de dono. `$p rinha bot 1`, `$p rinha bot 7` ou `$p rinha @pessoa 7` inicia uma rinha estilo 2DS com 1 ou 7 Pokémon. Cada Pokémon derrotado tem 30% de chance de ser perdido; contra outro treinador ele pode ir para o vencedor, contra o bot ele apenas desmaia. Time de 7 que cai inteiro tem 20% extra de ser perdido por completo. Quem desmaiou precisa de cura.' },
 ];
 
 function paginasManual() {
@@ -356,7 +374,9 @@ async function abrirManual(ctx) {
   const paginas = paginasManual();
   let pagina = 0;
   const render = () => ({ embeds: [paginas[pagina]], components: [botoesManual(pagina, paginas.length)] });
-  const mensagem = await ctx.interaction.reply({ ...render(), fetchReply: true });
+  const mensagem = ctx.isSlash
+    ? await ctx.interaction.reply({ ...render(), fetchReply: true })
+    : await ctx.reply(render());
   const collector = mensagem.createMessageComponentCollector({ time: 120000, filter: (i) => i.user.id === ctx.user.id });
   collector.on('collect', async (i) => {
     if (i.customId === 'manual_first') pagina = 0;
@@ -520,17 +540,20 @@ function perfilColecaoEmbed(alvo, pagina, guildId = null, proprio = false) {
     const types = species?.types || [];
     const nature = pokemon.obterNatureza ? pokemon.obterNatureza(item.nature) : { nome: item.nature || 'Carinhoso' };
     const status = pokemon.calcularStatusPokemon(item, species);
+    const vida = pokemon.estadoVidaPokemon(item, species);
     const fracas = typeChart.fraquezas(types);
     const fracasTxt = fracas.length ? fracas.map((f) => `${f.tipo} (x${f.mult})`).join(', ') : 'Nenhuma';
     let descricao = `Nv. ${item.level} · Captura **${index + 1 + paginaSegura * PERFIL_COLECAO_POR_PAGINA}/${dados.total}** · coleção ${scope}\nID da captura: \`${item.id}\``;
+    descricao += `\n${vida.desmaiado ? '💀 Desmaiado' : `❤️ Vida: **${vida.hp}/${vida.hpMax} HP**`}${vida.status ? ` · ${vida.statusEmoji} **${vida.statusNome}**` : ''}`;
     const campos = [];
     if (proprio) {
       descricao += `\nNatureza: **${status.natureza}**`;
       campos.push({ name: 'Natureza', value: status.natureza, inline: true });
-      campos.push({ name: 'HP', value: `${status.hp}`, inline: true });
+      campos.push({ name: 'HP', value: `${vida.hp}/${vida.hpMax}`, inline: true });
       campos.push({ name: 'Ataque', value: `${status.ataque}`, inline: true });
       campos.push({ name: 'Defesa', value: `${status.defesa}`, inline: true });
       campos.push({ name: 'Velocidade', value: `${status.velocidade}`, inline: true });
+      campos.push({ name: 'Status', value: vida.statusNome ? `${vida.statusEmoji} ${vida.statusNome}` : 'Saudável', inline: true });
       campos.push({ name: 'Fraquezas', value: fracasTxt, inline: false });
       if (types.length) campos.push({ name: 'Tipos', value: types.join(', '), inline: true });
     }
@@ -657,6 +680,869 @@ async function abrirColecao(ctx, alvo, guildId = null) {
     }
   }
   return mensagem;
+}
+
+function barraVidaRinha(combatente) {
+  const pct = Math.max(0, Math.min(1, combatente.hp / Math.max(1, combatente.hpMax)));
+  const cheio = Math.round(pct * 10);
+  return `${'█'.repeat(cheio)}${'░'.repeat(10 - cheio)} ${combatente.hp}/${combatente.hpMax}`;
+}
+
+function linhaTimeRinha(combatentes) {
+  return combatentes.map((combatente, indice) => {
+    const status = combatente.status ? ` · ${pokemon.STATUS_VITAIS[combatente.status]?.emoji || ''} ${pokemon.STATUS_VITAIS[combatente.status]?.nome || combatente.status}` : '';
+    return `${indice + 1}. **${combatente.nome}** · Nv.${combatente.level} · ${combatente.hp <= 0 ? '💀 desmaiado' : `❤️ \`${barraVidaRinha(combatente)}\``}${status}`;
+  }).join('\n');
+}
+
+function embedRinha({ titulo, descricao, timeA, timeB, nomeA, nomeB, cor = THEME.corPrincipal, rodape = 'Mila Pokémon · rinha' }) {
+  const campos = [];
+  if (timeA?.length) campos.push({ name: `🟣 ${nomeA}`, value: linhaTimeRinha(timeA).slice(0, 1024), inline: false });
+  if (timeB?.length) campos.push({ name: `🔵 ${nomeB}`, value: linhaTimeRinha(timeB).slice(0, 1024), inline: false });
+  return embed(titulo, descricao, cor, null, rodape, null, campos);
+}
+
+const REGRAS_RINHA = [
+  '⚠️ **Apostas da rinha:** cada Pokémon derrotado tem **30%** de chance de ser perdido.',
+  '• Contra **outro treinador**, o Pokémon derrotado pode ser **transferido para o vencedor**.',
+  '• Contra a **Mila (bot)**, Pokémon **nunca** são transferidos — só desmaiam e precisam de cura.',
+  '• Times de **7 Pokémon** que caem inteiros têm **20%** extra de perder o time todo.',
+].join('\n');
+
+async function enviarPayload(ctx, payload) {
+  if (ctx.isSlash) {
+    if (ctx.interaction.deferred || ctx.interaction.replied) return ctx.interaction.editReply(payload);
+    return ctx.interaction.reply({ ...payload, fetchReply: true });
+  }
+  return ctx.reply(payload);
+}
+
+async function abrirCura(ctx, user, identificador = null, itemPedido = null) {
+  let colecao = pokemon.listarColecao(user.id, 250).pokemon;
+  if (!colecao.length) {
+    return responderTexto(ctx, 'Nenhum Pokémon para curar', 'Sua coleção está vazia. Capture um Pokémon primeiro com `/pokemon capturar` ou digitando o nome dele durante um encontro.', THEME.corLembrete);
+  }
+  const inventario = pokemon.obterInventario(user.id).itens.filter((item) => item.tipo === 'cura');
+  let itens = inventario.filter((item) => item.quantidade > 0);
+  if (!itens.length) {
+    return responderTexto(
+      ctx,
+      'Você não tem itens de cura',
+      'Compre poções na loja Pokémon em **🧪 Cura** (`/pokemon loja` → categoria **Cura**).\n\nItens disponíveis: Poção (300 🍬), Super Poção (700), Hiper Poção (1500), Poção Máxima (2800), Antídoto (200), Cura Paralisia (200), Cura Queimadura (250), Cura Total (900) e Reviver (2000).\n\nDepois use `/pokemon curar` para escolher o Pokémon e o item.',
+      THEME.corLembrete
+    );
+  }
+
+  const aplicar = async (captura, item) => {
+    if (!captura) return responderTexto(ctx, 'Escolha um Pokémon', 'Selecione abaixo qual Pokémon você quer curar.', THEME.corLembrete);
+    if (!item) return responderTexto(ctx, 'Escolha um item', 'Selecione abaixo qual item de cura usar.', THEME.corLembrete);
+    const resultado = pokemon.usarCuraPokemon(user.id, captura.id, item.id);
+    if (!resultado.ok) {
+      const motivos = {
+        sem_item: 'Você não tem mais esse item no inventário.',
+        sem_efeito: 'Esse item não faz efeito neste Pokémon (ele já está saudável ou o item não cura o status atual).',
+        nao_desmaiado: 'O Reviver só funciona em Pokémon desmaiados.',
+        pokemon_nao_encontrado: 'Essa captura não está mais na sua coleção.',
+        item_invalido: 'Esse item não é um item de cura.',
+      };
+      return responderTexto(ctx, 'Cura não aplicada', motivos[resultado.motivo] || 'Não consegui aplicar esse item agora.', THEME.corErro);
+    }
+    const vida = `❤️ **${resultado.hp}/${resultado.hpMax} HP**${resultado.status ? ` · ${pokemon.STATUS_VITAIS[resultado.status]?.emoji || ''} ${pokemon.STATUS_VITAIS[resultado.status]?.nome || resultado.status}` : ' · saudável'}`;
+    return responder(ctx, {
+      embeds: [embed(
+        'Cura aplicada!',
+        `Usei ${resultado.item.emoji} **${resultado.item.nome}** em **${resultado.pokemon.name_pt}**.\n\n${vida}\n\nUse \`/pokemon curar\` para cuidar do resto do time.`,
+        THEME.corSucesso,
+        null,
+        'Mila Pokémon · centro de cura',
+        user.displayAvatarURL?.({ size: 128 })
+      )],
+    });
+  };
+
+  if (identificador) {
+    const captura = resolverCaptura(user.id, identificador);
+    if (!captura) return responderTexto(ctx, 'Captura não encontrada', 'Confira o ID, o nome ou a posição na sua coleção com `/pokemon colecao`.', THEME.corErro);
+    if (itemPedido) {
+      const item = pokemon.buscarItem(itemPedido) || itens.find((candidato) => pokemon.normalizarNome(candidato.nome) === pokemon.normalizarNome(itemPedido));
+      if (item && !itens.some((candidato) => candidato.id === item.id)) {
+        return responderTexto(
+          ctx,
+          'Você não tem esse item',
+          `O item ${item.emoji || '🧪'} **${item.nome}** não está no seu inventário. Compre na loja Pokémon em **🧪 Cura** com \`/pokemon loja\` e depois use \`/pokemon curar\`.`,
+          THEME.corLembrete
+        );
+      }
+      return aplicar(captura, item);
+    }
+  }
+
+  const estado = { capturaId: null, itemId: null };
+  const descrever = () => {
+    const escolhido = estado.capturaId ? colecao.find((item) => item.id === estado.capturaId) : null;
+    const itemEscolhido = estado.itemId ? itens.find((item) => item.id === estado.itemId) : null;
+    const linhas = colecao.slice(0, 10).map((item) => {
+      const species = pokemon.obterPokemonCacheSync(item.pokemon_id);
+      const vida = pokemon.estadoVidaPokemon(item, species);
+      return `${vida.desmaiado ? '💀' : '❤️'} **${item.name_pt}** \`#${item.id}\` · Nv.${item.level} · ${vida.hp}/${vida.hpMax} HP${vida.status ? ` · ${vida.statusEmoji} ${vida.statusNome}` : ''}`;
+    }).join('\n');
+    return `${linhas}\n\n🧪 **Item:** ${itemEscolhido ? `${itemEscolhido.emoji} ${itemEscolhido.nome} (${itemEscolhido.quantidade}×)` : 'escolha abaixo'}\n🎯 **Pokémon:** ${escolhido ? `**${escolhido.name_pt}** \`#${escolhido.id}\`` : 'escolha abaixo'}\n\nSelecione o Pokémon e o item, depois clique em **Curar**.`;
+  };
+
+  const montarMenuPokemon = () => new StringSelectMenuBuilder()
+    .setCustomId('pokemon_cura_pokemon')
+    .setPlaceholder('Escolha o Pokémon')
+    .addOptions(colecao.slice(0, 25).map((item) => {
+      const species = pokemon.obterPokemonCacheSync(item.pokemon_id);
+      const vida = pokemon.estadoVidaPokemon(item, species);
+      return {
+        label: `${item.name_pt} · Nv.${item.level}`,
+        description: `${vida.hp}/${vida.hpMax} HP${vida.statusNome ? ` · ${vida.statusNome}` : ''}`.slice(0, 100),
+        value: String(item.id),
+        emoji: vida.desmaiado ? '💀' : '❤️',
+        default: estado.capturaId === item.id,
+      };
+    }));
+  const montarMenuItem = () => new StringSelectMenuBuilder()
+    .setCustomId('pokemon_cura_item')
+    .setPlaceholder('Escolha o item de cura')
+    .addOptions(itens.slice(0, 25).map((item) => ({
+      label: `${item.nome} (${item.quantidade}×)`,
+      description: item.descricao.slice(0, 100),
+      value: item.id,
+      emoji: item.emoji,
+      default: estado.itemId === item.id,
+    })));
+  const botaoCurar = new ButtonBuilder().setCustomId('pokemon_cura_aplicar').setLabel('Curar').setEmoji('✨').setStyle(ButtonStyle.Success);
+  const botaoFechar = new ButtonBuilder().setCustomId('pokemon_cura_fechar').setLabel('Fechar').setEmoji('✖️').setStyle(ButtonStyle.Secondary);
+
+  const payload = ({ titulo = 'Centro de Cura Pokémon', descricao = null, cor = THEME.corLembrete } = {}) => {
+    const rows = [new ActionRowBuilder().addComponents(montarMenuPokemon())];
+    if (itens.length) rows.push(new ActionRowBuilder().addComponents(montarMenuItem()));
+    rows.push(new ActionRowBuilder().addComponents(botaoCurar, botaoFechar));
+    const avisoSemItens = itens.length ? '' : '\n\n⚠️ Seu estoque de cura acabou. Compre mais em `/pokemon loja` → **🧪 Cura**.';
+    return {
+      embeds: [embed(titulo, `${descricao || descrever()}${avisoSemItens}`, cor, null, 'Mila Pokémon · vida e status', user.displayAvatarURL?.({ size: 128 }))],
+      components: rows,
+    };
+  };
+
+  const mensagem = await enviarPayload(ctx, payload());
+  if (!mensagem?.createMessageComponentCollector) return mensagem;
+  const coletor = mensagem.createMessageComponentCollector({
+    time: PERFIL_NAVEGACAO_MS,
+    filter: (interacao) => interacao.user.id === user.id,
+  });
+  coletor.on('collect', async (interacao) => {
+    try {
+      if (interacao.isStringSelectMenu?.() && interacao.customId === 'pokemon_cura_pokemon') {
+        estado.capturaId = Number(interacao.values[0]);
+        await interacao.update(payload());
+        return;
+      }
+      if (interacao.isStringSelectMenu?.() && interacao.customId === 'pokemon_cura_item') {
+        estado.itemId = interacao.values[0];
+        await interacao.update(payload());
+        return;
+      }
+      if (interacao.customId === 'pokemon_cura_aplicar') {
+        const captura = colecao.find((item) => item.id === estado.capturaId);
+        const item = itens.find((candidato) => candidato.id === estado.itemId);
+        if (!captura || !item) {
+          await interacao.reply({ content: 'Escolha um Pokémon e um item antes de curar.', ephemeral: true });
+          return;
+        }
+        const resultado = pokemon.usarCuraPokemon(user.id, captura.id, item.id);
+        if (!resultado.ok) {
+          const aviso = resultado.motivo === 'sem_efeito'
+            ? 'Esse item não faz efeito neste Pokémon agora.'
+            : resultado.motivo === 'nao_desmaiado'
+              ? 'O Reviver só funciona em Pokémon desmaiados.'
+              : 'Não consegui usar esse item.';
+          await interacao.reply({ content: aviso, ephemeral: true });
+          return;
+        }
+        colecao = pokemon.listarColecao(user.id, 250).pokemon;
+        itens = pokemon.obterInventario(user.id).itens.filter((candidato) => candidato.tipo === 'cura' && candidato.quantidade > 0);
+        estado.capturaId = null;
+        estado.itemId = null;
+        await interacao.update(payload({
+          titulo: 'Cura aplicada!',
+          descricao: `${resultado.item.emoji} **${resultado.item.nome}** usado em **${resultado.pokemon.name_pt}**.\n\n❤️ **${resultado.hp}/${resultado.hpMax} HP**${resultado.status ? ` · ${pokemon.STATUS_VITAIS[resultado.status]?.nome}` : ' · saudável'}\n\n${descrever()}`,
+          cor: THEME.corSucesso,
+        }));
+        return;
+      }
+      if (interacao.customId === 'pokemon_cura_fechar') {
+        coletor.stop('fechado');
+        await interacao.update({ components: [] });
+      }
+    } catch (erro) {
+      console.error('[Pokémon] Falha no centro de cura:', erro?.message || erro);
+    }
+  });
+  coletor.on('end', async () => {
+    try { await mensagem.edit({ components: [] }); } catch { /* ignora */ }
+  });
+  return mensagem;
+}
+
+async function abrirLargar(ctx, user, identificador = null) {
+  const captura = resolverCaptura(user.id, identificador);
+  if (!captura) {
+    return responderTexto(ctx, 'Captura não encontrada', 'Confira o ID, o nome ou a posição na sua coleção com `/pokemon colecao`. Para largar, use `$p largar <id ou nome>`.', THEME.corErro);
+  }
+  const species = pokemon.obterPokemonCacheSync(captura.pokemon_id);
+  const vida = pokemon.estadoVidaPokemon(captura, species);
+  const embedLargar = embed(
+    'Largar Pokémon',
+    `Você está prestes a largar **${captura.name_pt}** \`#${captura.id}\` (Nv.${captura.level}).\n\n❤️ ${vida.hp}/${vida.hpMax} HP${vida.statusNome ? ` · ${vida.statusEmoji} ${vida.statusNome}` : ''}\n\n⚠️ Esta ação é **permanente**: o Pokémon será removido da sua coleção e do seu time. Deseja continuar?`,
+    THEME.corErro,
+    pokemon.spriteUrl(captura.pokemon_id, Boolean(captura.shiny), captura.species_name),
+    'Mila Pokémon · soltar Pokémon',
+    user.displayAvatarURL?.({ size: 128 })
+  );
+  const mensagem = await enviarPayload(ctx, {
+    embeds: [embedLargar],
+    components: [new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('pokemon_largar_confirmar').setLabel('Largar').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('pokemon_largar_cancelar').setLabel('Cancelar').setEmoji('✖️').setStyle(ButtonStyle.Secondary)
+    )],
+    allowedMentions: { parse: [] },
+  });
+  if (!mensagem?.createMessageComponentCollector) return mensagem;
+  const coletor = mensagem.createMessageComponentCollector({ time: 60_000, filter: (interacao) => interacao.user.id === user.id });
+  coletor.on('collect', async (interacao) => {
+    try {
+      if (interacao.customId === 'pokemon_largar_cancelar') {
+        coletor.stop('cancelado');
+        await interacao.update({ embeds: [embed('Largada cancelada', `**${captura.name_pt}** continua na sua coleção.`, THEME.corSecundario)], components: [] });
+        return;
+      }
+      if (interacao.customId === 'pokemon_largar_confirmar') {
+        const resultado = pokemon.liberarPokemon(user.id, captura.id);
+        coletor.stop('largado');
+        if (!resultado.ok) {
+          const aviso = resultado.motivo === 'exclusivo_criador'
+            ? 'Pokémon exclusivos do criador não podem ser largados.'
+            : 'Não consegui largar este Pokémon. Tente novamente.';
+          await interacao.update({ embeds: [embed('Não foi possível largar', aviso, THEME.corErro)], components: [] });
+          return;
+        }
+        await interacao.update({ embeds: [embed('Pokémon largado', `**${captura.name_pt}** foi solto e removido da sua coleção e do seu time.${resultado.recompensa ? `\\n\\n🍬 Você ganhou **${resultado.recompensa} açúcares**!` : '\\n\\n🍬 Nenhum doce foi encontrado desta vez.'}`, THEME.corSucesso)], components: [] });
+      }
+    } catch (erro) {
+      console.error('[Pokémon] Falha ao largar Pokémon:', erro?.message || erro);
+    }
+  });
+  coletor.on('end', async (_, motivo) => {
+    if (motivo !== 'largado' && motivo !== 'cancelado') {
+      try { await mensagem.edit({ components: [] }); } catch { /* ignora */ }
+    }
+  });
+  return mensagem;
+}
+
+async function abrirTime(ctx, user, guildId = null) {
+  if (criador.ehCriador(user)) {
+    try { pokemon.garantirArceusDoCriador(user); } catch { /* ignora */ }
+  }
+  let colecao = pokemon.listarColecao(user.id, 250).pokemon;
+  const estado = {
+    slots: [...(pokemon.obterPreferencias(user.id).team || [])],
+  };
+  if (criador.ehCriador(user)) {
+    const arceus = colecao.find((item) => Number(item.pokemon_id) === 493);
+    if (arceus && !estado.slots.includes(Number(arceus.id)) && estado.slots.length < 7) {
+      estado.slots.unshift(Number(arceus.id));
+      pokemon.salvarTime(user.id, guildId, estado.slots);
+    }
+  }
+  const resolverSlots = () => estado.slots.map((id) => colecao.find((item) => Number(item.id) === Number(id))).filter(Boolean);
+  const descrever = () => {
+    const time = resolverSlots();
+    const linhas = [];
+    for (let i = 0; i < 7; i += 1) {
+      const captura = time[i];
+      if (!captura) {
+        linhas.push(`${i + 1}. _vazio_`);
+        continue;
+      }
+      const species = pokemon.obterPokemonCacheSync(captura.pokemon_id);
+      const vida = pokemon.estadoVidaPokemon(captura, species);
+      const status = vida.statusNome ? ` · ${vida.statusEmoji} ${vida.statusNome}` : '';
+      linhas.push(`${i + 1}. **${captura.name_pt}** \`#${captura.id}\` · Nv.${captura.level} · ${vida.hp}/${vida.hpMax} HP${status}`);
+    }
+    return `**Seu time (até 7 Pokémon)**\n${linhas.join('\n')}\n\nUse os menus abaixo para adicionar, remover ou limpar. O time é salvo automaticamente e pode ser usado em rinhas.`;
+  };
+  const montarComponentes = () => {
+    const disponiveis = colecao.filter((item) => !estado.slots.includes(Number(item.id)));
+    const rows = [];
+    if (disponiveis.length) {
+      rows.push(new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('pokemon_time_adicionar')
+          .setPlaceholder('Adicionar Pokémon ao time')
+          .addOptions(disponiveis.slice(0, 25).map((item) => {
+            const species = pokemon.obterPokemonCacheSync(item.pokemon_id);
+            const vida = pokemon.estadoVidaPokemon(item, species);
+            return {
+              label: `${item.name_pt} · Nv.${item.level}`,
+              description: `#${item.id} · ${vida.hp}/${vida.hpMax} HP${vida.statusNome ? ` · ${vida.statusNome}` : ''}`.slice(0, 100),
+              value: String(item.id),
+              emoji: vida.desmaiado ? '💀' : '❤️',
+            };
+          }))
+      ));
+    }
+    if (estado.slots.length) {
+      rows.push(new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('pokemon_time_remover')
+          .setPlaceholder('Remover do time')
+          .addOptions(estado.slots.map((id, indice) => {
+            const captura = colecao.find((item) => Number(item.id) === Number(id));
+            return {
+              label: `${indice + 1}. ${captura?.name_pt || 'Pokémon'}${captura ? ` · Nv.${captura.level}` : ''}`,
+              value: String(indice),
+            };
+          }))
+      ));
+    }
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('pokemon_time_limpar').setLabel('Limpar time').setEmoji('🧹').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId('pokemon_time_fechar').setLabel('Fechar').setEmoji('✖️').setStyle(ButtonStyle.Secondary)
+    ));
+    return rows;
+  };
+  const payload = () => ({
+    embeds: [embed('Time Pokémon', descrever(), THEME.corPrincipal, null, 'Mila Pokémon · seu time', user.displayAvatarURL?.({ size: 128 }))],
+    components: montarComponentes(),
+  });
+  const mensagem = await enviarPayload(ctx, payload());
+  if (!mensagem?.createMessageComponentCollector) return mensagem;
+  const coletor = mensagem.createMessageComponentCollector({ time: PERFIL_NAVEGACAO_MS, filter: (interacao) => interacao.user.id === user.id });
+  coletor.on('collect', async (interacao) => {
+    try {
+      if (interacao.isStringSelectMenu?.() && interacao.customId === 'pokemon_time_adicionar') {
+        const id = Number(interacao.values[0]);
+        if (estado.slots.length >= 7) {
+          await interacao.reply({ content: 'Seu time já tem 7 Pokémon. Remova um antes de adicionar outro.', ephemeral: true });
+          return;
+        }
+        if (!estado.slots.includes(id)) estado.slots.push(id);
+        pokemon.salvarTime(user.id, guildId, estado.slots);
+        await interacao.update(payload());
+        return;
+      }
+      if (interacao.isStringSelectMenu?.() && interacao.customId === 'pokemon_time_remover') {
+        const indice = Number(interacao.values[0]);
+        if (indice >= 0 && indice < estado.slots.length) {
+          estado.slots.splice(indice, 1);
+          pokemon.salvarTime(user.id, guildId, estado.slots);
+        }
+        await interacao.update(payload());
+        return;
+      }
+      if (interacao.customId === 'pokemon_time_limpar') {
+        estado.slots = [];
+        pokemon.limparTime(user.id);
+        await interacao.update(payload());
+        return;
+      }
+      if (interacao.customId === 'pokemon_time_fechar') {
+        coletor.stop('fechado');
+        await interacao.update({ components: [] });
+      }
+    } catch (erro) {
+      console.error('[Pokémon] Falha no montador de time:', erro?.message || erro);
+    }
+  });
+  coletor.on('end', async () => {
+    try { await mensagem.edit({ components: [] }); } catch { /* ignora */ }
+  });
+  return mensagem;
+}
+
+async function abrirGolpes(ctx, user, identificador = null) {
+  const captura = resolverCaptura(user.id, identificador);
+  if (!captura) {
+    return responderTexto(ctx, 'Captura não encontrada', 'Confira o ID, o nome ou a posição na sua coleção com `/pokemon colecao`. Para abrir o seletor de golpes, use `/pokemon golpes` e escolha a captura.', THEME.corErro);
+  }
+  const species = await pokemonBattle.obterEspecieDeBatalha(captura.pokemon_id);
+  const level = Math.max(1, Number(captura.level) || 1);
+  let golpesAtuais = pokemon.golpesSalvos(captura);
+  if (!golpesAtuais) {
+    const moveset = await pokemonBattle.prepararPokemon({ ...captura, level }).then((p) => p.moves.map((m) => m.nomeOriginal)).catch(() => null);
+    golpesAtuais = moveset || [];
+  }
+  if (!Array.isArray(golpesAtuais)) golpesAtuais = [];
+  while (golpesAtuais.length < 4) golpesAtuais.push(null);
+
+  const aprendiveis = await pokemonBattle.listarGolpesAprendiveis(species, level).catch(() => []);
+  const porNome = new Map(aprendiveis.map((movimento) => [movimento.nomeOriginal, movimento]));
+
+  const estado = { slot: 0, move: null, page: 0 };
+
+  const descrever = () => {
+    const linhas = golpesAtuais.map((nome, indice) => {
+      const movimento = nome ? porNome.get(nome) : null;
+      const detalhe = movimento ? ` · ${movimento.tipo} · ${movimento.poder || 0} poder · ${movimento.pp} PP` : '';
+      return `${indice + 1}. ${nome ? `**${movimento?.nome || nome}**${detalhe}` : '_vazio_'}`;
+    }).join('\\n');
+    return `**${captura.name_pt}** · Nv.${level}\n\n**Golpes atuais**\n${linhas}\n\n**Golpes aprendíveis neste nível (${aprendiveis.length})**\n${aprendiveis.slice(0, 18).map((movimento, indice) => `\`${indice + 1}\` ${movimento.nome} · ${movimento.tipo} · ${movimento.poder || 0} poder`).join('\n') || 'Nenhum golpe aprendível encontrado.'}\n\nSelecione o slot e o novo golpe, depois clique em **Aplicar**. Você também pode usar \`$p golpes ${captura.id} <slot 1-4> <nome ou número>\`.`;
+  };
+  const montarComponentes = () => {
+    const rows = [];
+    rows.push(new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('pokemon_golpes_slot')
+        .setPlaceholder('Slot do golpe a substituir')
+        .addOptions(golpesAtuais.map((nome, indice) => ({
+          label: `Slot ${indice + 1}${nome ? `: ${porNome.get(nome)?.nome || nome}` : ': vazio'}`,
+          value: String(indice),
+        })))
+    ));
+    if (aprendiveis.length) {
+      rows.push(new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('pokemon_golpes_move')
+          .setPlaceholder('Novo golpe')
+          .addOptions(aprendiveis.slice(estado.page * 25, estado.page * 25 + 25).map((movimento) => ({
+            label: movimento.nome.slice(0, 100),
+            description: `${movimento.tipo} · ${movimento.poder || 0} poder · ${movimento.pp} PP`.slice(0, 100),
+            value: movimento.nomeOriginal,
+            emoji: movimento.categoria === 'status' ? '✨' : '⚔️',
+          })))
+      ));
+    }
+    const botoes = [
+      new ButtonBuilder().setCustomId('pokemon_golpes_aplicar').setLabel('Aplicar').setEmoji('✅').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('pokemon_golpes_restaurar').setLabel('Aleatório').setEmoji('🎲').setStyle(ButtonStyle.Secondary),
+    ];
+    if (aprendiveis.length > 25) {
+      botoes.push(
+        new ButtonBuilder().setCustomId('pokemon_golpes_anterior').setLabel('◀️').setStyle(ButtonStyle.Secondary).setDisabled(estado.page === 0),
+        new ButtonBuilder().setCustomId('pokemon_golpes_proxima').setLabel('▶️').setStyle(ButtonStyle.Primary).setDisabled(estado.page >= Math.ceil(aprendiveis.length / 25) - 1)
+      );
+    }
+    botoes.push(new ButtonBuilder().setCustomId('pokemon_golpes_fechar').setLabel('Fechar').setEmoji('✖️').setStyle(ButtonStyle.Secondary));
+    rows.push(new ActionRowBuilder().addComponents(...botoes));
+    return rows;
+  };
+  const payload = ({ titulo = 'Golpes do Pokémon', descricao = null, cor = THEME.corPrincipal } = {}) => ({
+    embeds: [embed(titulo, descricao || descrever(), cor, null, 'Mila Pokémon · golpes', user.displayAvatarURL?.({ size: 128 }))],
+    components: montarComponentes(),
+  });
+  const mensagem = await enviarPayload(ctx, payload());
+  if (!mensagem?.createMessageComponentCollector) return mensagem;
+  const coletor = mensagem.createMessageComponentCollector({ time: PERFIL_NAVEGACAO_MS, filter: (interacao) => interacao.user.id === user.id });
+  coletor.on('collect', async (interacao) => {
+    try {
+      if (interacao.isStringSelectMenu?.() && interacao.customId === 'pokemon_golpes_slot') {
+        estado.slot = Number(interacao.values[0]);
+        await interacao.update(payload());
+        return;
+      }
+      if (interacao.isStringSelectMenu?.() && interacao.customId === 'pokemon_golpes_move') {
+        estado.move = interacao.values[0];
+        await interacao.update(payload());
+        return;
+      }
+      if (interacao.customId === 'pokemon_golpes_aplicar') {
+        if (estado.move === null) {
+          await interacao.reply({ content: 'Selecione um novo golpe antes de aplicar.', ephemeral: true });
+          return;
+        }
+        if (!porNome.has(estado.move)) {
+          await interacao.reply({ content: 'Esse golpe não está disponível para este Pokémon neste nível.', ephemeral: true });
+          return;
+        }
+        golpesAtuais[estado.slot] = estado.move;
+        const nomeNovo = porNome.get(estado.move)?.nome || estado.move;
+        const resultado = pokemon.salvarGolpes(user.id, captura.id, golpesAtuais.filter(Boolean));
+        if (!resultado.ok) {
+          await interacao.reply({ content: 'Não consegui salvar os golpes. Tente novamente.', ephemeral: true });
+          return;
+        }
+        estado.move = null;
+        await interacao.update(payload({ titulo: 'Golpes atualizados!', descricao: `${nomeNovo} equipado no slot ${estado.slot + 1}.\\n\\n${descrever()}`, cor: THEME.corSucesso }));
+        return;
+      }
+      if (interacao.customId === 'pokemon_golpes_restaurar') {
+        const moveset = await pokemonBattle.prepararPokemon({ ...captura, level }).then((p) => p.moves.map((m) => m.nomeOriginal)).catch(() => null);
+        if (moveset) {
+          golpesAtuais = moveset;
+          while (golpesAtuais.length < 4) golpesAtuais.push(null);
+          pokemon.salvarGolpes(user.id, captura.id, golpesAtuais.filter(Boolean));
+        }
+        await interacao.update(payload({ titulo: 'Golpes redefinidos', descricao: `Os golpes de **${captura.name_pt}** foram redefinidos para um conjunto aleatório compatível com o nível ${level}.\\n\\n${descrever()}`, cor: THEME.corSucesso }));
+        return;
+      }
+      if (interacao.customId === 'pokemon_golpes_anterior') {
+        estado.page = Math.max(0, estado.page - 1);
+        await interacao.update(payload());
+        return;
+      }
+      if (interacao.customId === 'pokemon_golpes_proxima') {
+        estado.page = Math.min(Math.ceil(aprendiveis.length / 25) - 1, estado.page + 1);
+        await interacao.update(payload());
+        return;
+      }
+      if (interacao.customId === 'pokemon_golpes_fechar') {
+        coletor.stop('fechado');
+        await interacao.update({ components: [] });
+      }
+    } catch (erro) {
+      console.error('[Pokémon] Falha ao gerenciar golpes:', erro?.message || erro);
+    }
+  });
+  coletor.on('end', async () => {
+    try { await mensagem.edit({ components: [] }); } catch { /* ignora */ }
+  });
+  return mensagem;
+}
+
+async function abrirEvolucao(ctx, user, identificador = null) {
+  const captura = resolverCaptura(user.id, identificador);
+  if (!captura) {
+    return responderTexto(ctx, 'Captura não encontrada', 'Confira o ID, o nome ou a posição na sua coleção com `/pokemon colecao`. Para evoluir, use `$p evoluir <captura> <evolução>` ou `$p evoluir <captura>` para abrir o seletor.', THEME.corErro);
+  }
+  const evolutions = await pokemon.listarEvolucoes(captura.pokemon_id);
+  if (!evolutions.length) {
+    return responderTexto(ctx, 'Sem evolução', `**${captura.name_pt}** (Nv.${captura.level}) ainda não possui uma evolução implementada.`, THEME.corSecundario);
+  }
+  const estado = { destino: evolutions.length === 1 ? evolutions[0].destino : null };
+
+  const descrever = () => {
+    const lista = evolutions.map((e, indice) => `${indice + 1}. **${e.nome}** (ID ${e.destino}) — ${e.item ? `${e.item.emoji || '🍬'} ${e.item.nome}` : 'por nível'} · nível ${e.nivel || 1}+`).join('\\n');
+    const escolhida = evolutions.find((e) => e.destino === estado.destino);
+    const campos = [
+      { name: 'Pokémon atual', value: `**${captura.name_pt}** · Nv.${captura.level} · Captura \`${captura.id}\``, inline: true },
+      { name: 'Evoluções', value: lista || 'Nenhuma.', inline: false },
+    ];
+    if (escolhida) campos.push({ name: 'Selecionada', value: `**${escolhida.nome}** (ID ${escolhida.destino})`, inline: true });
+    return { texto: escolhida ? `Clique em **Evoluir** para confirmar a evolução para **${escolhida.nome}**.` : 'Selecione uma evolução abaixo.', campos };
+  };
+  const montarComponentes = () => {
+    const rows = [];
+    if (evolutions.length > 1) {
+      rows.push(new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('pokemon_evoluir_destino')
+          .setPlaceholder('Escolha a evolução')
+          .addOptions(evolutions.map((e) => ({
+            label: `${e.nome} (ID ${e.destino})`,
+            description: `${e.item ? `${e.item.nome}` : 'por nível'} · nível ${e.nivel || 1}+`.slice(0, 100),
+            value: String(e.destino),
+            default: estado.destino === e.destino,
+          })))
+      ));
+    }
+    rows.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('pokemon_evoluir_confirmar').setLabel('Evoluir').setEmoji('✨').setStyle(ButtonStyle.Success).setDisabled(estado.destino === null),
+      new ButtonBuilder().setCustomId('pokemon_evoluir_fechar').setLabel('Fechar').setEmoji('✖️').setStyle(ButtonStyle.Secondary)
+    ));
+    return rows;
+  };
+  const payload = ({ titulo = 'Evolução Pokémon', descricao = null, cor = THEME.corPrincipal } = {}) => {
+    const info = descrever();
+    return {
+      embeds: [embed(titulo, descricao || info.texto, cor, pokemon.spriteUrl(captura.pokemon_id, Boolean(captura.shiny), captura.species_name), 'Mila Pokémon · evolução', user.displayAvatarURL?.({ size: 128 }), descricao ? [] : info.campos)],
+      components: montarComponentes(),
+    };
+  };
+  const mensagem = await enviarPayload(ctx, payload());
+  if (!mensagem?.createMessageComponentCollector) return mensagem;
+  const coletor = mensagem.createMessageComponentCollector({ time: PERFIL_NAVEGACAO_MS, filter: (interacao) => interacao.user.id === user.id });
+  coletor.on('collect', async (interacao) => {
+    try {
+      if (interacao.isStringSelectMenu?.() && interacao.customId === 'pokemon_evoluir_destino') {
+        estado.destino = Number(interacao.values[0]);
+        await interacao.update(payload());
+        return;
+      }
+      if (interacao.customId === 'pokemon_evoluir_confirmar') {
+        if (estado.destino === null) {
+          await interacao.reply({ content: 'Selecione uma evolução antes de confirmar.', ephemeral: true });
+          return;
+        }
+        coletor.stop('evoluindo');
+        await interacao.update({
+          embeds: [embed(
+            'Evoluindo...',
+            `**${captura.name_pt}** está evoluindo! ✨`,
+            THEME.corPrincipal,
+            pokemon.spriteUrl(captura.pokemon_id, Boolean(captura.shiny), captura.species_name),
+            'Mila Pokémon · evolução',
+            user.displayAvatarURL?.({ size: 128 })
+          )],
+          components: [],
+        });
+        await new Promise((resolve) => setTimeout(resolve, 1800));
+        const resultado = await pokemon.evoluirPokemon(user.id, captura.id, estado.destino);
+        if (!resultado.ok) {
+          const aviso = resultado.motivo === 'sem_item'
+            ? `Você precisa de ${resultado.item?.emoji || '🍬'} **${resultado.item?.nome || 'o item de evolução'}**. Compre na loja com \`/pokemon comprar ${resultado.item?.id || ''}\` ou \`$p comprar ${resultado.item?.id || ''}\`.`
+            : resultado.motivo === 'nivel_insuficiente'
+              ? `Nível insuficiente: precisa de nível **${resultado.nivelRequerido}** (atual: ${captura.level}).`
+              : 'Não foi possível evoluir este Pokémon agora.';
+          await mensagem.edit({
+            embeds: [embed('Evolução não concluída', `${aviso}\n\n${descrever().texto}`, THEME.corErro, pokemon.spriteUrl(captura.pokemon_id, Boolean(captura.shiny), captura.species_name), 'Mila Pokémon · evolução', user.displayAvatarURL?.({ size: 128 }), [])],
+            components: montarComponentes(),
+          });
+          return;
+        }
+        await mensagem.edit({
+          embeds: [embed(
+            'Uma evolução aconteceu!',
+            `${resultado.shiny ? '✨ ' : ''}Sua captura evoluiu para **${resultado.pokemon.nome}**!\n\n${resultado.item ? `Item consumido: ${resultado.item.emoji} **${resultado.item.nome}** · ` : 'Evolução por nível. '}ID da captura: \`${captura.id}\``,
+            resultado.shiny ? 0xffd700 : THEME.corSucesso,
+            pokemon.spriteUrl(resultado.pokemon.destino, resultado.shiny),
+            'Mila Pokémon · evolução',
+            user.displayAvatarURL?.({ size: 128 })
+          )],
+          components: [],
+        });
+        return;
+      }
+      if (interacao.customId === 'pokemon_evoluir_fechar') {
+        coletor.stop('fechado');
+        await interacao.update({ components: [] });
+      }
+    } catch (erro) {
+      console.error('[Pokémon] Falha ao evoluir:', erro?.message || erro);
+    }
+  });
+  coletor.on('end', async () => {
+    try { await mensagem.edit({ components: [] }); } catch { /* ignora */ }
+  });
+  return mensagem;
+}
+
+async function iniciarRinha(ctx, { user, guildId, tamanho, equipe, adversario, client }) {
+  if (!rinha.TAMANHOS_VALIDOS.has(tamanho)) {
+    return responderTexto(
+      ctx,
+      'Formato de rinha inválido',
+      'Use `/pokemon rinha tamanho:1` para um duelo solo ou `/pokemon rinha tamanho:7` para uma rinha de time completo.\n\nTambém funciona pelo prefixo: `$p rinha bot 1`, `$p rinha bot 7`, `$p rinha @usuario 7`.',
+      THEME.corErro
+    );
+  }
+  if (adversario && (adversario.bot || adversario.id === user.id)) {
+    return responderTexto(ctx, 'Adversário inválido', 'Escolha outro treinador do servidor. Para enfrentar a Mila, use `/pokemon rinha` sem usuário ou `$p rinha bot`.', THEME.corErro);
+  }
+  const ids = String(equipe || '').split(/[,;\s]+/).filter(Boolean);
+  const timeA = await rinha.prepararTimeDoUsuario(user.id, ids, tamanho);
+  if (!timeA.ok) {
+    return responderTexto(
+      ctx,
+      'Não consegui montar seu time',
+      timeA.motivo === 'colecao_vazia'
+        ? 'Sua coleção está vazia. Capture Pokémon antes de entrar numa rinha.'
+        : `Você precisa de pelo menos **${tamanho} Pokémon** na coleção para este formato.`,
+      THEME.corErro
+    );
+  }
+  if (timeA.combatentes.length < tamanho) {
+    return responderTexto(
+      ctx,
+      'Time incompleto',
+      `Este formato exige **${tamanho} Pokémon** e você só tem **${timeA.combatentes.length}** disponível(is) agora.\n\nCapture mais Pokémon ou escolha o formato de **1 Pokémon** com \`$p rinha bot 1\`.`,
+      THEME.corErro
+    );
+  }
+  if (!timeA.combatentes.some((combatente) => combatente.hp > 0)) {
+    return responderTexto(
+      ctx,
+      'Seu time está desmaiado',
+      'Todos os Pokémon escolhidos estão com **0 HP**. Use o Centro de Cura com `/pokemon curar` (ou `$p curar`) antes de entrar na rinha.',
+      THEME.corLembrete
+    );
+  }
+  let timeB;
+  let nomeB;
+  let adversarioId = null;
+  if (adversario) {
+    const timeAdversario = await rinha.prepararTimeDoUsuario(adversario.id, [], tamanho);
+    if (!timeAdversario.ok) {
+      return responderTexto(ctx, 'Adversário sem time', `${adversario.username || 'O adversário'} precisa de pelo menos **${tamanho} Pokémon** na coleção para aceitar a rinha.`, THEME.corErro);
+    }
+    if (timeAdversario.combatentes.length < tamanho) {
+      return responderTexto(ctx, 'Adversário sem time completo', `${adversario.username || 'O adversário'} tem apenas **${timeAdversario.combatentes.length} Pokémon** e este formato exige **${tamanho}**.`, THEME.corErro);
+    }
+    if (!timeAdversario.combatentes.some((combatente) => combatente.hp > 0)) {
+      return responderTexto(ctx, 'Adversário sem Pokémon em condição', `${adversario.username || 'O adversário'} está com o time todo desmaiado e precisa se curar antes de aceitar a rinha.`, THEME.corLembrete);
+    }
+    timeB = timeAdversario.combatentes;
+    adversarioId = adversario.id;
+    nomeB = adversario.globalName || adversario.username || 'Adversário';
+  } else {
+    const media = Math.round(timeA.combatentes.reduce((soma, item) => soma + item.level, 0) / timeA.combatentes.length);
+    const timeBot = await rinha.prepararTimeDoBot(tamanho, media);
+    if (!timeBot.ok) return responderTexto(ctx, 'A Mila se preparando', 'Não consegui preparar os Pokémon da Mila agora. Tente novamente em instantes.', THEME.corErro);
+    if (timeBot.combatentes.length < tamanho) {
+      return responderTexto(ctx, 'A Mila não completou o time', `Só consegui preparar **${timeBot.combatentes.length}** Pokémon da Mila para este formato. Tente novamente em instantes.`, THEME.corErro);
+    }
+    timeB = timeBot.combatentes;
+    nomeB = 'Mila (bot)';
+  }
+
+  const nomeA = user.globalName || user.username || 'Você';
+  const mensagemConvite = await enviarPayload(ctx, {
+    embeds: [embedRinha({
+      titulo: '🥊 Rinha Pokémon 2DS',
+      descricao: `**${nomeA}** desafiou **${nomeB}** para uma rinha de **${tamanho} Pokémon**!\n\n${REGRAS_RINHA}\n\n${adversario ? 'O adversário deve reagir com ✅ para aceitar ou ❌ para recusar.' : 'Reaja com ✅ para começar ou ❌ para cancelar.'}`,
+      timeA: timeA.combatentes,
+      timeB,
+      nomeA,
+      nomeB,
+      cor: THEME.corPrincipal,
+    })],
+    allowedMentions: { parse: [] },
+  });
+  if (!mensagemConvite?.createReactionCollector) return mensagemConvite;
+  try { await mensagemConvite.react('✅'); await mensagemConvite.react('❌'); } catch { /* sem reações */ }
+  const aceite = await new Promise((resolve) => {
+    const coletor = mensagemConvite.createReactionCollector({
+      time: 60_000,
+      filter: (reacao, quem) => {
+        if (quem.bot) return false;
+        const permitido = adversario ? quem.id === adversario.id : quem.id === user.id;
+        return permitido && ['✅', '❌'].includes(reacao.emoji.name);
+      },
+    });
+    coletor.on('collect', (reacao) => {
+      if (reacao.emoji.name === '❌') { coletor.stop('recusado'); resolve('recusado'); }
+      else { coletor.stop('aceito'); resolve('aceito'); }
+    });
+    coletor.on('end', (_, motivo) => { if (motivo !== 'aceito' && motivo !== 'recusado') resolve('tempo'); });
+  });
+  if (aceite !== 'aceito') {
+    try {
+      await mensagemConvite.edit({ embeds: [embed('Rinha cancelada', aceite === 'recusado' ? 'O desafio foi recusado. Nenhum Pokémon foi afetado.' : 'O convite expirou. Nenhum Pokémon foi afetado.', THEME.corSecundario)], components: [] });
+      await mensagemConvite.reactions.removeAll();
+    } catch { /* ignora */ }
+    return mensagemConvite;
+  }
+
+  const simulacao = rinha.simularRinha(timeA.combatentes, timeB);
+  const linhas = simulacao.log;
+  const totalBlocos = Math.min(24, Math.max(1, Math.ceil(linhas.length / 3)));
+  let mensagemBatalha = await mensagemConvite.edit({
+    embeds: [embedRinha({
+      titulo: '⚔️ Rinha em andamento...',
+      descricao: `**${nomeA}** vs **${nomeB}** · turno 0/${simulacao.turnos}\n\nA disputa começou!`,
+      timeA: timeA.combatentes,
+      timeB,
+      nomeA,
+      nomeB,
+      cor: THEME.corPrincipal,
+    })],
+    components: [],
+  }).catch(() => mensagemConvite);
+  try { await mensagemBatalha.reactions.removeAll(); } catch { /* ignora */ }
+
+  for (let bloco = 1; bloco <= totalBlocos; bloco += 1) {
+    const trecho = linhas.slice((bloco - 1) * 3, bloco * 3).join('\n').slice(0, 1000);
+    const ultimo = bloco === totalBlocos;
+    mensagemBatalha = await mensagemBatalha.edit({
+      embeds: [embedRinha({
+        titulo: ultimo ? '⚔️ Rinha · golpe final!' : '⚔️ Rinha em andamento...',
+        descricao: `${trecho}\n\n**${nomeA}** vs **${nomeB}**`,
+        timeA: timeA.combatentes,
+        timeB,
+        nomeA,
+        nomeB,
+        cor: THEME.corPrincipal,
+      })],
+    }).catch(() => mensagemBatalha);
+    if (bloco < totalBlocos) await new Promise((resolve) => setTimeout(resolve, 900));
+  }
+
+  rinha.persistirTime(user.id, timeA.combatentes);
+  if (adversarioId) rinha.persistirTime(adversarioId, timeB);
+
+  let relatorioApostas = [];
+  let perdedorId = null;
+  let timePerdedor = null;
+  if (simulacao.vencedor === 'A') {
+    perdedorId = adversarioId;
+    timePerdedor = timeB;
+  } else if (simulacao.vencedor === 'B') {
+    perdedorId = user.id;
+    timePerdedor = timeA;
+  }
+
+  if (timePerdedor) {
+    const contraBot = !adversarioId;
+    const vencedorId = simulacao.vencedor === 'A' ? user.id : adversarioId;
+    const apostas = rinha.resolverApostas({
+      timePerdedor,
+      vencedorId,
+      contraBot,
+      tamanho,
+    });
+    relatorioApostas = apostas.relatorio;
+  }
+
+  const tituloFinal = simulacao.vencedor === 'empate'
+    ? '🤝 Rinha empatada'
+    : simulacao.vencedor === 'A'
+      ? `🏆 ${nomeA} venceu a rinha!`
+      : `🏆 ${nomeB} venceu a rinha!`;
+  const resumo = [
+    `**${nomeA}** vs **${nomeB}** · ${simulacao.turnos} turnos`,
+    simulacao.vencedor === 'empate'
+      ? 'A rinha chegou ao limite de turnos sem um vencedor. Nenhum Pokémon foi transferido.'
+      : relatorioApostas.length ? relatorioApostas.join('\n') : 'Nenhum Pokémon foi transferido nesta rinha.',
+    '',
+    '❤️ Pokémon que desmaiaram precisam de cura com `/pokemon curar`.',
+  ].join('\n');
+
+  const final = await mensagemBatalha.edit({
+    embeds: [embedRinha({
+      titulo: tituloFinal,
+      descricao: resumo,
+      timeA: timeA.combatentes,
+      timeB,
+      nomeA,
+      nomeB,
+      cor: simulacao.vencedor === 'empate' ? THEME.corSecundario : THEME.corSucesso,
+      rodape: 'Mila Pokémon · rinha 2DS · vida e status persistem',
+    })],
+    components: [
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('pokemon_rinha_revanche').setLabel('Revanche').setEmoji('🔁').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('pokemon_rinha_manual').setLabel('Como funciona').setEmoji('📖').setStyle(ButtonStyle.Secondary)
+      ),
+    ],
+    allowedMentions: { parse: [] },
+  }).catch(() => mensagemBatalha);
+
+  if (final?.createMessageComponentCollector) {
+    const coletorFinal = final.createMessageComponentCollector({ time: 120_000, filter: (i) => i.user.id === user.id });
+    coletorFinal.on('collect', async (interacao) => {
+      try {
+        if (interacao.customId === 'pokemon_rinha_revanche') {
+          coletorFinal.stop('revanche');
+          await interacao.update({ content: 'Preparando a revanche...', embeds: [], components: [] });
+          return iniciarRinha({ ...ctx, interaction: interacao, isSlash: false, reply: (payload) => interacao.followUp(payload) }, {
+            user, guildId, tamanho, equipe, adversario, client,
+          });
+        }
+        if (interacao.customId === 'pokemon_rinha_manual') {
+          await interacao.reply({
+            content: `**Como funciona a rinha**\n\n${REGRAS_RINHA}\n\n• \`/pokemon rinha\` — contra a Mila\n• \`/pokemon rinha usuario:@pessoa\` — contra outro treinador\n• \`tamanho:1\` ou \`tamanho:7\` — formato\n• \`equipe:12,45,78\` — escolher IDs específicos\n\nNo prefixo: \`$p rinha bot 7\`, \`$p rinha @pessoa 1\`.`,
+            ephemeral: true,
+          });
+        }
+      } catch (erro) {
+        console.error('[Rinha] Falha no botão final:', erro?.message || erro);
+      }
+    });
+  }
+  return final;
 }
 
 function montarBotoesPerfil(aba, pagina, totalPaginas) {
@@ -1208,15 +2094,20 @@ function mensagemFalhaCaptura(resultado) {
 function descricaoConfig(config) {
   const canais = config.channels.length ? config.channels.map((id) => `<#${id}>`).join(', ') : 'todos os canais de texto';
   const rarityNames = { conservadora: 'conservadora', equilibrada: 'equilibrada', generosa: 'generosa' };
-  const minutos = Math.round(config.cooldownMs / 60_000);
-  const segundos = Math.round((config.cooldownMs % 60_000) / 1000);
+  const minutos = Math.floor(config.cooldownMs / 60_000);
+  const segundos = Math.floor((config.cooldownMs % 60_000) / 1000);
   const intervaloStr = segundos > 0 ? `${minutos > 0 ? minutos + ' min ' : ''}${segundos} s` : (minutos > 0 ? minutos + ' min' : '0 min');
+  const ttlMs = config.encounterTtlMs || 10 * 60 * 1000;
+  const ttlMin = Math.floor(ttlMs / 60_000);
+  const ttlSeg = Math.floor((ttlMs % 60_000) / 1000);
+  const ttlStr = ttlSeg > 0 ? `${ttlMin > 0 ? ttlMin + ' min ' : ''}${ttlSeg} s` : `${ttlMin} min`;
   return [
     `Ativo: **${config.enabled ? 'sim' : 'não'}**`,
     `Silenciado: **${config.muted ? 'sim' : 'não'}**`,
     `Chance: **${config.spawnChance}%** por mensagem`,
     `Intervalo mínimo: **${intervaloStr}**`,
-    `Raridade: **${rarityNames[config.rarityMode] || 'equilibrada'}** · Shiny: **1 em ${config.shinyChance}**`,
+         `Duração do encontro: **${ttlStr}** (até escapar)`,
+     `Raridade: **${rarityNames[config.rarityMode] || 'equilibrada'}** · Shiny: **1 em ${config.shinyChance}**`,
     `Canais: ${canais}`,
   ].join('\n');
 }
@@ -1329,63 +2220,59 @@ async function executar(ctx) {
       }, true);
     }
 
-  case 'upar':
-  case 'evoluir': {
-      const collectionId = options.getInteger('captura');
-      const requestedDestination = options.getString('destino');
-      const owned = pokemon.listarColecao(user.id, 250).pokemon.find((item) => item.id === collectionId);
-      if (!owned) return responderTexto(ctx, 'Captura não encontrada', 'Confira o ID da captura na sua coleção global e tente novamente.', THEME.corErro);
-      const evolutions = pokemon.listarEvolucoes(owned.pokemon_id);
-      const destination = evolutions.find((item) =>
-        String(item.destino) === String(requestedDestination) ||
-        pokemon.normalizarNome(item.nome) === pokemon.normalizarNome(requestedDestination)
-      );
-      if (!destination) {
-        const species = pokemon.obterPokemonCacheSync(owned.pokemon_id);
-        const namePt = owned.name_pt || species?.namePt || 'Desconhecido';
-        const evolucaoTxt = evolutions.length
-          ? evolutions.map((e) => `➡️ **${e.nome}** \`(ID ${e.destino})\` · precisa de ${e.item?.emoji || '🍬'} **${e.item?.nome || 'item'}**`).join('\n')
-          : 'Esta espécie ainda não possui evolução implementada.';
-        const instrucoes = `Para evoluir **${namePt}** (captura \`${collectionId}\`), use:\n\n` +
-          (evolutions.length
-            ? `\`/pokemon upar ${collectionId} <nome_da_evolucao>\`\nEx.: \`/pokemon upar ${collectionId} Raichu\`\n\nOu pelo ID do destino: \`/pokemon upar ${collectionId} ${evolutions[0].destino}\``
-            : 'Não há evolução disponível para esta espécie.');
-        return responder(ctx, {
-          embeds: [embed(
-            'Como evoluir este Pokémon?',
-            `**${namePt}** · Captura \`${collectionId}\` · Nível ${owned.level} · ID da espécie \`${owned.pokemon_id}\`\n\n${evolucaoTxt}\n\n${instrucoes}`,
-            THEME.corPrincipal,
-            pokemon.spriteUrl(owned.pokemon_id, Boolean(owned.shiny), owned.species_name),
-            'Mila Pokémon · evolução · guia rápido',
-            null,
-            [
-              { name: 'Evoluções possíveis', value: evolucaoTxt || 'Nenhuma.', inline: false },
-              { name: 'Como fazer', value: instrucoes, inline: false },
-            ]
-          )],
-        }, true);
-      }
-      const result = pokemon.evoluirPokemon(user.id, collectionId, destination.destino);
-      if (!result.ok) {
-        let message = '';
-        if (result.motivo === 'sem_item') message = `Você precisa de ${result.item?.emoji || '🍬'} **${result.item?.nome || 'o item de evolução'}** para evoluir. Confira seu inventário com \`/pokemon inventario\`. Verifique também se o item está equipado corretamente.`;
-        else if (result.motivo === 'pokemon_nao_encontrado') message = 'Essa captura não existe na sua coleção. Confira o ID da captura com \`/pokemon colecao\` e tente novamente.';
-        else if (result.motivo === 'evolucao_indisponivel') message = 'Esta espécie ainda não possui uma evolução implementada neste jogo, ou o destino informado está incorreto. Use o ID correto da evolução.';
-        else if (result.motivo === 'pokemon_invalido') message = 'O ID da captura é inválido. Digite um número inteiro positivo.';
-        else message = 'Não foi possível evoluir esta captura. Motivo: **' + (result.motivo || 'desconhecido') + '**. Verifique se você tem o item necessário, se o ID está correto e se a evolução existe.';
-        return responderTexto(ctx, 'Evolução não concluída', message, THEME.corErro);
-      }
+  case 'upar': {
+    const identificador = options.getString('captura');
+    const owned = resolverCaptura(user.id, identificador);
+    if (!owned) return responderTexto(ctx, 'Captura não encontrada', 'Confira o ID, o nome ou a posição na sua coleção global com `/pokemon colecao` e tente novamente. Você também pode usar o nome ou a posição na lista.', THEME.corErro);
+    const quantidadeOuItem = String(options.getString('destino') || '').trim();
+    let xpGanho = 0;
+    let itemUsado = null;
+    if (/^\d+$/.test(quantidadeOuItem)) {
+      const qtd = Math.max(1, Number(quantidadeOuItem));
+      const saldo = criador.ehCriador(user) ? Infinity : (db.getUsuario(user.id)?.acucares || 0);
+      if (saldo < qtd) return responderTexto(ctx, 'Açúcares insuficientes', `Você tem **${saldo}** açúcares e precisa de **${qtd}**. Ganhe mais com missões, trabalhos ou vendendo itens.`, THEME.corErro);
+      if (!criador.ehCriador(user)) db.addAcucares(user.id, -qtd);
+      xpGanho = qtd;
+    } else if (quantidadeOuItem) {
+      const item = pokemon.buscarItem(quantidadeOuItem);
+      if (!item || item.tipo !== 'xp') return responderTexto(ctx, 'Item inválido', 'Use um número de açúcares (ex.: `$p upar 1 500`) ou um item de XP como **Doce Raro** (ex.: `$p upar 1 doce_raro`).', THEME.corErro);
+      const inv = pokemon.obterInventario(user.id).itens.find((candidato) => candidato.id === item.id);
+      if (!inv || inv.quantidade < 1) return responderTexto(ctx, 'Item não encontrado', `Você não tem **${item.nome}** no inventário. Compre na loja Pokémon.`, THEME.corLembrete);
+      if (!pokemon.consumirItem(user.id, item.id)) return responderTexto(ctx, 'Não foi possível usar o item', 'Tente novamente.', THEME.corErro);
+      xpGanho = Number(item.xp) || 1000;
+      itemUsado = item;
+    } else {
+      const proximo = pokemon.xpNecessarioParaNivel(owned.level);
       return responder(ctx, {
         embeds: [embed(
-          'Uma evolução aconteceu!',
-          `${result.shiny ? '✨ ' : ''}Sua captura evoluiu para **${result.pokemon.nome}**!\n\nItem consumido: ${result.item.emoji} **${result.item.nome}** · ID da captura: \`${collectionId}\``,
-          result.shiny ? 0xffd700 : THEME.corSucesso,
-          pokemon.spriteUrl(result.pokemon.destino, result.shiny),
-          'Mila Pokémon · evolução',
+          'Como upar este Pokémon?',
+          `**${owned.name_pt}** · Captura \`${owned.id}\` · Nível ${owned.level} · XP: ${owned.xp || 0}/${proximo}\n\n` +
+          `Use açúcares: \`$p upar ${owned.id} 500\` (1 açúcar = 1 XP)\n` +
+          `Ou um Doce Raro: \`$p upar ${owned.id} doce_raro\` (1000 XP)\n\n` +
+          `Ganhe XP também conversando no chat: cada mensagem dá 5 XP a um Pokémon aleatório da sua coleção.`,
+          THEME.corPrincipal,
+          pokemon.spriteUrl(owned.pokemon_id, Boolean(owned.shiny), owned.species_name),
+          'Mila Pokémon · upar Pokémon',
           user.displayAvatarURL?.({ size: 128 })
         )],
       }, true);
     }
+    const resultado = pokemon.ganharXpPokemon(user.id, owned.id, xpGanho);
+    if (!resultado.ok) return responderTexto(ctx, 'Não foi possível upar', 'Tente novamente.', THEME.corErro);
+    return responder(ctx, {
+      embeds: [embed(
+        resultado.subiu ? 'Nível aumentado!' : 'XP adicionado!',
+        `**${owned.name_pt}** ganhou **${xpGanho} XP**${itemUsado ? ` com ${itemUsado.emoji} **${itemUsado.nome}**` : ''}.\n\nNível: **${resultado.nivel}** · XP: **${resultado.xp}/${resultado.proximo}**${resultado.subiu ? `\n\n⬆️ Subiu de nível!` : ''}`,
+        resultado.subiu ? THEME.corSucesso : THEME.corPrincipal,
+        pokemon.spriteUrl(owned.pokemon_id, Boolean(owned.shiny), owned.species_name),
+        'Mila Pokémon · upar Pokémon',
+        user.displayAvatarURL?.({ size: 128 })
+      )],
+    }, true);
+  }
+
+  case 'evoluir':
+    return abrirEvolucao(ctx, user, options.getString('captura'));
 
     case 'loja':
       return abrirLojaPokemon(ctx);
@@ -1454,17 +2341,24 @@ async function executar(ctx) {
       const ativo = options.getBoolean('ativo');
       const silenciar = options.getBoolean('silenciar');
       const chance = options.getInteger('chance');
-      const intervalo = options.getInteger('intervalo');
-      const intervaloSegundos = options.getInteger('intervalo_segundos');
+      let intervalo = options.getInteger('intervalo');
+      let intervaloSegundos = options.getInteger('intervalo_segundos');
       const preset = options.getString('preset');
       const raridade = options.getString('raridade');
       const shinyChance = options.getInteger('shiny_chance');
+      const duracao = options.getInteger('duracao');
       if (options.configError) return responderTexto(ctx, 'Configuração inválida', options.configError, THEME.corErro);
       if (chance !== null && (!Number.isInteger(chance) || chance < 1 || chance > 100)) {
         return responderTexto(ctx, 'Chance inválida', 'Use um número inteiro de **1 a 100**.', THEME.corErro);
       }
       if (intervalo !== null && (!Number.isInteger(intervalo) || intervalo < 0 || intervalo > 1440 || (intervalo === 0 && (intervaloSegundos === null || intervaloSegundos <= 0)))) {
         return responderTexto(ctx, 'Intervalo inválido', 'Use 0 a 1440 minutos (ex.: `20`, `1min`, `1min 20sec`) ou apenas segundos com `intervalo_segundos`.', THEME.corErro);
+      }
+      if (intervaloSegundos !== null && intervaloSegundos > 59) {
+        const extraMin = Math.floor(intervaloSegundos / 60);
+        intervaloSegundos = intervaloSegundos % 60;
+        if (intervalo === null) intervalo = 0;
+        intervalo += extraMin;
       }
       if (intervaloSegundos !== null && (!Number.isInteger(intervaloSegundos) || intervaloSegundos < 0 || intervaloSegundos > 59)) {
         return responderTexto(ctx, 'Segundos inválidos', 'Use um número inteiro de **0 a 59 segundos**.', THEME.corErro);
@@ -1474,6 +2368,9 @@ async function executar(ctx) {
       }
       if (shinyChance !== null && (!Number.isInteger(shinyChance) || shinyChance < 1 || shinyChance > 100_000)) {
         return responderTexto(ctx, 'Chance shiny inválida', 'Use um denominador inteiro entre **1 e 100000**.', THEME.corErro);
+      }
+      if (duracao !== null && (!Number.isInteger(duracao) || duracao < 5_000 || duracao > 60 * 60 * 1000)) {
+        return responderTexto(ctx, 'Duração inválida', 'Use entre **5 segundos e 1 hora** (ex.: `32s`, `10min`, `5min 30s` ou `600000` ms).', THEME.corErro);
       }
       if (preset !== null && !pokemon.PRESETS_CONFIG[preset]) {
         return responderTexto(ctx, 'Preset não encontrado', 'Use `padrao`, `tranquilo`, `aventura` ou `silencio`.', THEME.corErro);
@@ -1488,9 +2385,12 @@ async function executar(ctx) {
       }
       if (raridade !== null) patch.rarityMode = raridade;
       if (shinyChance !== null) patch.shinyChance = shinyChance;
+      if (duracao !== null) patch.encounterTtlMs = duracao;
       let config = atual;
       if (preset) config = pokemon.aplicarPreset(guildId, preset);
-      if (Object.keys(patch).length) config = pokemon.salvarConfig(guildId, patch);
+      if (Object.keys(patch).length) {
+        config = pokemon.salvarConfig(guildId, patch);
+      }
       return responder(ctx, { embeds: [embed('Configuração Pokémon', descricaoConfig(config), THEME.corMyspace, null, 'Mila Pokémon · painel da equipe')] }, true);
     }
 
@@ -1557,15 +2457,33 @@ async function executar(ctx) {
     case 'insignias':
       return batalhas.listarInsigniasCommand(ctx, options.getUser('usuario'));
 
+    case 'curar':
+    case 'cura':
+    case 'heal':
+    case 'pocao':
+      return abrirCura(ctx, user, options.getString('captura'), options.getString('item'));
+
+    case 'rinha':
+    case 'briga':
+    case 'fight':
+      return iniciarRinha(ctx, {
+        user,
+        guildId,
+        tamanho: options.getInteger('tamanho') || 1,
+        equipe: options.getString('equipe'),
+        adversario: options.getUser('usuario'),
+        client,
+      });
+
     case 'admin':
       return responder(ctx, { embeds: [embedAdminPokemon()], allowedMentions: { parse: [] } }, true);
 
     default: {
-      const comandos = ['manual','ajuda','capturar','colecao','perfil','favorito','loja','missoes','comprar','inventario','usar','equipar','configurar','canal','info','pokedex','upar','evoluir','ranking','duelo','ginasio','insignias'];
+      const comandos = ['manual','ajuda','capturar','colecao','perfil','favorito','loja','missoes','comprar','inventario','usar','equipar','curar','configurar','canal','info','pokedex','upar','evoluir','ranking','duelo','ginasio','rinha','insignias'];
       const digitado = String(options.getSubcommand ? options.getSubcommand() : action || '').toLowerCase();
       const proximos = comandos.filter((c) => c.includes(digitado) || digitado.includes(c)).slice(0, 5);
       const sugestao = proximos.length ? `\n\n**Próximos:** ${proximos.map((c) => '`' + c + '`').join(' · ')}` : '';
-      return responder(ctx, { embeds: [embed('Comando não entendido', `Não reconheci \`${digitado || 'isso'}\` como subcomando Pokemon. Use \`$pokemon manual\` para ver tudo, ou escolha: manual, ajuda, capturar, colecao, perfil, loja, inventario, comprar, usar, equipar, configurar, info, pokedex, ranking, duelo, ginasio.${sugestao}`, THEME.corErro, null, 'Mila Pokémon · subcomando não encontrado')], allowedMentions: { parse: [] } }, true);
+      return responder(ctx, { embeds: [embed('Comando não entendido', `Não reconheci \`${digitado || 'isso'}\` como subcomando Pokemon.\n\nUse \`$pokemon manual\` para ver o guia completo. Subcomandos disponíveis: manual, capturar, colecao, perfil, loja, inventario, comprar, usar, equipar, curar, configurar, pokedex, ranking, duelo, ginasio, rinha.\n\nExemplos rápidos:\n• \`$p troca @pessoa Pikachu\`\n• \`$p curar\`\n• \`$p rinha bot 7\`${sugestao}`, THEME.corErro, null, 'Mila Pokémon · subcomando não encontrado')], allowedMentions: { parse: [] } }, true);
     }
   }
 }
@@ -1617,11 +2535,12 @@ function embedAdminPokemon() {
     tema,
     titulo: '⚙️ Painel de Admin Pokémon',
     descricao: 'Comandos de equipe para gerenciar encontros, coleções, itens e resets deste servidor.\n\n' +
-      '• `configurar` — Ajusta chance, intervalo (ex.: `1min 20sec`), raridade, shiny_chance, ativo, silenciar, preset\n' +
+      '• `configurar` — Ajusta chance, intervalo (ex.: `1min 20sec`), duração do encontro (ex.: `$p config duracao 10min`), raridade, shiny_chance, ativo, silenciar, preset\n' +
       '• `canal` — Lista / adiciona / remove canais (`adicionar #canal`)\n' +
       '• `manual` / `ajuda` — Manual completo\n' +
       '• `ranking` — Ranking global ou deste servidor\n' +
-      '• `ginasio` / `duelo` / `insignias` — Ginásio, duelo e insígnias\n\n' +
+      '• `ginasio` / `duelo` / `rinha` / `insignias` — Ginásio, duelo, rinha e insígnias\n' +
+      '• `curar` — Centro de Cura (vida e status)\n\n' +
       'Resets disponíveis:\n' +
       '• `/reset-economia` — Zera economia e mochila de loja (não afeta Pokémon)\n' +
       '• `/reset-pokemon` — Seleção interativa: coleções, itens Pokémon, preferências, economia (opcional)',
@@ -1642,8 +2561,18 @@ function opcoesPrefixo(action, args, message) {
   const texto = args.join(' ').trim();
   if (action === 'configurar') {
     const raw = args.join(' ').trim();
-    // Se contém min/sec ou apenas números, tentar interpretar intervalo
-    if (raw.match(/(min|sec|m|s|\d+\s*min)/i) || /^\d+$/.test(raw)) {
+    const first = String(args[0] || '').toLowerCase();
+    const duracaoAliases = new Set(['duracao', 'ttl', 'desaparece', 'escape', 'tempo_encontro', 'encontro', 'duracao_encontro']);
+    if (duracaoAliases.has(first)) {
+      const value = args.slice(1).join(' ').trim();
+      if (/^\d+$/.test(value) && Number(value) > 1000) {
+        valores.duracao = Number(value);
+      } else {
+        const parsed = parseIntervaloTexto(value);
+        const ms = ((parsed.minutos || 0) * 60 + (parsed.segundos || 0)) * 1000;
+        if (ms > 0) valores.duracao = ms;
+      }
+    } else if (raw.match(/(min|sec|m|s|\d+\s*min)/i) || /^\d+$/.test(raw)) {
       const parsed = parseIntervaloTexto(raw);
       if (parsed.minutos > 0 || parsed.segundos > 0) {
         valores.intervalo = parsed.minutos || null;
@@ -1662,8 +2591,23 @@ function opcoesPrefixo(action, args, message) {
     valores.captura = Number(args[0]) || null;
     valores.destino = args.slice(1).join(' ').trim() || null;
   }
-  if (action === 'upar') {
-    valores.captura = Number(args[0]) || null;
+  if (action === 'upar' || action === 'evoluir') {
+    valores.captura = args[0] || null;
+    valores.destino = args.slice(1).join(' ').trim() || null;
+  }
+  if (action === 'curar') {
+    valores.captura = args[0] || null;
+    valores.item = args[1] || null;
+  }
+  if (action === 'rinha') {
+    const mencao = message.mentions?.users?.first?.() || null;
+    valores.usuario = mencao;
+    const tamanho = args.map((item) => Number(item)).find((numero) => numero === 1 || numero === 7);
+    valores.tamanho = tamanho || null;
+    const ids = args
+      .filter((item) => /^\d+$/.test(item) && Number(item) !== 1 && Number(item) !== 7)
+      .join(',');
+    valores.equipe = ids || null;
   }
   if (action === 'duelo') {
     valores.usuario = message.mentions?.users?.first?.() || null;
@@ -1746,6 +2690,86 @@ function opcoesPrefixo(action, args, message) {
 }
 
 async function executePrefix(message, args, client) {
+  const primeiro = String(args[0] || '').toLowerCase();
+  if (['troca', 'trocar', 'trade'].includes(primeiro)) {
+    return require('./trocar').executePrefix(message, args.slice(1), client);
+  }
+
+  if (['largar', 'release', 'soltar'].includes(primeiro)) {
+    const ctx = {
+      isSlash: false,
+      message,
+      client,
+      user: message.author,
+      guildId: message.guildId,
+      channelId: message.channelId,
+      channel: message.channel,
+      reply: (payload) => message.reply(payload),
+    };
+    return abrirLargar(ctx, message.author, args.slice(1).join(' ') || null);
+  }
+
+  if (['time', 'equipe', 'team'].includes(primeiro)) {
+    const ctx = {
+      isSlash: false,
+      message,
+      client,
+      user: message.author,
+      guildId: message.guildId,
+      channelId: message.channelId,
+      channel: message.channel,
+      reply: (payload) => message.reply(payload),
+    };
+    return abrirTime(ctx, message.author, message.guildId);
+  }
+
+  if (['golpes', 'moves', 'ataques', 'movimentos'].includes(primeiro)) {
+    const ctx = {
+      isSlash: false,
+      message,
+      client,
+      user: message.author,
+      guildId: message.guildId,
+      channelId: message.channelId,
+      channel: message.channel,
+      reply: (payload) => message.reply(payload),
+    };
+    const rest = args.slice(1);
+    const captura = resolverCaptura(message.author.id, rest[0]);
+    if (captura && rest[1] && rest[2]) {
+      const level = Math.max(1, Number(captura.level) || 1);
+      const species = await pokemonBattle.obterEspecieDeBatalha(captura.pokemon_id);
+      const aprendiveis = await pokemonBattle.listarGolpesAprendiveis(species, level).catch(() => []);
+      const slot = Number(rest[1]) - 1;
+      const termo = rest.slice(2).join(' ').trim();
+      let movimento = null;
+      if (/^\d+$/.test(termo)) {
+        movimento = aprendiveis[Number(termo) - 1] || null;
+      } else {
+        movimento = aprendiveis.find((item) =>
+          pokemon.normalizarNome(item.nome) === pokemon.normalizarNome(termo) ||
+          pokemon.normalizarNome(item.nomeOriginal) === pokemon.normalizarNome(termo)
+        ) || null;
+      }
+      if (!Number.isInteger(slot) || slot < 0 || slot > 3) {
+        return message.reply({ content: 'Slot inválido. Use um número de **1 a 4**.', allowedMentions: { parse: [] } });
+      }
+      if (!movimento) {
+        return message.reply({ content: 'Não encontrei esse golpe entre os aprendíveis deste Pokémon neste nível. Use `$p golpes` para ver a lista.', allowedMentions: { parse: [] } });
+      }
+      const atuais = pokemon.golpesSalvos(captura);
+      const base = Array.isArray(atuais) ? [...atuais] : await pokemonBattle.prepararPokemon({ ...captura, level }).then((p) => p.moves.map((m) => m.nomeOriginal)).catch(() => []);
+      const lista = Array.isArray(base) ? [...base] : [];
+      while (lista.length < 4) lista.push(null);
+      lista[slot] = movimento.nomeOriginal;
+      pokemon.salvarGolpes(message.author.id, captura.id, lista.filter(Boolean));
+      return message.reply({
+        content: `✅ **${movimento.nome}** equipado no slot ${slot + 1} de **${captura.name_pt}**.`,
+        allowedMentions: { parse: [] },
+      });
+    }
+    return abrirGolpes(ctx, message.author, rest[0] || null);
+  }
   const aliases = {
     ajuda: 'ajuda',
     manual: 'manual',
@@ -1782,6 +2806,13 @@ async function executePrefix(message, args, client) {
     batalha: 'duelo',
     batalhas: 'duelo',
     duel: 'duelo',
+    curar: 'curar',
+    cura: 'curar',
+    heal: 'curar',
+    pocao: 'curar',
+    rinha: 'rinha',
+    briga: 'rinha',
+    fight: 'rinha',
     ginásio: 'ginasio',
     gym: 'ginasio',
     badge: 'insignias',

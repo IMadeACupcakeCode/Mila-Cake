@@ -495,6 +495,22 @@ async function encerrarBatalha(sessao, vencedorId, linhas = []) {
       }
     }
 
+    // ── Persiste vida e status dos Pokémon que participaram ──
+    for (const [donoId, equipe] of sessao.teams.entries()) {
+      for (const poke of equipe || []) {
+        if (!poke.collectionId) continue;
+        try {
+          pokemon.salvarVidaPokemon(donoId, poke.collectionId, {
+            hp: poke.hp,
+            status: poke.status,
+            statusTurns: poke.sleepTurns,
+          });
+        } catch (erro) {
+          console.error('[Pokémon] Não consegui salvar a vida do Pokémon após a batalha:', erro?.message || erro);
+        }
+      }
+    }
+
     if (sessao.kind === 'gym' && jogadorVenceu) {
       const resultado = battle.registrarVitoriaGinasio(
         sessao.playerId,
@@ -596,7 +612,7 @@ async function iniciarDuelo(ctx, adversario, tamanho) {
   });
   const convite = embedBase(
     'Desafio Pokémon',
-    `**${ctx.user.globalName || ctx.user.username}** desafia você para um duelo de **${tamanho}×${tamanho}**.\n\nO nível de batalha é fixo em **${battle.LEVEL_BATALHA}**. Se aceitar, cada pessoa escolhe Pokémon da própria coleção.`
+    `**${ctx.user.globalName || ctx.user.username}** desafia você para um duelo de **${tamanho}×${tamanho}**.\n\nCada pessoa escolhe Pokémon da própria coleção e a batalha usa o **nível original** de cada captura.`
   );
   try {
     if (ctx.isSlash) {

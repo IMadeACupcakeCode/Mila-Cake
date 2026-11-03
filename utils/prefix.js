@@ -440,6 +440,7 @@ async function handlePrefix(message, client) {
     perf: 'perfil', profile: 'perfil',
     doa: 'doar',
     pres: 'presentear',
+    troca: 'trocar', trade: 'trocar', trocar: 'trocar',
     col: 'colecao',
     mis: 'missoes', mission: 'missoes',
     du: 'duelo', gym: 'ginasio',

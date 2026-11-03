@@ -207,7 +207,7 @@ async function main() {
   const inserir = database.prepare(`
     INSERT INTO pokemon_collection
       (user_id, guild_id, pokemon_id, species_name, name_pt, shiny, level, caught_at, ball_id)
-    VALUES (?, ?, ?, ?, ?, 0, 1, ?, 'pokebola')
+    VALUES (?, ?, ?, ?, ?, 0, 50, ?, 'pokebola')
   `);
   for (let index = 0; index < 60; index += 1) {
     inserir.run(userId, guildId, 25, 'pikachu', 'Pikachu', index + 1);
