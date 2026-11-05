@@ -269,7 +269,7 @@ function helpEmbed() {
     [
       {
         name: '🌿 1 · Encontros',
-        value: 'Servidores novos já vêm com encontros ativos. Cada mensagem elegível pode gerar um encontro conforme a chance configurada; o intervalo mínimo começa depois que o Pokémon é publicado e vale para o servidor inteiro. Há apenas um encontro ativo por servidor, por até 10 minutos. Canais podem ser limitados pela equipe.',
+        value: 'Os encontros começam desligados em servidores novos. A equipe escolhe o canal com `/pokemon canal adicionar` ou `$configurar pokemon #canal`; depois disso, cada mensagem elegível pode gerar um encontro conforme a chance configurada; o intervalo mínimo começa depois que o Pokémon é publicado e vale para o servidor inteiro. Há apenas um encontro ativo por servidor, por até 10 minutos. Canais podem ser limitados pela equipe.',
       },
       {
         name: '🎯 2 · Como capturar',
@@ -316,14 +316,14 @@ function helpEmbed() {
 }
 
 const SECOES_MANUAL = [
-  { name: '🌿 1 · Encontros', value: 'Servidores novos já vêm com encontros ativos. Cada mensagem elegível pode gerar um encontro conforme a chance configurada; o intervalo mínimo começa depois que o Pokémon é publicado e vale para o servidor inteiro. Há apenas um encontro ativo por servidor, por até 10 minutos. Canais podem ser limitados pela equipe.' },
+  { name: '🌿 1 · Encontros', value: 'Os encontros começam desligados em servidores novos. A equipe escolhe onde eles podem aparecer com `/pokemon canal adicionar` ou `$configurar pokemon #canal`; a partir daí, cada mensagem elegível pode gerar um encontro conforme a chance configurada. O intervalo mínimo começa depois que o Pokémon é publicado e vale para o servidor inteiro. Há apenas um encontro ativo por servidor, por até 10 minutos. Canais podem ser limitados pela equipe.' },
   { name: '🎯 2 · Como capturar', value: 'Quando aparecer um Pokémon, digite o nome em português ou o nome internacional no mesmo canal, ou use `/pokemon capturar`. Um palpite errado não encerra o encontro. Se ele escapar, a Pokébola não é consumida; em uma captura, a bola especial equipada é consumida.' },
   { name: '✨ 3 · Chance e raridades', value: 'A raridade é baseada na taxa de captura da espécie; os moderadores podem escolher um preset para ajustar a frequência de espécies raras. O preset nunca cancela um encontro que já passou pela chance configurada. A chance shiny pode ser ajustada separadamente. Great Ball e Ultra Ball melhoram a captura; Incenso aumenta por 30 minutos a chance de encontro.' },
   { name: '📖 4 · Perfil, coleção e rankings', value: '`/pokemon perfil [usuario]` abre um painel com status, mochila, coleção e insígnias. `/pokemon colecao [usuario]` mostra cada captura com sprite animado e páginas clicáveis; escolha a coleção global ou a deste servidor.' },
   { name: '🛍️ 5 · Loja e inventário', value: '`/pokemon loja` abre um catálogo privado com categorias, carrinho e confirmação. Além de Pokébolas, incenso e molduras, há pedras e catalisadores de evolução. Use `/pokemon comprar item` para comprar direto, `/pokemon inventario` para ver a mochila, `/pokemon usar item` para consumíveis (incenso), `/pokemon equipar item` para equipar bolas/cosméticos e `/pokemon evoluir captura destino` com a pedra certa (ex.: pedra_agua para Vaporeon). Itens de evolução são consumidos ao evoluir; se faltar o item, a evolução é cancelada e o item não é perdido.' },
   { name: '🧭 6 · Missões', value: '`/pokemon missoes` mostra objetivos permanentes e diários. Complete-os e resgate Pokébolas, inclusive itens especiais. O progresso acompanha sua coleção global e a missão diária renova à meia-noite UTC.' },
   { name: '⭐ 7 · Favoritos e avisos', value: 'Use `/pokemon favorito` para adicionar/remover uma espécie e `/pokemon favoritos` para ver sua lista neste servidor. Em `/pokemon avisos`, ative tanto os pings pessoais quanto os alertas de favoritos se quiser ser mencionada. Ambos começam desligados.' },
-  { name: '📖 8 · Pokédex e atalhos', value: '`/pokemon pokedex` (ou `/pokemon info`) consulta por nickname ou número. Prefixos rápidos: `$pokemon dex`, `$pokemon meus`, `$pokemon evo`. Novos servidores já começam com encontros configurados; a equipe pode usar os presets `tranquilo`, `aventura`, `silencio` e `padrao` em `/pokemon configurar`.' },
+  { name: '📖 8 · Pokédex e atalhos', value: '`/pokemon pokedex` (ou `/pokemon info`) consulta por nickname ou número. Prefixos rápidos: `$pokemon dex`, `$pokemon meus`, `$pokemon evo`. A equipe configura o canal dos encontros com `$configurar pokemon #canal` (ou `/pokemon canal adicionar`) e pode usar os presets `tranquilo`, `aventura`, `silencio` e `padrao` em `/pokemon configurar`.' },
   { name: '🏆 Sobre as classificações', value: 'O perfil e o ranking Global contam toda a coleção da pessoa. O ranking deste servidor conta apenas capturas feitas nele desde que a Mila passou a registrar o servidor da captura; capturas antigas continuam no perfil e no global.' },
   { name: '🧬 11 · Naturezas e status', value: 'Cada captura recebe uma natureza aleatória (Carinhoso, Feroz, Tímido, Robusto, Astuto, Calmo) que altera HP, Ataque, Defesa e Velocidade. Ao ver sua própria coleção, o embed mostra HP, Ataque, Defesa, Velocidade, Natureza, Tipos e Fraquezas. Use as reações ◀️▶️ para folhear a coleção; o embed atualiza a cada página.' },
   { name: '⚔️ 9 · Batalhas e insígnias', value: '`/pokemon duelo usuario tamanho` cria um desafio PvP; escolha 1 Pokémon ou equipes de 2 a 6. `tamanho:1` é o duelo solo. Cada lado escolhe da própria coleção; o nível e a vida salvos de cada Pokémon são usados na batalha. Golpes, tipos, atributos, precisão, PP, trocas e status afetam a partida.' },
@@ -2092,7 +2092,7 @@ function mensagemFalhaCaptura(resultado) {
 }
 
 function descricaoConfig(config) {
-  const canais = config.channels.length ? config.channels.map((id) => `<#${id}>`).join(', ') : 'todos os canais de texto';
+  const canais = config.channels.length ? config.channels.map((id) => `<#${id}>`).join(', ') : 'nenhum — encontros desligados';
   const rarityNames = { conservadora: 'conservadora', equilibrada: 'equilibrada', generosa: 'generosa' };
   const minutos = Math.floor(config.cooldownMs / 60_000);
   const segundos = Math.floor((config.cooldownMs % 60_000) / 1000);
@@ -2102,13 +2102,16 @@ function descricaoConfig(config) {
   const ttlSeg = Math.floor((ttlMs % 60_000) / 1000);
   const ttlStr = ttlSeg > 0 ? `${ttlMin > 0 ? ttlMin + ' min ' : ''}${ttlSeg} s` : `${ttlMin} min`;
   return [
-    `Ativo: **${config.enabled ? 'sim' : 'não'}**`,
+    `Ativo: **${config.enabled && config.channels.length ? 'sim' : 'não'}**`,
     `Silenciado: **${config.muted ? 'sim' : 'não'}**`,
     `Chance: **${config.spawnChance}%** por mensagem`,
     `Intervalo mínimo: **${intervaloStr}**`,
          `Duração do encontro: **${ttlStr}** (até escapar)`,
      `Raridade: **${rarityNames[config.rarityMode] || 'equilibrada'}** · Shiny: **1 em ${config.shinyChance}**`,
     `Canais: ${canais}`,
+    ...(config.enabled && !config.channels.length
+      ? ['⚠️ **Sem canal configurado:** os encontros só voltam quando você usar `/pokemon canal adicionar` ou `$configurar pokemon #canal`.']
+      : []),
   ].join('\n');
 }
 
@@ -2411,7 +2414,7 @@ async function executar(ctx) {
       const channels = pokemon.atualizarCanal(guildId, actionName, channel?.id);
       const config = pokemon.obterConfig(guildId);
       const descricao = actionName === 'listar'
-        ? channels.length ? `Encontros permitidos em:\n${channels.map((id) => `<#${id}>`).join('\n')}` : 'Sem restrições: encontros podem aparecer em qualquer canal de texto.'
+        ? channels.length ? `Encontros permitidos em:\n${channels.map((id) => `<#${id}>`).join('\n')}` : 'Nenhum canal configurado: os encontros estão desligados. Adicione um com `/pokemon canal adicionar` ou `$configurar pokemon #canal`.'
         : actionName === 'adicionar'
           ? `${estavaPermitido ? 'Canal já estava permitido:' : 'Canal adicionado:'} <#${channel.id}>.\n\n${descricaoConfig(config)}`
           : `${estavaPermitido ? 'Canal removido:' : 'Canal já não estava na lista:'} <#${channel.id}>.\n\n${descricaoConfig(config)}`;
@@ -2483,7 +2486,7 @@ async function executar(ctx) {
       const digitado = String(options.getSubcommand ? options.getSubcommand() : action || '').toLowerCase();
       const proximos = comandos.filter((c) => c.includes(digitado) || digitado.includes(c)).slice(0, 5);
       const sugestao = proximos.length ? `\n\n**Próximos:** ${proximos.map((c) => '`' + c + '`').join(' · ')}` : '';
-      return responder(ctx, { embeds: [embed('Comando não entendido', `Não reconheci \`${digitado || 'isso'}\` como subcomando Pokemon.\n\nUse \`$pokemon manual\` para ver o guia completo. Subcomandos disponíveis: manual, capturar, colecao, perfil, loja, inventario, comprar, usar, equipar, curar, configurar, pokedex, ranking, duelo, ginasio, rinha.\n\nExemplos rápidos:\n• \`$p troca @pessoa Pikachu\`\n• \`$p curar\`\n• \`$p rinha bot 7\`${sugestao}`, THEME.corErro, null, 'Mila Pokémon · subcomando não encontrado')], allowedMentions: { parse: [] } }, true);
+      return responder(ctx, { embeds: [embed('Comando não entendido', `Não reconheci \`${digitado || 'isso'}\` como subcomando Pokemon.\n\nUse \`$pokemon manual\` para ver o guia completo. Subcomandos disponíveis: manual, capturar, colecao, perfil, loja, missoes, inventario, comprar, usar, equipar, curar, configurar, pokedex, ranking, duelo, ginasio, rinha.\n\n**Atalhos de configuração (equipe):**\n• \`$p intervalo 20\` ou \`$p intervalo 1min 20sec\`\n• \`$p chance 30\` · \`$p ativo on\` · \`$p silenciar on\`\n• \`$p duracao 10min\` · \`$p raridade generosa\` · \`$p shiny 4096\`\n• \`$p configurar\` mostra a configuração atual\n\nExemplos rápidos:\n• \`$p troca @pessoa Pikachu\`\n• \`$p curar\`\n• \`$p rinha bot 7\`${sugestao}`, THEME.corErro, null, 'Mila Pokémon · subcomando não encontrado')], allowedMentions: { parse: [] } }, true);
     }
   }
 }
@@ -2536,7 +2539,10 @@ function embedAdminPokemon() {
     titulo: '⚙️ Painel de Admin Pokémon',
     descricao: 'Comandos de equipe para gerenciar encontros, coleções, itens e resets deste servidor.\n\n' +
       '• `configurar` — Ajusta chance, intervalo (ex.: `1min 20sec`), duração do encontro (ex.: `$p config duracao 10min`), raridade, shiny_chance, ativo, silenciar, preset\n' +
+      '• Atalhos de configuração: `$p intervalo 20` · `$p chance 30` · `$p ativo on` · `$p duracao 10min` · `$p raridade generosa` · `$p shiny 4096`\n' +
       '• `canal` — Lista / adiciona / remove canais (`adicionar #canal`)\n' +
+      '• `$configurar pokemon #canal` — atalho de configuração: define o canal e liga os encontros\n' +
+      '• Sem canal configurado, os encontros ficam desligados por padrão\n' +
       '• `manual` / `ajuda` — Manual completo\n' +
       '• `ranking` — Ranking global ou deste servidor\n' +
       '• `ginasio` / `duelo` / `rinha` / `insignias` — Ginásio, duelo, rinha e insígnias\n' +
@@ -2640,11 +2646,39 @@ function opcoesPrefixo(action, args, message) {
   }
   if (action === 'comprar' || action === 'usar' || action === 'equipar') valores.item = texto || null;
   if (action === 'configurar') {
-    for (let i = 0; i < args.length; i += 2) {
+    let i = 0;
+    while (i < args.length) {
       const key = args[i].toLowerCase();
+
+      // `intervalo 1min 20sec` consome dois pedaços de tempo; `intervalo 3
+      // raridade ...` consome apenas o número e segue para a próxima chave.
+      if (['intervalo', 'cooldown'].includes(key)) {
+        let composto = args[i + 1];
+        if (composto === undefined) {
+          valores.configError = 'Informe um valor para `intervalo` (ex.: `20`, `1min 20sec`).';
+          i += 1;
+          continue;
+        }
+        let consumidos = 1;
+        if (args[i + 2] && /^\d+\s*(sec|s|seg|segundos)$/i.test(args[i + 2])) {
+          composto += ` ${args[i + 2]}`;
+          consumidos = 2;
+        }
+        const parsed = parseIntervaloTexto(composto);
+        if (!parsed.minutos && !parsed.segundos) {
+          valores.configError = 'Intervalo inválido. Use `20`, `1min 20sec` ou `90sec`.';
+        } else {
+          valores.intervalo = parsed.minutos || null;
+          valores.intervalo_segundos = parsed.segundos || null;
+        }
+        i += 1 + consumidos;
+        continue;
+      }
+
       const value = args[i + 1];
       if (value === undefined) {
         valores.configError = `Informe um valor para \`${key}\`.`;
+        i += 1;
         continue;
       }
       if (key === 'ativo') {
@@ -2656,14 +2690,13 @@ function opcoesPrefixo(action, args, message) {
         if (valores.silenciar === null) valores.configError = 'Use `silenciar on` ou `silenciar off`.';
       }
       if (key === 'chance') valores.chance = Number(value);
-      if (['intervalo', 'cooldown'].includes(key)) {
-        const parsed = parseIntervaloTexto(value);
-        valores.intervalo = parsed.minutos || null;
-        valores.intervalo_segundos = parsed.segundos || null;
+      if (['intervalo_segundos', 'segundos', 'sec'].includes(key)) {
+        valores.intervalo_segundos = Number(value);
       }
       if (['raridade', 'rarity'].includes(key)) valores.raridade = value.toLowerCase();
       if (['shiny', 'shiny_chance'].includes(key)) valores.shiny_chance = Number(value);
       if (key === 'preset') valores.preset = value.toLowerCase();
+      i += 2;
     }
   }
   if (action === 'canal') {
@@ -2690,9 +2723,27 @@ function opcoesPrefixo(action, args, message) {
 }
 
 async function executePrefix(message, args, client) {
+  // Atalhos de configuração: `$p intervalo 20` equivale a
+  // `$p configurar intervalo 20`. Antes, a palavra "intervalo" caía no
+  // "Comando não entendido" porque é uma opção, não um subcomando.
+  const CHAVES_CONFIG = new Set([
+    'ativo', 'silenciar', 'silencio', 'chance',
+    'intervalo', 'cooldown', 'intervalo_segundos', 'segundos',
+    'raridade', 'rarity', 'shiny', 'shiny_chance', 'preset',
+    'duracao', 'ttl', 'desaparece', 'escape',
+    'tempo_encontro', 'encontro', 'duracao_encontro',
+  ]);
+  if (CHAVES_CONFIG.has(String(args[0] || '').toLowerCase())) {
+    args = ['configurar', ...args];
+  }
+
   const primeiro = String(args[0] || '').toLowerCase();
   if (['troca', 'trocar', 'trade'].includes(primeiro)) {
     return require('./trocar').executePrefix(message, args.slice(1), client);
+  }
+
+  if (['doar', 'doarpokemon', 'doar-pokemon', 'presentear', 'gift', 'doarpoke'].includes(primeiro)) {
+    return require('./doar-pokemon').executePrefix(message, args.slice(1), client);
   }
 
   if (['largar', 'release', 'soltar'].includes(primeiro)) {

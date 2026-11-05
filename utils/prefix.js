@@ -145,6 +145,49 @@ function extrairCanal(mensagem) {
   return match ? match[1] : null;
 }
 
+/**
+ * Envia a resposta com fallback para o canal.
+ * Se a mensagem original foi apagada entre o comando e a resposta, o Discord
+ * devolve "Unknown Message"; nesse caso falamos no canal mesmo assim.
+ */
+async function enviarResposta(mensagem, payload) {
+  try {
+    return await mensagem.reply(payload);
+  } catch (erro) {
+    const canal = mensagem.channel;
+    if (canal && typeof canal.send === 'function') {
+      try {
+        return await canal.send(payload);
+      } catch {}
+    }
+    return null;
+  }
+}
+
+async function paginarEmbeds(mensagem, paginas) {
+  if (!Array.isArray(paginas) || paginas.length === 0) return null;
+  let indice = 0;
+  const msg = await enviarResposta(mensagem, { embeds: [paginas[0]] });
+  if (!msg) return null;
+  if (paginas.length === 1) return msg;
+  try { await msg.react('⬅️'); } catch {}
+  try { await msg.react('➡️'); } catch {}
+  const coletor = msg.createReactionCollector({
+    filter: (reaction, usuario) => ['⬅️', '➡️'].includes(reaction.emoji.name) && usuario.id === mensagem.author.id,
+    time: 180000,
+  });
+  coletor.on('collect', async (reaction) => {
+    if (reaction.emoji.name === '➡️') indice = Math.min(paginas.length - 1, indice + 1);
+    else indice = Math.max(0, indice - 1);
+    try { await msg.edit({ embeds: [paginas[indice]] }); } catch {}
+    try { await reaction.users.remove(mensagem.author.id); } catch {}
+  });
+  coletor.on('end', async () => {
+    try { await msg.reactions.removeAll(); } catch {}
+  });
+  return msg;
+}
+
 function responder(mensagem, embed, ephemeral) {
   // ⋆｡°✩ Mostra "digitando..." antes de responder (só para respostas públicas)
   if (!ephemeral && mensagem.channel) {
@@ -152,7 +195,7 @@ function responder(mensagem, embed, ephemeral) {
   }
   // Mensagens de prefixo não suportam resposta efêmera: o parâmetro só controla
   // o indicador de digitação. Enviar `ephemeral` aqui gera aviso de depreciação.
-  return mensagem.reply({ embeds: [embed] });
+  return enviarResposta(mensagem, { embeds: [embed] });
 }
 
 /**
@@ -340,19 +383,37 @@ async function responderCodex(mensagem, termo) {
       const COMANDOS = require('../utils/codexData').COMANDOS;
       pagina = COMANDOS.indexOf(achado) + 1;
     } else {
+      const sugestoes = require('./ajudaComando')
+        .todas()
+        .filter((e) => e.nome.includes(termo.toLowerCase()))
+        .slice(0, 8)
+        .map((e) => `\`${e.nome}\``)
+        .join(' · ');
       return responder(
         mensagem,
-        criarEmbed({ titulo: 'Comando não encontrado', descricao: `Nada parecido com \`${termo}\`. Tente \`$codex\` e use o menu.`, cor: THEME.corErro }),
+        criarEmbed({
+          titulo: 'Comando não encontrado',
+          descricao:
+            `${THEME.div.bolinhas}\n\n` +
+            `Nada parecido com \`${termo}\`.\n\n` +
+            (sugestoes ? `**Talvez você queira:** ${sugestoes}\n\n` : '') +
+            'Use `$ajuda <termo>` para uma busca mais tolerante ou `$codex` para o livro completo.\n\n' +
+            `${THEME.div.coracao}`,
+          cor: THEME.corErro,
+        }),
         true
       );
     }
   }
-  const resposta = await mensagem.reply({
+  const resposta = await enviarResposta(mensagem, {
     embeds: [codex.renderizarPagina(pagina)],
     components: codex.componentes(pagina),
-    fetchReply: true,
   });
-  const coletor = resposta.createMessageComponentCollector({ time: 5 * 60 * 1000, filter: () => true });
+  if (!resposta) return;
+  const coletor = resposta.createMessageComponentCollector({
+    time: 5 * 60 * 1000,
+    filter: (i) => i.user.id === mensagem.author.id,
+  });
   coletor.on('collect', async (i) => {
     const id = i.customId;
     if (id === 'codex_first') pagina = 0;
@@ -360,7 +421,9 @@ async function responderCodex(mensagem, termo) {
     else if (id === 'codex_next') pagina = Math.min(codex.TOTAL, pagina + 1);
     else if (id === 'codex_last') pagina = codex.TOTAL;
     else if (id === 'codex_jump') pagina = parseInt(i.values[0], 10);
-    await i.update({ embeds: [codex.renderizarPagina(pagina)], components: codex.componentes(pagina) });
+    try {
+      await i.update({ embeds: [codex.renderizarPagina(pagina)], components: codex.componentes(pagina) });
+    } catch {}
   });
   coletor.on('end', async () => {
     try {
@@ -369,8 +432,46 @@ async function responderCodex(mensagem, termo) {
   });
 }
 
+async function responderAjuda(mensagem, termo) {
+  const ajuda = require('./ajudaComando');
+  let alvo = String(termo || '').trim();
+  // `$ajuda ?` e `$ajuda ajuda` mostram a visão geral, não uma busca.
+  if (['', '?', 'ajuda', 'help', '--help', '-h'].includes(alvo.toLowerCase())) alvo = '';
+
+  if (alvo) {
+    const entrada = ajuda.buscar(alvo);
+    if (!entrada) {
+      const sugestoes = ajuda
+        .todas()
+        .filter((e) => e.nome.includes(alvo.toLowerCase()))
+        .slice(0, 8)
+        .map((e) => `\`${e.nome}\``)
+        .join(' · ');
+      return responder(
+        mensagem,
+        criarEmbed({
+          titulo: 'Não encontrei esse comando',
+          descricao:
+            `${THEME.div.bolinhas}\n\n` +
+            `Nada parecido com \`${alvo}\`.\n\n` +
+            (sugestoes ? `**Talvez você queira:** ${sugestoes}\n\n` : '') +
+            'Use `$ajuda` para ver as categorias ou `$codex` para o livro completo.\n\n' +
+            `${THEME.div.coracao}`,
+          cor: THEME.corErro,
+        }),
+        true
+      );
+    }
+    return responder(mensagem, ajuda.paginaComando(entrada), true);
+  }
+
+  const paginas = ajuda.paginasAjuda().map((pagina) => pagina.embed);
+  return paginarEmbeds(mensagem, paginas);
+}
+
 async function enviarConfiguracao(mensagem, guildId) {
   const cfg = obterConfig(guildId);
+  const poke = require('./pokemon').obterConfig(guildId);
   const mencionar = (ids) =>
     ids && ids.length ? ids.map((id) => `<#${id}>`).join('  ·  ') : '`nenhum definido`';
 
@@ -394,7 +495,9 @@ async function enviarConfiguracao(mensagem, guildId) {
       `${THEME.div.estrelado}\n\n` +
       `**🎪 Categoria de Tickets:** ${ticketCategoria}\n` +
       `**🔌 Canal de shutdown:** ${cfg.canalShutdown ? `<#${cfg.canalShutdown}>` : '`não definido`'}\n` +
-      `**🔛 Canal on/off:** ${cfg.canalOnOff ? `<#${cfg.canalOnOff}>` : '`não definido`'}`,
+      `**🔛 Canal on/off:** ${cfg.canalOnOff ? `<#${cfg.canalOnOff}>` : '`não definido`'}\n` +
+      `**📜 Canal de logs:** ${cfg.canalLogs ? `<#${cfg.canalLogs}>` : '`não definido`'}\n` +
+      `**🎮 Encontros Pokémon:** ${poke.channels.length ? `${poke.channels.map((id) => `<#${id}>`).join('  ·  ')} · ${poke.enabled ? '✅ ativos' : '⛔ pausados'}` : '`nenhum canal — desativados`'}`,
     cor: THEME.corPrincipal,
   });
   return responder(mensagem, embed, true);
@@ -444,7 +547,9 @@ async function handlePrefix(message, client) {
     col: 'colecao',
     mis: 'missoes', mission: 'missoes',
     du: 'duelo', gym: 'ginasio',
-    cfg: 'configurar', config: 'configurar',
+    cfg: 'configurar', config: 'configurar', conf: 'configurar',
+org: 'organizar', organizacao: 'organizar',
+log: 'logs', logs: 'logs',
     cod: 'codex', h: 'ajuda', help: 'ajuda',
     mus: 'tocar', play: 'play',
   };
@@ -454,6 +559,17 @@ async function handlePrefix(message, client) {
     if (candidatos.length === 1) comando = candidatos[0];
   }
   if (!comando) return;
+
+  // ── Ajuda universal: `$qualquercomando ?` / `$qualquercomando ajuda` ──
+  // Funciona para todos os comandos, sem precisar alterar cada módulo.
+  // Comandos que produzem texto livre ficam de fora para não engolir a palavra.
+  const pedidoAjuda = ['ajuda', 'help', '?', '--help', '-h'].includes(String(args[0] || '').toLowerCase());
+  const comandosDeTexto = new Set(['say', 'falar', 'tts', 'anuncio', 'aviso', 'lembrete', 'votar', 'social', 'abraco']);
+  if (pedidoAjuda && comando !== 'ajuda' && !comandosDeTexto.has(comando)) {
+    const { buscar, paginaComando } = require('./ajudaComando');
+    const entrada = buscar(comando);
+    if (entrada) return responder(message, paginaComando(entrada), true);
+  }
 
   // ⋆｡°✩ Log decorado do comando no terminal
   logger.logComando(comandoDigitado, message.author.username, message.channel?.name, message.guild?.name);
@@ -998,12 +1114,114 @@ async function handlePrefix(message, client) {
       return responder(message, criarEmbed({ titulo: 'Pronto', descricao: `Agora aviso online/offline em <#${canalId}>.`, cor: THEME.corSucesso }), true);
     }
 
+    if (sub === 'logs' || sub === 'log') {
+      const canalId = extrairCanal(message);
+      if (!canalId) {
+        return responder(message, criarEmbed({ titulo: 'Canal?', descricao: 'Marque um canal para logs: `$configurar logs #canal`.', cor: THEME.corErro }), true);
+      }
+      cfg.canalLogs = canalId;
+      salvarConfig(guildId, cfg);
+      return responder(message, criarEmbed({ titulo: '📜 Canal de logs definido', descricao: `Agora registro mensagens apagadas e editadas em <#${canalId}>.`, cor: THEME.corSucesso }), true);
+    }
+
+    if (sub === 'limparlogs' || sub === 'limparlog' || sub === 'removelogs') {
+      cfg.canalLogs = null;
+      salvarConfig(guildId, cfg);
+      return responder(message, criarEmbed({ titulo: '📜 Canal de logs removido', descricao: 'Não enviarei mais logs para um canal fixo.', cor: THEME.corSucesso }), true);
+    }
+
+    if (sub === 'pokemon' || sub === 'poke' || sub === 'pokémon') {
+      const pokemon = require('./pokemon');
+      const atual = pokemon.obterConfig(guildId);
+      const valor = String(args[1] || '').toLowerCase();
+      const canalId = extrairCanal(message);
+      const lista = atual.channels.map((id) => `<#${id}>`).join('  ·  ');
+      const ativoAgora = atual.enabled && atual.channels.length > 0;
+
+      if (!valor) {
+        const embed = criarEmbed({
+          titulo: '🎮 Encontros Pokémon',
+          descricao:
+            `${THEME.div.bolinhas}\n\n` +
+            `**Status:** ${ativoAgora ? '✅ ativos' : '⛔ desativados'}\n` +
+            `**Canal(is):** ${lista || '`nenhum — encontros desligados até configurar`'}\n` +
+            `**Chance por mensagem:** ${atual.spawnChance}%\n` +
+            `**Intervalo mínimo:** ${Math.round(atual.cooldownMs / 60000)} min\n\n` +
+            '**Como configurar**\n' +
+            '˖ `$configurar pokemon #canal` — escolhe o canal e ativa\n' +
+            '˖ `$configurar pokemon off` — pausa os encontros\n' +
+            '˖ `$configurar pokemon on` — reativa no canal já salvo\n' +
+            '˖ `$p intervalo 20` — ajusta a frequência\n\n' +
+            `${THEME.div.coracao}`,
+          cor: ativoAgora ? THEME.corSucesso : THEME.corSecundario,
+        });
+        return responder(message, embed, true);
+      }
+
+      if (['off', 'desativar', 'desligar', 'pausar', 'parar'].includes(valor)) {
+        pokemon.salvarConfig(guildId, { enabled: false });
+        return responder(message, criarEmbed({ titulo: '⛔ Encontros pausados', descricao: 'Os Pokémon não aparecerão até você reativar com `$configurar pokemon on`.', cor: THEME.corSecundario }), true);
+      }
+
+      if (['on', 'ativar', 'ligar'].includes(valor)) {
+        if (!atual.channels.length) {
+          return responder(message, criarEmbed({ titulo: 'Escolha um canal primeiro', descricao: 'Use `$configurar pokemon #canal` para definir onde os Pokémon aparecem.', cor: THEME.corErro }), true);
+        }
+        pokemon.salvarConfig(guildId, { enabled: true, muted: false });
+        return responder(message, criarEmbed({ titulo: '✅ Encontros ativados', descricao: `Os Pokémon voltarão a aparecer em ${lista}.`, cor: THEME.corSucesso }), true);
+      }
+
+      if (!canalId) {
+        return responder(message, criarEmbed({ titulo: 'Canal?', descricao: 'Marque um canal de texto: `$configurar pokemon #canal`.', cor: THEME.corErro }), true);
+      }
+
+      const canal = message.guild.channels.cache.get(canalId);
+      if (canal && ![0, 5, 10, 11, 12, 13, 14, 15].includes(canal.type)) {
+        return responder(message, criarEmbed({ titulo: 'Canal inválido', descricao: 'Escolha um canal de texto para os encontros Pokémon.', cor: THEME.corErro }), true);
+      }
+
+      const novo = pokemon.salvarConfig(guildId, { channels: [canalId], enabled: true, muted: false });
+      return responder(message, criarEmbed({
+        titulo: '🎮 Encontros Pokémon configurados',
+        descricao:
+          `${THEME.div.bolinhas}\n\n` +
+          `Os Pokémon agora aparecem em <#${canalId}>.\n` +
+          `**Chance por mensagem:** ${novo.spawnChance}% · **Intervalo:** ${Math.round(novo.cooldownMs / 60000)} min\n\n` +
+          'Ajuste com `$p chance 30` ou `$p intervalo 20`.\n\n' +
+          `${THEME.div.coracao}`,
+        cor: THEME.corSucesso,
+      }), true);
+    }
+
+    if (sub === 'pesquisar' || sub === 'pesquisa' || sub === 'search') {
+      const pokemon = require('./pokemon');
+      const poke = pokemon.obterConfig(guildId);
+      const termo = (args.slice(1).join(' ') || '').toLowerCase();
+      const secoes = [
+        { nome: 'Canais permitidos', valor: (cfg.canaisPermitidos || []).map((id) => `<#${id}>`).join(', ') || 'nenhum', chaves: ['permitir', 'liberar', 'canal'] },
+        { nome: 'Canais proibidos', valor: (cfg.canaisBloqueados || []).map((id) => `<#${id}>`).join(', ') || 'nenhum', chaves: ['proibir', 'desproibir'] },
+        { nome: 'Anúncios', valor: TIPOS_ANUNCIO.map((t) => `${t}: ${cfg.anuncios?.[t] ? `<#${cfg.anuncios[t]}>` : 'não definido'}`).join(' · '), chaves: ['anuncio', 'limparanuncio'] },
+        { nome: 'Tickets', valor: `categoria: ${cfg.categoriaTicket ? `<#${cfg.categoriaTicket}>` : 'não definido'} · fixo: ${cfg.canalTicketFixo ? `<#${cfg.canalTicketFixo}>` : 'não definido'}`, chaves: ['ticketcategoria', 'ticketfixo'] },
+        { nome: 'Shutdown', valor: cfg.canalShutdown ? `<#${cfg.canalShutdown}>` : 'não definido', chaves: ['shutdown'] },
+        { nome: 'On/Off', valor: cfg.canalOnOff ? `<#${cfg.canalOnOff}>` : 'não definido', chaves: ['off-on'] },
+        { nome: 'Logs', valor: cfg.canalLogs ? `<#${cfg.canalLogs}>` : 'não definido', chaves: ['logs', 'limparlogs'] },
+        { nome: 'Pokémon', valor: `${poke.channels.map((id) => `<#${id}>`).join(', ') || 'nenhum'} · ${poke.enabled && poke.channels.length ? 'ativos' : 'desativados'}`, chaves: ['pokemon', 'poke', 'encontros'] },
+      ];
+      const filtradas = termo
+        ? secoes.filter((s) => s.nome.toLowerCase().includes(termo) || s.valor.toLowerCase().includes(termo) || s.chaves.some((c) => c.includes(termo)))
+        : secoes;
+      const descricao = filtradas.length
+        ? filtradas.map((s) => `**${s.nome}:** ${s.valor}`).join('\n')
+        : 'Nenhuma configuração encontrada para esse termo.';
+      return responder(message, criarEmbed({ titulo: termo ? `🔎 Pesquisa: ${termo}` : '🔎 Configurações', descricao, cor: THEME.corPrincipal }), true);
+    }
+
       return responder(
         message,
         criarEmbed({
           titulo: 'Subcomandos de $configurar',
           descricao:
-            '`ver` · `permitir #canal` · `liberar #canal` · `proibir #canal` · `desproibir #canal` · `anuncio <tipo> #canal` · `limparanuncio <tipo>` · `shutdown #canal` · `ticketcategoria #categoria` · `off-on #canal`',
+            '`ver` · `permitir #canal` · `liberar #canal` · `proibir #canal` · `desproibir #canal` · `anuncio <tipo> #canal` · `limparanuncio <tipo>` · `shutdown #canal` · `ticketcategoria #categoria` · `ticketfixo #canal` · `off-on #canal` · `logs #canal` · `limparlogs` · `pokemon #canal|on|off` · `pesquisar <termo>`',
           cor: THEME.corPrincipal,
         }),
         true
@@ -1011,43 +1229,74 @@ async function handlePrefix(message, client) {
   }
 
   // ── $organizar ──
-  if (comando === 'organizar') {
+  if (comando === 'organizar' || comando === 'org') {
     const cfg = obterConfig(guildId);
     const roteamento = TIPOS_ANUNCIO.map((t) => {
       const id = cfg.anuncios[t];
       return `˖ **${t}** → ${id ? `<#${id}>` : '`sem canal`'}`;
     }).join('\n');
     const { EmbedBuilder } = require('discord.js');
-    const embed = new EmbedBuilder()
-      .setColor(THEME.corPrincipal)
-      .setTitle(`${THEME.iconeFooter} Painel de Organização`)
-      .setDescription(
-        `${THEME.div.bolinhas}\n\n` +
-        'Todos os meus comandos usam o prefixo `$`. Use `$codex` ou `$ajuda` para abrir o livro de comandos. Use `$configurar` para ajustar canais.\n\n' +
-        `${THEME.div.bolinhas}`
-      )
-      .addFields(
-        { name: '🎲 Diversão', value: '`$dado`, `$roleta`', inline: true },
-        { name: '⏰ Lembretes', value: '`$lembrete`', inline: true },
-        { name: '📣 Comunicação', value: '`$anuncio`, `$configurar`', inline: true },
-        { name: '📍 Roteamento de anúncios', value: roteamento, inline: false },
-        {
-          name: '🗣️ Onde a bot fala',
-          value:
-            cfg.canaisPermitidos.length > 0
-              ? `Somente em: ${cfg.canaisPermitidos.map((id) => `<#${id}>`).join('  ·  ')}`
-              : 'Em qualquer canal (exceto os bloqueados)',
-          inline: false,
-        },
-        {
-          name: '🔔 Aviso de desligamento',
-          value: cfg.canalShutdown ? `<#${cfg.canalShutdown}>` : '`nenhum definido`',
-          inline: false,
-        }
-      )
-      .setFooter({ text: `${THEME.nome} organiza por aqui...` })
-      .setTimestamp();
-    return message.reply({ embeds: [embed] });
+
+    const paginas = [
+      new EmbedBuilder()
+        .setColor(THEME.corPrincipal)
+        .setTitle(`${THEME.iconeFooter} Painel de Organização — visão geral`)
+        .setDescription(
+          `${THEME.div.bolinhas}\n\n` +
+          'Todos os meus comandos usam o prefixo `$` (também `/` e o prefixo do servidor). Use `$codex` ou `$ajuda` para abrir o livro de comandos. Use `$configurar` para ajustar canais.\n\n' +
+          `${THEME.div.bolinhas}`
+        )
+        .addFields(
+          { name: '🎲 Diversão', value: '`$dado` (abrev: `d`), `$roleta`', inline: true },
+          { name: '⏰ Lembretes', value: '`$lembrete` (abrev: `lem`)', inline: true },
+          { name: '📣 Comunicação', value: '`$anuncio`, `$configurar` (abrev: `cfg`)', inline: true },
+          { name: '📜 Logs', value: '`$logs` (abrev: `log`)', inline: true },
+          { name: '🎫 Tickets', value: '`$ticket`, `$fechar`', inline: true },
+          { name: '🧩 Abreviações', value: 'Digite o início do comando: se for único, completo automaticamente (ex: `$conf` → `$configurar`).', inline: false }
+        )
+        .setFooter({ text: `${THEME.nome} organiza por aqui... · página 1/4` })
+        .setTimestamp(),
+      new EmbedBuilder()
+        .setColor(THEME.corPrincipal)
+        .setTitle(`${THEME.iconeFooter} Painel de Organização — roteamento`)
+        .setDescription(`${THEME.div.bolinhas}\n\n**📍 Roteamento de anúncios**\n${roteamento}\n\n${THEME.div.bolinhas}`)
+        .addFields(
+          { name: '🗣️ Onde a bot fala', value: cfg.canaisPermitidos.length > 0 ? `Somente em: ${cfg.canaisPermitidos.map((id) => `<#${id}>`).join('  ·  ')}` : 'Em qualquer canal (exceto os bloqueados)', inline: false },
+          { name: '🚫 Canais bloqueados', value: cfg.canaisBloqueados.length > 0 ? cfg.canaisBloqueados.map((id) => `<#${id}>`).join('  ·  ') : '`nenhum`', inline: false }
+        )
+        .setFooter({ text: `${THEME.nome} organiza por aqui... · página 2/4` })
+        .setTimestamp(),
+      new EmbedBuilder()
+        .setColor(THEME.corPrincipal)
+        .setTitle(`${THEME.iconeFooter} Painel de Organização — avisos`)
+        .setDescription(`${THEME.div.bolinhas}\n\n${THEME.div.bolinhas}`)
+        .addFields(
+          { name: '🔔 Aviso de desligamento', value: cfg.canalShutdown ? `<#${cfg.canalShutdown}>` : '`nenhum definido`', inline: true },
+          { name: '🔛 Canal on/off', value: cfg.canalOnOff ? `<#${cfg.canalOnOff}>` : '`nenhum definido`', inline: true },
+          { name: '📜 Canal de logs', value: cfg.canalLogs ? `<#${cfg.canalLogs}>` : '`nenhum definido`', inline: true },
+          { name: '🎮 Canal Pokémon', value: (() => { const p = require('./pokemon').obterConfig(guildId); return p.channels.length ? `${p.channels.map((id) => `<#${id}>`).join('  ·  ')} · ${p.enabled ? '✅' : '⛔'}` : '`nenhum — desativado`'; })(), inline: true },
+          { name: '🎪 Categoria de tickets', value: cfg.categoriaTicket ? `<#${cfg.categoriaTicket}>` : '`nenhum definido`', inline: true }
+        )
+        .setFooter({ text: `${THEME.nome} organiza por aqui... · página 3/4` })
+        .setTimestamp(),
+      new EmbedBuilder()
+        .setColor(THEME.corPrincipal)
+        .setTitle(`${THEME.iconeFooter} Painel de Organização — como configurar`)
+        .setDescription(
+          `${THEME.div.bolinhas}\n\n` +
+          'Use `$configurar <subcomando>` (ou `cfg`). Exemplos:\n' +
+          '`$configurar ver` · `$configurar permitir #canal` · `$configurar anuncio geral #canal`\n' +
+          '`$configurar logs #canal` · `$configurar pesquisar logs` · `$configurar limparlogs`\n' +
+          '`$configurar pokemon #canal` · `$configurar pokemon on` · `$configurar pokemon off`\n' +
+          '`$p chance 30` · `$p intervalo 20` — frequência dos encontros Pokémon\n\n' +
+          'Navegue pelas páginas com as reações ⬅️ ➡️.\n' +
+          `${THEME.div.bolinhas}`
+        )
+        .setFooter({ text: `${THEME.nome} organiza por aqui... · página 4/4` })
+        .setTimestamp(),
+    ];
+
+    return paginarEmbeds(message, paginas);
   }
 
   // ── $ticket ──
@@ -1335,9 +1584,9 @@ async function handlePrefix(message, client) {
     }
   }
 
-  // ── $ajuda / $help ── (mesmo resultado do $codex)
+  // ── $ajuda / $help ── (central de ajuda com busca e páginas)
   if (comando === 'ajuda' || comando === 'help') {
-    return responderCodex(message, args.join(' '));
+    return responderAjuda(message, args.join(' '));
   }
 
   // ── Demais comandos (bridge a partir dos módulos de comando) ──
@@ -1396,6 +1645,35 @@ async function handlePrefix(message, client) {
         true
       ).catch(() => {});
     }
+    return;
+  }
+
+  // ── Comando digitado não existe ──
+  // Em vez de silêncio, mostra os nomes mais próximos e como pedir ajuda.
+  try {
+    const ajuda = require('./ajudaComando');
+    const termo = comando.toLowerCase();
+    const proximos = ajuda
+      .todas()
+      .filter((e) => e.nome.includes(termo) || termo.includes(e.nome))
+      .slice(0, 6)
+      .map((e) => `\`$${e.nome}\``)
+      .join(' · ');
+    return responder(
+      message,
+      criarEmbed({
+        titulo: 'Não conheço esse comando',
+        descricao:
+          `${THEME.div.bolinhas}\n\n` +
+          `Não encontrei \`${prefixo}${comando}\`.\n\n` +
+          (proximos ? `**Talvez você queira:** ${proximos}\n\n` : '') +
+          'Use `$ajuda` para ver as categorias, `$ajuda <termo>` para buscar ou `$codex` para o livro completo.\n\n' +
+          `${THEME.div.coracao}`,
+        cor: THEME.corErro,
+      }),
+      true
+    );
+  } catch {
     return;
   }
 }

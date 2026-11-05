@@ -11,6 +11,14 @@ const db = require('./utils/db');
 const criador = require('./utils/criador');
 const { registrar, tratar } = require('./utils/slash');
 const { isStaff } = require('./utils/perms');
+const { obterConfig } = require('./utils/servidorStore');
+const {
+  enviarLogCanal,
+  completarMensagem,
+  montarEmbedMensagemApagada,
+  montarEmbedMensagensApagadas,
+  montarEmbedMensagemEditada,
+} = require('./utils/logsCanal');
 
 const { DISCORD_TOKEN } = process.env;
 
@@ -256,7 +264,114 @@ client.on('messageCreate', async (message) => {
     }
   }
 
-  await handlePrefix(message, client);
+  try {
+    await handlePrefix(message, client);
+  } catch (erro) {
+    // Se a mensagem foi apagada entre o comando e a resposta, o Discord
+    // responde "Unknown Message" — não há o que responder, então só ignoramos.
+    if (!/Unknown Message/i.test(String(erro?.message || ''))) {
+      console.error('Erro ao processar comando por prefixo:', erro?.message || erro);
+    }
+  }
+});
+
+// ── Auditoria: mensagens apagadas ──
+// Envia o registro para o canal definido em `$configurar logs`.
+// Mensagens parciais (fora do cache) são buscadas; se já não existirem,
+// registramos o que sabemos sem nunca lançar "Unknown Message".
+client.on('messageDelete', async (message) => {
+  try {
+    const guild = message.guild || client.guilds.cache.get(message.guildId);
+    if (!guild) return;
+
+    const cfg = obterConfig(guild.id);
+    if (!cfg?.canalLogs) return;
+
+    const canalId = message.channelId || message.channel?.id;
+    // Evita registrar a própria limpeza do canal de logs (ruído/loop visual).
+    if (canalId && canalId === cfg.canalLogs) return;
+
+    const completa = await completarMensagem(message);
+    const embed = montarEmbedMensagemApagada(completa || message, { completa: Boolean(completa) });
+    await enviarLogCanal(client, guild, embed);
+
+    logger.aviso(`Mensagem de ${completa?.author?.tag || message.author?.tag || 'desconhecido'} apagada em #${canalId || '?'}`, {
+      usuario: completa?.author?.tag || message.author?.tag || null,
+      userId: completa?.author?.id || message.author?.id || null,
+      canal: message.channel?.name || String(canalId || ''),
+      canalId: canalId || null,
+      guildId: guild.id,
+    });
+  } catch (erro) {
+    console.warn('[logs] Falha ao registrar mensagem apagada:', erro?.message || erro);
+  }
+});
+
+client.on('messageDeleteBulk', async (mensagens, canal) => {
+  try {
+    const guild = canal?.guild || client.guilds.cache.get(canal?.guildId);
+    if (!guild || !mensagens || mensagens.size === 0) return;
+
+    const cfg = obterConfig(guild.id);
+    if (!cfg?.canalLogs) return;
+    if (canal?.id === cfg.canalLogs) return;
+
+    await enviarLogCanal(client, guild, montarEmbedMensagensApagadas(mensagens, canal));
+
+    logger.aviso(`${mensagens.size} mensagens apagadas em #${canal?.name || canal?.id || '?'}`, {
+      canal: canal?.name || null,
+      canalId: canal?.id || null,
+      guildId: guild.id,
+    });
+  } catch (erro) {
+    console.warn('[logs] Falha ao registrar limpeza em massa:', erro?.message || erro);
+  }
+});
+
+// ── Auditoria: mensagens editadas ──
+// Mostra o antes/depois no canal de logs. Ignora bots e atualizações que só
+// trocam embeds (pré-visualização de link, painéis com botões etc.), que
+// gerariam ruído sem nenhuma edição real de texto.
+client.on('messageUpdate', async (antes, depois) => {
+  try {
+    const guild = depois?.guild || client.guilds.cache.get(depois?.guildId);
+    if (!guild) return;
+
+    const cfg = obterConfig(guild.id);
+    if (!cfg?.canalLogs) return;
+
+    const canalId = depois?.channelId || depois?.channel?.id;
+    if (canalId && canalId === cfg.canalLogs) return;
+
+    // Edições de bots (inclusive painéis da própria Mila) não são auditadas.
+    if (depois?.author?.bot || antes?.author?.bot) return;
+
+    const nova = (await completarMensagem(depois)) || depois;
+    const conteudoAntes = antes?.content;
+    const conteudoDepois = nova?.content ?? '';
+
+    // Sem mudança de texto nem de anexos: foi só embed/visualização de link.
+    const anexosAntes = antes?.attachments?.size ?? 0;
+    const anexosDepois = nova?.attachments?.size ?? 0;
+    const temConteudoAntes = typeof conteudoAntes === 'string';
+    if (temConteudoAntes && conteudoAntes === conteudoDepois && anexosAntes === anexosDepois) return;
+
+    const velha = await completarMensagem(antes);
+    const embed = montarEmbedMensagemEditada(velha || antes || null, nova, {
+      completoAntes: Boolean(velha),
+    });
+    await enviarLogCanal(client, guild, embed);
+
+    logger.info(`Mensagem de ${nova?.author?.tag || 'desconhecido'} editada em #${canalId || '?'}`, {
+      usuario: nova?.author?.tag || null,
+      userId: nova?.author?.id || null,
+      canal: depois?.channel?.name || String(canalId || ''),
+      canalId: canalId || null,
+      guildId: guild.id,
+    });
+  } catch (erro) {
+    console.warn('[logs] Falha ao registrar mensagem editada:', erro?.message || erro);
+  }
 });
 
 client.on('messageReactionAdd', async (reaction, user) => {

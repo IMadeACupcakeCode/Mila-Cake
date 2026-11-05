@@ -58,8 +58,21 @@ function pokemonTeste() {
 async function main() {
   limpar();
   try {
-    assert.equal(pokemon.obterConfig(guildId).enabled, true, 'servidores novos recebem encontros pré-configurados');
+    assert.equal(pokemon.obterConfig(guildId).enabled, false, 'encontros começam desligados até configurar um canal');
+    assert.deepEqual(pokemon.obterConfig(guildId).channels, [], 'servidores novos não têm canal Pokémon');
     assert.equal(pokemon.obterConfig(guildId).shinyChance, 4096);
+    assert.equal(
+      pokemon.reivindicarTentativaSpawn(guildId, channelId, 0, { now: 900_000, random: () => 0 }),
+      false,
+      'sem canal configurado não há encontros'
+    );
+    assert.deepEqual(pokemon.atualizarCanal(guildId, 'adicionar', channelId), [channelId], 'adicionar canal salva a lista');
+    assert.equal(pokemon.obterConfig(guildId).enabled, true, 'configurar o primeiro canal liga os encontros');
+    assert.deepEqual(pokemon.atualizarCanal(guildId, 'remover', channelId), [], 'remover o último canal limpa a lista');
+    assert.equal(pokemon.obterConfig(guildId).enabled, false, 'remover o último canal desliga os encontros');
+    assert.deepEqual(pokemon.atualizarCanal(guildId, 'adicionar', channelId), [channelId], 're-adicionar o canal volta à lista');
+    assert.equal(pokemon.obterConfig(guildId).enabled, true, 're-adicionar o canal religa os encontros');
+    pokemon.salvarConfig(missionGuildId, { enabled: true, channels: [channelId] });
     assert.equal(pokemon.obterConfig(missionGuildId).spawnChance, 3);
     assert.equal(pokemon.obterConfig(missionGuildId).cooldownMs, 15 * 60 * 1000);
     assert.equal(
@@ -476,6 +489,22 @@ async function main() {
     assert.equal(configDePrefixo.cooldownMs, 3 * 60 * 1000);
     assert.equal(configDePrefixo.rarityMode, 'conservadora');
     assert.equal(configDePrefixo.shinyChance, 900);
+
+    // Atalhos diretos: `$p intervalo ...` e `$p chance ...` devem funcionar
+    // sem escrever "configurar" antes.
+    await command.executePrefix(
+      { ...channelMessage, guildId: missionGuildId },
+      ['intervalo', '1min', '20sec'],
+      { user: { id: '800000000000001099' } }
+    );
+    assert.equal(pokemon.obterConfig(missionGuildId).cooldownMs, 80 * 1000, 'atalho $p intervalo aceita minutos e segundos');
+
+    await command.executePrefix(
+      { ...channelMessage, guildId: missionGuildId },
+      ['chance', '55'],
+      { user: { id: '800000000000001099' } }
+    );
+    assert.equal(pokemon.obterConfig(missionGuildId).spawnChance, 55, 'atalho $p chance altera a chance de encontro');
 
     pokemon.registrarEncontro(guildId, channelId, pikachu, 'message-2');
     let capturaNatural = null;

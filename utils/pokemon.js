@@ -236,7 +236,7 @@ const MISSOES = [
 database.exec(`
   CREATE TABLE IF NOT EXISTS pokemon_server_config (
     guild_id TEXT PRIMARY KEY,
-    enabled INTEGER NOT NULL DEFAULT 1,
+    enabled INTEGER NOT NULL DEFAULT 0,
     muted INTEGER NOT NULL DEFAULT 0,
     spawn_chance INTEGER NOT NULL DEFAULT 3,
     cooldown_ms INTEGER NOT NULL DEFAULT 900000,
@@ -521,7 +521,9 @@ function normalizarNome(valor) {
 
 function configPadrao() {
   return {
-    enabled: true,
+    // Encontros começam desligados: só ativam quando a equipe escolher um
+    // canal com `$configurar pokemon #canal` (ou `$p canal adicionar`).
+    enabled: false,
     muted: false,
     spawnChance: 3,
     cooldownMs: 15 * 60 * 1000,
@@ -623,7 +625,13 @@ function atualizarCanal(guildId, action, channelId) {
   if (action === 'adicionar') channels.add(String(channelId));
   else if (action === 'remover') channels.delete(String(channelId));
   else throw new TypeError('Ação de canal inválida.');
-  return salvarConfig(guildId, { channels: [...channels] }).channels;
+  const lista = [...channels];
+  // Configurar o primeiro canal liga os encontros automaticamente; remover
+  // o último desliga, porque sem canal não há onde os Pokémon aparecerem.
+  if (action === 'adicionar') {
+    return salvarConfig(guildId, { channels: lista, enabled: true, muted: false }).channels;
+  }
+  return salvarConfig(guildId, { channels: lista, ...(lista.length ? {} : { enabled: false }) }).channels;
 }
 
 function obterPreferencias(userId) {
@@ -716,6 +724,30 @@ function liberarPokemon(userId, collectionId) {
     try { db.addAcucares(userId, recompensa); } catch { /* ignora */ }
   }
   return { ok: true, pokemon: captura, recompensa, base };
+}
+
+function doarPokemon(userId, recipientId, collectionId) {
+  if (String(userId) === String(recipientId)) return { ok: false, motivo: 'mesmo_usuario' };
+  const captura = sql.collectionEntry.get(Number(collectionId), String(userId));
+  if (!captura) return { ok: false, motivo: 'pokemon_nao_encontrado' };
+  if (Number(captura.pokemon_id) === ARCEUS_ID && criador.ehCriador(userId)) {
+    return { ok: false, motivo: 'exclusivo_criador' };
+  }
+  if (Number(captura.pokemon_id) === MISSINGNO_ID && criador.ehCriador(userId)) {
+    return { ok: false, motivo: 'exclusivo_criador' };
+  }
+  const transacao = database.transaction(() => {
+    const atual = database.prepare('SELECT user_id FROM pokemon_collection WHERE id = ?').get(Number(collectionId));
+    if (!atual || String(atual.user_id) !== String(userId)) {
+      return { ok: false, motivo: 'mudou_de_dono' };
+    }
+    const prefs = obterPreferencias(userId);
+    const team = Array.isArray(prefs.team) ? prefs.team.filter((id) => Number(id) !== Number(collectionId)) : [];
+    salvarPreferencias(userId, { team });
+    database.prepare('UPDATE pokemon_collection SET user_id = ? WHERE id = ?').run(String(recipientId), Number(collectionId));
+    return { ok: true, pokemon: captura };
+  });
+  return transacao();
 }
 function golpesSalvos(captura) {
   if (!captura?.moves_json) return null;
@@ -1185,7 +1217,10 @@ function reivindicarTentativaSpawn(guildId, channelId, incenseUntil, options = {
   const claim = database.transaction(() => {
     const config = obterConfig(guildId);
     if (!config.enabled || config.muted) return false;
-    if (config.channels.length && !config.channels.includes(String(channelId))) return false;
+    // Sem canal configurado não há encontros: o padrão é ficar desligado
+    // esperando a equipe escolher onde os Pokémon podem aparecer.
+    if (!config.channels.length) return false;
+    if (!config.channels.includes(String(channelId))) return false;
     const active = sql.encounter.get(String(guildId));
     if (active && active.expires_at > now) return false;
     if (active) sql.deleteEncounter.run(String(guildId));
@@ -1726,7 +1761,8 @@ async function processarMensagem(message) {
 
   const config = obterConfig(message.guild.id);
   if (!config.enabled || config.muted) return;
-  if (config.channels.length && !config.channels.includes(String(message.channelId))) return;
+  if (!config.channels.length) return;
+  if (!config.channels.includes(String(message.channelId))) return;
   const preferencias = obterPreferencias(message.author.id);
   const reservation = reivindicarTentativaSpawn(message.guild.id, message.channelId, preferencias.incenseUntil);
   if (!reservation) return;
@@ -1818,6 +1854,7 @@ module.exports = {
   salvarGolpes,
   golpesSalvos,
   liberarPokemon,
+  doarPokemon,
   comprar,
   comprarLote,
   obterInventario,

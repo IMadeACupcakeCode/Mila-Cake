@@ -27,6 +27,7 @@ function configPadrao() {
     categoriaTicket: null,
     canalOnOff: null,
     canalTicketFixo: null,
+    canalLogs: null,
     tts: { idioma: 'pt-BR', perfil: 'padrao', voz: '', dizerNome: false },
     // Tema visual da Economia (win7 | hangouts | gplus | skype | facebook | ddtank)
     temaEconomia: TEMA_PADRAO,
@@ -94,6 +95,7 @@ function clonarConfig(cfg) {
     canaisBloqueados: [...(cfg.canaisBloqueados || [])],
     anuncios: { ...(cfg.anuncios || {}) },
     cargosStaff: [...(cfg.cargosStaff || [])],
+    canalLogs: cfg.canalLogs || null,
     tts: { ...(cfg.tts || {}) },
   };
 }

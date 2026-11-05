@@ -14,7 +14,11 @@ module.exports = {
     ...['permitir', 'proibir', 'liberar', 'desproibir', 'shutdown', 'ticketcategoria', 'ticketfixo', 'off-on'].map((name) => ({ name, description: `Configurar ${name}`, type: 1, required: false, options: [{ name: 'canal', description: 'Canal ou categoria', type: 7, required: false }] })),
     { name: 'anuncio', description: 'Configurar canal de anúncio', type: 1, required: false, options: [{ name: 'tipo', description: 'Tipo do anúncio', type: 3, required: true, choices: TIPOS_ANUNCIO.map((value) => ({ name: value, value })) }, { name: 'canal', description: 'Canal do anúncio', type: 7, required: true }] },
     { name: 'limparanuncio', description: 'Limpar canal de anúncio', type: 1, required: false, options: [{ name: 'tipo', description: 'Tipo do anúncio', type: 3, required: true, choices: TIPOS_ANUNCIO.map((value) => ({ name: value, value })) }] },
-    { name: 'ver', description: 'Ver a configuração atual', type: 1, required: false },
+    { name: 'logs', description: 'Define o canal de logs da bot', type: 1, required: false, options: [{ name: 'canal', description: 'Canal de logs', type: 7, required: true }] },
+    { name: 'limparlogs', description: 'Remove o canal de logs', type: 1, required: false },
+    { name: 'pokemon', description: 'Define o canal dos encontros Pokémon e ativa/desativa', type: 1, required: false, options: [{ name: 'canal', description: 'Canal onde os Pokémon aparecem', type: 7, required: false }, { name: 'ativo', description: 'Ativa ou desativa os encontros', type: 5, required: false }] },
+    { name: 'pesquisar', description: 'Pesquisa nas configurações', type: 1, required: false, options: [{ name: 'termo', description: 'Termo de pesquisa', type: 3, required: true }] },
+    { name: 'ver', description: 'Ver a configuração atual (painel explicativo)', type: 1, required: false },
   ] },
 
   async execute(interaction, client) {
@@ -175,7 +179,118 @@ module.exports = {
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
+    if (sub === 'logs') {
+      const canal = interaction.options.getChannel('canal');
+      if (canal && ![0, 5, 10, 11, 12, 13, 14, 15].includes(canal.type)) {
+        return interaction.reply({ content: '❌ Escolha um canal de texto para logs.', ephemeral: true });
+      }
+      cfg.canalLogs = canal?.id || null;
+      salvarConfig(guildId, cfg);
+      const embed = criarEmbed({
+        titulo: '📜 Canal de logs definido',
+        descricao: canal
+          ? `Agora registro mensagens apagadas e editadas em ${canal}.`
+          : 'Removi o canal de logs.',
+        cor: THEME.corSucesso,
+      });
+      return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    if (sub === 'limparlogs') {
+      cfg.canalLogs = null;
+      salvarConfig(guildId, cfg);
+      const embed = criarEmbed({
+        titulo: '📜 Canal de logs removido',
+        descricao: 'Não enviarei mais logs para um canal fixo.',
+        cor: THEME.corSucesso,
+      });
+      return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    if (sub === 'pokemon') {
+      const pokemon = require('../utils/pokemon');
+      const canal = interaction.options.getChannel('canal');
+      const ativo = interaction.options.getBoolean('ativo');
+      const atual = pokemon.obterConfig(guildId);
+      const listaCanais = atual.channels.map((id) => `<#${id}>`).join('  ·  ');
+      const ativoAgora = atual.enabled && atual.channels.length > 0;
+
+      if (canal && ![0, 5, 10, 11, 12, 13, 14, 15].includes(canal.type)) {
+        return interaction.reply({ content: '❌ Escolha um canal de texto para os encontros Pokémon.', ephemeral: true });
+      }
+
+      if (!canal && ativo === null) {
+        const embed = criarEmbed({
+          titulo: '🎮 Encontros Pokémon',
+          descricao:
+            `${THEME.div.bolinhas}\n\n` +
+            `**Status:** ${ativoAgora ? '✅ ativos' : '⛔ desativados'}\n` +
+            `**Canal(is):** ${listaCanais || '`nenhum — os encontros ficam desligados até configurar`'}\n` +
+            `**Chance por mensagem:** ${atual.spawnChance}%\n` +
+            `**Intervalo mínimo:** ${Math.round(atual.cooldownMs / 60000)} min\n\n` +
+            `**Como configurar**\n` +
+            '˖ `/configurar pokemon canal:#canal` — escolhe o canal e ativa\n' +
+            '˖ `/configurar pokemon ativo:false` — pausa os encontros\n' +
+            '˖ `$configurar pokemon #canal` — mesmo atalho por prefixo\n\n' +
+            `${THEME.div.coracao}`,
+          cor: ativoAgora ? THEME.corSucesso : THEME.corSecundario,
+        });
+        return interaction.reply({ embeds: [embed], ephemeral: true });
+      }
+
+      const patch = {};
+      if (canal) {
+        patch.channels = [canal.id];
+        patch.muted = false;
+        if (ativo === null) patch.enabled = true;
+      }
+      if (ativo !== null) patch.enabled = ativo;
+      const novo = pokemon.salvarConfig(guildId, patch);
+      const ativoFinal = novo.enabled && novo.channels.length > 0;
+      const embed = criarEmbed({
+        titulo: '🎮 Encontros Pokémon atualizados',
+        descricao:
+          `${THEME.div.bolinhas}\n\n` +
+          `**Status:** ${ativoFinal ? '✅ ativos' : '⛔ desativados'}\n` +
+          `**Canal(is):** ${novo.channels.map((id) => `<#${id}>`).join('  ·  ') || '`nenhum definido`'}\n\n` +
+          (ativoFinal
+            ? 'Os Pokémon podem aparecer nos canais acima. Ajuste frequência com `$p intervalo` e `$p chance`.'
+            : 'Os encontros ficam pausados até você escolher um canal e reativar.') +
+          `\n\n${THEME.div.coracao}`,
+        cor: ativoFinal ? THEME.corSucesso : THEME.corSecundario,
+      });
+      return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    if (sub === 'pesquisar') {
+      const pokemon = require('../utils/pokemon');
+      const poke = pokemon.obterConfig(guildId);
+      const termo = String(interaction.options.getString('termo') || '').toLowerCase();
+      const secoes = [
+        { nome: 'Canais permitidos', valor: (cfg.canaisPermitidos || []).map((id) => `<#${id}>`).join(', ') || 'nenhum', chaves: ['permitir', 'liberar', 'canal'] },
+        { nome: 'Canais proibidos', valor: (cfg.canaisBloqueados || []).map((id) => `<#${id}>`).join(', ') || 'nenhum', chaves: ['proibir', 'desproibir'] },
+        { nome: 'Anúncios', valor: TIPOS_ANUNCIO.map((t) => `${t}: ${cfg.anuncios?.[t] ? `<#${cfg.anuncios[t]}>` : 'não definido'}`).join(' · '), chaves: ['anuncio', 'limparanuncio'] },
+        { nome: 'Tickets', valor: `categoria: ${cfg.categoriaTicket ? `<#${cfg.categoriaTicket}>` : 'não definido'} · fixo: ${cfg.canalTicketFixo ? `<#${cfg.canalTicketFixo}>` : 'não definido'}`, chaves: ['ticketcategoria', 'ticketfixo'] },
+        { nome: 'Shutdown', valor: cfg.canalShutdown ? `<#${cfg.canalShutdown}>` : 'não definido', chaves: ['shutdown'] },
+        { nome: 'On/Off', valor: cfg.canalOnOff ? `<#${cfg.canalOnOff}>` : 'não definido', chaves: ['off-on'] },
+        { nome: 'Logs', valor: cfg.canalLogs ? `<#${cfg.canalLogs}>` : 'não definido', chaves: ['logs', 'limparlogs'] },
+        { nome: 'Pokémon', valor: `${poke.channels.map((id) => `<#${id}>`).join(', ') || 'nenhum'} · ${poke.enabled && poke.channels.length ? 'ativos' : 'desativados'}`, chaves: ['pokemon', 'poke', 'encontros'] },
+      ];
+      const filtradas = secoes.filter((s) => s.nome.toLowerCase().includes(termo) || s.valor.toLowerCase().includes(termo) || s.chaves.some((c) => c.includes(termo)));
+      const descricao = filtradas.length
+        ? filtradas.map((s) => `**${s.nome}:** ${s.valor}`).join('\n')
+        : 'Nenhuma configuração encontrada para esse termo.';
+      const embed = criarEmbed({
+        titulo: `🔎 Pesquisa: ${termo}`,
+        descricao,
+        cor: THEME.corPrincipal,
+      });
+      return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
     if (sub === 'ver') {
+      const pokemon = require('../utils/pokemon');
+      const poke = pokemon.obterConfig(guildId);
       const anuncios = TIPOS_ANUNCIO.map((t) => {
         const id = cfg.anuncios[t];
         return `˖ **${t}**: ${id ? `<#${id}>` : '`não definido`'}`;
@@ -192,7 +307,9 @@ module.exports = {
         `**🎪 Categoria de Tickets:** ${ticketCategoria}\n` +
         `**📌 Canal Ticket Fixo:** ${cfg.canalTicketFixo ? `<#${cfg.canalTicketFixo}>` : '`não definido`'}\n` +
         `**🔌 Canal de shutdown:** ${cfg.canalShutdown ? `<#${cfg.canalShutdown}>` : '`não definido`'}\n` +
-        `**🔛 Canal on/off:** ${cfg.canalOnOff ? `<#${cfg.canalOnOff}>` : '`não definido`'}\n\n` +
+        `**🔛 Canal on/off:** ${cfg.canalOnOff ? `<#${cfg.canalOnOff}>` : '`não definido`'}\n` +
+        `**📜 Canal de logs:** ${cfg.canalLogs ? `<#${cfg.canalLogs}>` : '`não definido`'}\n` +
+        `**🎮 Encontros Pokémon:** ${poke.channels.length ? `${poke.channels.map((id) => `<#${id}>`).join('  ·  ')} · ${poke.enabled ? '✅ ativos' : '⛔ pausados'}` : '`nenhum canal — desativados`'}\n\n` +
         `_Se "permitidos" estiver vazio, falo em qualquer canal (exceto os proibidos)._`;
 
       const embed = criarEmbed({
